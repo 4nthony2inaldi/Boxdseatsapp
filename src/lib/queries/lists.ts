@@ -216,3 +216,56 @@ export async function fetchListItems(
     visited: false,
   }));
 }
+
+// ── Want to Visit venues ──
+
+export type WantToVisitVenue = {
+  venue_id: string;
+  name: string;
+  city: string;
+  state: string | null;
+  created_at: string;
+};
+
+export async function fetchWantToVisitCount(
+  supabase: SupabaseClient,
+  userId: string
+): Promise<number> {
+  const { count } = await supabase
+    .from("venue_visits")
+    .select("id", { count: "exact", head: true })
+    .eq("user_id", userId)
+    .eq("relationship", "want_to_visit");
+
+  return count || 0;
+}
+
+export async function fetchWantToVisitVenues(
+  supabase: SupabaseClient,
+  userId: string
+): Promise<WantToVisitVenue[]> {
+  const { data } = await supabase
+    .from("venue_visits")
+    .select("venue_id, created_at, venues(name, city, state)")
+    .eq("user_id", userId)
+    .eq("relationship", "want_to_visit")
+    .order("created_at", { ascending: false });
+
+  if (!data) return [];
+
+  return data.map((row) => {
+    const venue = row.venues as unknown as {
+      name: string;
+      city: string;
+      state: string | null;
+    } | null;
+
+    return {
+      venue_id: row.venue_id,
+      name: venue?.name || "Unknown Venue",
+      city: venue?.city || "",
+      state: venue?.state || null,
+      created_at: row.created_at,
+    };
+  });
+}
