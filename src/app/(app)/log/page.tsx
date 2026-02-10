@@ -1,7 +1,11 @@
 import { createClient } from "@/lib/supabase/server";
 import LogFlow from "@/components/log/LogFlow";
 
-export default async function LogPage() {
+export default async function LogPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ [key: string]: string | string[] | undefined }>;
+}) {
   const supabase = await createClient();
   const {
     data: { user },
@@ -15,5 +19,23 @@ export default async function LogPage() {
     );
   }
 
-  return <LogFlow userId={user.id} />;
+  const sp = await searchParams;
+  const venueId = typeof sp.venueId === "string" ? sp.venueId : undefined;
+  const venueName = typeof sp.venueName === "string" ? sp.venueName : undefined;
+  const venueCity = typeof sp.venueCity === "string" ? sp.venueCity : undefined;
+  const venueState = typeof sp.venueState === "string" ? sp.venueState : undefined;
+
+  const prefillVenue =
+    venueId && venueName
+      ? {
+          id: venueId,
+          name: venueName,
+          city: venueCity || "",
+          state: venueState || null,
+          visit_count: 0,
+          sport_icon: null,
+        }
+      : undefined;
+
+  return <LogFlow userId={user.id} prefillVenue={prefillVenue} />;
 }

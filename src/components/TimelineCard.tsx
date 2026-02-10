@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { LEAGUES } from "@/lib/constants";
 import StarRating from "./profile/StarRating";
 import OutcomeBadge from "./profile/OutcomeBadge";
@@ -123,9 +124,17 @@ export default function TimelineCard({
 
         {/* Matchup line */}
         {displayTitle && (
-          <div className="font-display text-xl text-text-primary tracking-wide leading-tight mb-1 cursor-pointer hover:opacity-80">
-            {displayTitle}
-          </div>
+          entry.event_id ? (
+            <Link href={`/event/${entry.event_id}`} className="block">
+              <div className="font-display text-xl text-text-primary tracking-wide leading-tight mb-1 cursor-pointer hover:opacity-80">
+                {displayTitle}
+              </div>
+            </Link>
+          ) : (
+            <div className="font-display text-xl text-text-primary tracking-wide leading-tight mb-1">
+              {displayTitle}
+            </div>
+          )
         )}
 
         {/* Venue + Date */}
@@ -143,9 +152,15 @@ export default function TimelineCard({
             <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" />
             <circle cx="12" cy="10" r="3" />
           </svg>
-          <span className="text-xs text-text-secondary cursor-pointer hover:opacity-80">
-            {entry.venue_name}
-          </span>
+          {entry.venue_id ? (
+            <Link href={`/venue/${entry.venue_id}`} className="text-xs text-text-secondary hover:text-accent transition-colors" onClick={(e) => e.stopPropagation()}>
+              {entry.venue_name}
+            </Link>
+          ) : (
+            <span className="text-xs text-text-secondary">
+              {entry.venue_name}
+            </span>
+          )}
           <span className="text-xs text-text-muted">·</span>
           <span className="text-xs text-text-muted">{formattedDate}</span>
         </div>

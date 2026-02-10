@@ -11,14 +11,15 @@ import StepDetails, { type DetailsData } from "./StepDetails";
 
 type LogFlowProps = {
   userId: string;
+  prefillVenue?: VenueResult;
 };
 
 const STEP_LABELS = ["Venue", "Date", "Event", "Details"];
 
-export default function LogFlow({ userId }: LogFlowProps) {
+export default function LogFlow({ userId, prefillVenue }: LogFlowProps) {
   const router = useRouter();
-  const [step, setStep] = useState(1);
-  const [selectedVenue, setSelectedVenue] = useState<VenueResult | null>(null);
+  const [step, setStep] = useState(prefillVenue ? 2 : 1);
+  const [selectedVenue, setSelectedVenue] = useState<VenueResult | null>(prefillVenue || null);
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
   const [selectedEvent, setSelectedEvent] = useState<EventMatch | null>(null);
   const [manualTitle, setManualTitle] = useState<string | null>(null);

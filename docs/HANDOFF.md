@@ -636,3 +636,152 @@ This session uses the existing seed data from Sessions 1-2. The event logging fl
 12. **Calendar auto-navigate may be disorienting** — When the calendar opens, it auto-jumps to the most recent month with events. If a user picks a baseball stadium in February expecting to log today's game but the most recent event is from October, the calendar jumps back 4 months. The "Today" shortcut is still visible, but consider only auto-navigating when the current month has zero events, or showing a brief indicator of why the month changed.
 
 13. **Error messages** — `saveEventLog()` maps raw Supabase/Postgres error messages to user-friendly strings via `friendlyError()`. The mapping covers: duplicate event logs, foreign key violations, rating check constraints, RLS violations, and expired sessions. Unknown errors fall back to a generic message. The raw error is never shown to the user.
+
+---
+
+## Session 4 — Venues, Events, Lists
+
+**Date:** February 10, 2026
+**Scope:** Venue detail page, event detail page with comments, lists index with real data, list detail page with progress, cross-navigation links, log flow pre-fill from venue CTA.
+
+---
+
+### New Page Routes
+
+| Route | File | Type | Description |
+|-------|------|------|-------------|
+| `/venue/[id]` | `src/app/(app)/venue/[id]/page.tsx` | Server Component | Venue detail with history, home teams, community stats, timeline, log CTA |
+| `/event/[id]` | `src/app/(app)/event/[id]/page.tsx` | Server Component | Event detail with scoreboard, user log, attendees, comments |
+| `/lists` | `src/app/(app)/lists/page.tsx` | Server Component | Lists index with real data and progress (replaces placeholder) |
+| `/lists/[id]` | `src/app/(app)/lists/[id]/page.tsx` | Server Component | List detail with progress bar, visited/remaining items |
+
+---
+
+### New Query Files
+
+| File | Exports | Description |
+|------|---------|-------------|
+| `src/lib/queries/venue.ts` | `fetchVenueDetail`, `fetchVenueHistory`, `fetchVenueTeams`, `fetchVenueCommunityStats`, `fetchVenueTimeline` | All venue detail data |
+| `src/lib/queries/event.ts` | `fetchEventDetail`, `fetchUserEventLog`, `fetchEventAttendees`, `fetchEventComments`, `postComment`, `deleteComment` | Event detail data + comment CRUD |
+| `src/lib/queries/lists.ts` | `fetchAllLists`, `fetchListDetail`, `fetchListItems` | List index and detail data |
+
+---
+
+### New Components
+
+| Component | File | Type | Description |
+|-----------|------|------|-------------|
+| `VenueTimelineList` | `src/components/venue/VenueTimelineList.tsx` | Client Component | Wraps timeline entries in Links to event detail pages |
+| `CommentsSection` | `src/components/event/CommentsSection.tsx` | Client Component | Displays existing comments, input to post new ones, delete own comments |
+
+---
+
+### How Cross-Navigation Works
+
+**Links between pages** use Next.js `<Link>` components with dynamic route segments:
+
+1. **TimelineCard → Event detail:** The matchup line in `TimelineCard.tsx` is wrapped in `<Link href={/event/${entry.event_id}}>` when `event_id` is present. Manual entries (no `event_id`) are not linked.
+
+2. **TimelineCard → Venue detail:** The venue name in `TimelineCard.tsx` is wrapped in `<Link href={/venue/${entry.venue_id}}>` when `venue_id` is present. Uses `e.stopPropagation()` to prevent bubbling when the card is wrapped in another link.
+
+3. **Event detail → Venue detail:** The venue name on the event detail page is a `<Link href={/venue/${event.venue_id}}>`.
+
+4. **Venue detail → Event detail:** Timeline entries in `VenueTimelineList` are wrapped in `<Link href={/event/${entry.event_id}}>`.
+
+5. **Lists index → List detail:** Each list card is wrapped in `<Link href={/lists/${list.id}}>`.
+
+6. **List detail → Venue detail:** Visited venue items in the list are wrapped in `<Link href={/venue/${item.venue_id}}>`.
+
+7. **Venue detail → Log flow (pre-filled):** The "Log Event Here" CTA links to `/log?venueId=X&venueName=Y&venueCity=Z&venueState=W`.
+
+**URL parameter passing:** Query params are encoded with `encodeURIComponent()` for venue name/city/state. The log page server component reads `searchParams` and constructs a `VenueResult` object to pass as `prefillVenue` to `LogFlow`.
+
+---
+
+### Comments System
+
+**Implementation:** `CommentsSection` is a client component that manages comment state.
+
+**Insert flow:**
+1. User types in input field, presses Enter or clicks "Post"
+2. `postComment(supabase, userId, eventLogId, body)` inserts into `comments` table
+3. After insert, re-fetches all comments for the event log to get fresh data with profile info
+4. The `comment_count` on `event_logs` is auto-incremented by the database trigger `trg_comment_insert` (defined in schema)
+
+**Delete flow:**
+1. Only the comment author sees a "Delete" button
+2. `deleteComment(supabase, commentId, userId)` deletes from `comments` where both `id` and `user_id` match (ensures ownership)
+3. Optimistically removes from local state
+4. The `comment_count` is auto-decremented by the database trigger `trg_comment_delete`
+
+**Permissions:**
+- Any authenticated user can post a comment on any event log (where `comments_enabled = true` — not currently enforced in the query)
+- Only the comment author can delete their own comment (enforced by the `.eq("user_id", userId)` filter in the delete query)
+- The event log owner does not have special delete permissions on others' comments (would need RLS or app-level check)
+
+---
+
+### How List Progress Is Calculated
+
+**For venue-type lists** (MLB Stadiums, NFL Stadiums, NBA Arenas, NHL Arenas):
+1. Query `list_items` for the list to get all `venue_id` values
+2. Query `venue_visits` for the user where `relationship = 'visited'` and `venue_id IN (list venue IDs)`
+3. Count matches = visited count
+4. Progress percentage = `Math.round((visited / item_count) * 100)`
+
+**For event-type lists** (Grand Slams, PGA Majors):
+1. Query `list_items` for the list to get all `event_tag` values (e.g., `"grand_slam"`, `"us_open"`)
+2. Query user's `event_logs` joined with `events` to get `event_tags` arrays
+3. For each list item, check if the user has any event log with a matching `event_tag`
+4. Count matches = visited count
+
+**Optimization in list index:** `fetchAllLists()` pre-fetches all visited venue IDs and event tags in bulk, then loops through each list's items. This avoids N+1 queries per list.
+
+**Display:** Both the lists index and list detail pages show:
+- Fraction: "X of Y"
+- Percentage: "Z%"
+- Visual progress bar with accent gradient (`from-accent to-accent-hover`)
+
+---
+
+### How "Log Event Here" Pre-Fill Works
+
+1. **Venue detail page** renders a CTA link: `/log?venueId=X&venueName=Y&venueCity=Z&venueState=W`
+2. **Log page** (`src/app/(app)/log/page.tsx`) reads `searchParams` and constructs a `VenueResult` object if `venueId` and `venueName` are present
+3. **LogFlow** accepts an optional `prefillVenue?: VenueResult` prop
+4. When `prefillVenue` is provided:
+   - `step` initializes to `2` (skipping venue selection)
+   - `selectedVenue` initializes to the prefilled venue
+   - User lands directly on the date picker step
+5. User can still go back to step 1 to change the venue
+
+---
+
+### Modified Files
+
+| File | Change |
+|------|--------|
+| `src/components/TimelineCard.tsx` | Added `Link` import. Matchup line links to `/event/[id]`. Venue name links to `/venue/[id]`. |
+| `src/components/log/LogFlow.tsx` | Added `prefillVenue` prop. Initializes step/venue state from prop. |
+| `src/app/(app)/log/page.tsx` | Reads `searchParams` for venue pre-fill. Passes `prefillVenue` to `LogFlow`. |
+| `src/app/(app)/lists/page.tsx` | Replaced static placeholder with server component fetching real list data. |
+
+---
+
+### Known Issues / Edge Cases
+
+1. **Event detail for manual entries** — If a user logged an event manually (no `event_id`), there's no `/event/[id]` page for it. Manual entry timeline cards are not linked to event detail. A future enhancement could create a log detail page at `/log/[id]` for manual entries.
+
+2. **Comments on other users' logs** — The comments section only appears for the current user's event log. If you visit an event detail page and another user logged it (but you didn't), you can't comment on their log from the event page. A future enhancement could show comments on other users' logs in the attendees section.
+
+3. **Event attendees privacy** — Attendees with `privacy = 'hide_all'` are filtered out. But attendees with `privacy = 'hide_personal'` still show their rating and outcome. Consider whether to hide ratings too.
+
+4. **List item ordering** — `list_items` are sorted by `display_order`. Some seed data may have `display_order = 0` for all items. In that case, items appear in insertion order, which may not be alphabetical.
+
+5. **Remaining items cap** — List detail shows the first 8 remaining venues, then a "+ X more" label. There is no "Show All" button to expand the full list. For lists with many remaining items (e.g., 25+ of 30), this may frustrate users.
+
+6. **Community friends overlap** — `fetchVenueCommunityStats` queries all friends (people the user follows) who have event logs at the venue. If a friend visited the venue multiple times, they only appear once in the friends list (deduped by user ID).
+
+7. **Edit button on event detail** — The "Edit" link for the user's log entry links to `/log?edit=[logId]`, but the log flow does not yet support edit mode. This is a placeholder for future implementation.
+
+8. **Comment input not debounced** — Comment posting has no debounce or throttle. Rapid clicking could submit duplicate comments. The database doesn't have a unique constraint preventing duplicate comment bodies.
