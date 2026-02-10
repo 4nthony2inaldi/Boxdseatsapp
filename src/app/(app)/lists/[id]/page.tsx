@@ -1,7 +1,8 @@
 import { createClient } from "@/lib/supabase/server";
-import { fetchListDetail, fetchListItems } from "@/lib/queries/lists";
+import { fetchListDetail, fetchListItems, checkListFollow } from "@/lib/queries/lists";
 import Link from "next/link";
 import SectionLabel from "@/components/profile/SectionLabel";
+import ListActions from "@/components/lists/ListActions";
 
 export default async function ListDetailPage({
   params,
@@ -31,7 +32,12 @@ export default async function ListDetailPage({
     );
   }
 
-  const items = await fetchListItems(supabase, id, user.id, list.list_type);
+  const [items, isFollowing] = await Promise.all([
+    fetchListItems(supabase, id, user.id, list.list_type),
+    checkListFollow(supabase, user.id, id),
+  ]);
+
+  const isOwner = list.created_by === user.id;
 
   const visitedItems = items.filter((i) => i.visited);
   const remainingItems = items.filter((i) => !i.visited);
@@ -48,21 +54,45 @@ export default async function ListDetailPage({
       {/* Header */}
       <div className="flex items-center gap-3 mt-4 mb-1">
         <span className="text-3xl">{list.icon}</span>
-        <div>
+        <div className="flex-1 min-w-0">
           <h1 className="font-display text-2xl text-text-primary tracking-wide leading-tight">
             {list.name}
           </h1>
-          {list.sport && (
-            <span className="font-display text-[10px] text-text-muted tracking-[1.5px] uppercase">
-              {list.sport} · {list.list_type}
-            </span>
-          )}
+          <div className="flex items-center gap-2 mt-0.5">
+            {list.source === "user" && list.creator_username && (
+              <Link
+                href={`/user/${list.creator_username}`}
+                className="text-xs text-text-secondary hover:text-accent transition-colors"
+              >
+                by {list.creator_display_name || list.creator_username}
+              </Link>
+            )}
+            {list.source === "user" && list.creator_username && list.sport && (
+              <span className="text-text-muted text-xs">·</span>
+            )}
+            {list.sport && (
+              <span className="font-display text-[10px] text-text-muted tracking-[1.5px] uppercase">
+                {list.sport}
+              </span>
+            )}
+          </div>
         </div>
+      </div>
+
+      {/* Actions */}
+      <div className="mt-3 mb-4">
+        <ListActions
+          listId={id}
+          userId={user.id}
+          isOwner={isOwner}
+          isFollowing={isFollowing}
+          source={list.source}
+        />
       </div>
 
       {/* Description card */}
       {list.description && (
-        <div className="bg-bg-card rounded-xl border border-border p-4 mt-4 mb-5">
+        <div className="bg-bg-card rounded-xl border border-border p-4 mb-5">
           <p className="text-sm text-text-secondary leading-relaxed">
             {list.description}
           </p>

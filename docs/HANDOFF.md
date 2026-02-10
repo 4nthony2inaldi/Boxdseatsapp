@@ -1502,3 +1502,210 @@ All components that render user avatars follow the same pattern: show `<img>` if
 | `src/lib/queries/bigfour.ts` | Added `setFeaturedFavorite()` function |
 | `src/components/profile/BigFourDrillThrough.tsx` | Added star button for setting featured favorite |
 | `src/app/(app)/profile/favorites/[category]/page.tsx` | Passes featured pick ID, added hint text |
+
+---
+
+## Session 7 — Venue Visit Toggle & User-Created Lists
+
+**Date:** February 10, 2026
+**Scope:** Venue visited/want-to-visit toggle, want-to-visit list page, user-created lists with CRUD, follow, fork, and reorganized lists tab.
+
+---
+
+### Venue Visit Status Toggle
+
+**Feature:** Users can mark a venue as "visited" or "want to visit" directly from the venue detail page without logging a full event.
+
+**Component:** `src/components/venue/VenueStatusToggle.tsx` (Client Component)
+
+**Props:** `venueId`, `userId`, `initialStatus` (null | 'visited' | 'want_to_visit'), `hasEventLogs` (boolean)
+
+**Behavior:**
+- Two side-by-side buttons: "Visited" (check-circle icon, green when active) and "Want to Visit" (bookmark icon, accent orange when active)
+- Optimistic state management with revert on error
+- When `hasEventLogs` is true: shows a locked green "Visited" badge (non-toggleable, since the `auto_visit_venue` DB trigger would recreate it)
+- When `hasEventLogs` is false: both buttons shown, click toggles on/off or switches between states
+
+**Query functions added to `src/lib/queries/venue.ts`:**
+
+| Function | Description |
+|----------|-------------|
+| `fetchVenueVisitStatus(supabase, userId, venueId)` | Returns current status: `'visited'`, `'want_to_visit'`, or `null` |
+| `upsertVenueVisit(supabase, userId, venueId, relationship)` | Sets or switches venue visit status via upsert |
+| `removeVenueVisit(supabase, userId, venueId)` | Deletes the venue_visit record |
+
+**Integration:** Venue detail page (`src/app/(app)/venue/[id]/page.tsx`) fetches status in parallel `Promise.all`, renders toggle between hero header and "Your History" section.
+
+---
+
+### Want to Visit List
+
+**Route:** `/lists/want-to-visit`
+
+Venues marked as "want to visit" appear as a bucket list card at the top of the Lists tab. The card only renders when count > 0.
+
+**Query functions added to `src/lib/queries/lists.ts`:**
+
+| Function | Description |
+|----------|-------------|
+| `fetchWantToVisitCount(supabase, userId)` | Count of want_to_visit venue_visits |
+| `fetchWantToVisitVenues(supabase, userId)` | Full venue list with name, city, state |
+
+**Auto-removal:** When a venue is marked as "Visited" (via toggle or event logging), the DB upsert overwrites `want_to_visit` with `visited`, removing it from the list automatically.
+
+---
+
+### User-Created Lists
+
+**New Page Routes:**
+
+| Route | File | Type | Description |
+|-------|------|------|-------------|
+| `/lists/create` | `src/app/(app)/lists/create/page.tsx` | Server Component | Create list form |
+| `/lists/[id]/edit` | `src/app/(app)/lists/[id]/edit/page.tsx` | Server Component | Edit list (owner only, redirects non-owners) |
+
+**New Components:**
+
+| Component | File | Type | Description |
+|-----------|------|------|-------------|
+| `CreateListForm` | `src/components/lists/CreateListForm.tsx` | Client Component | Name, description, sport selector, venue search to add items |
+| `EditListForm` | `src/components/lists/EditListForm.tsx` | Client Component | Edit name/description, add/remove items, delete list with confirmation |
+| `ListActions` | `src/components/lists/ListActions.tsx` | Client Component | Follow/unfollow toggle, fork button, edit button (owner only) |
+
+---
+
+### Create List Flow
+
+1. User taps "Create" button in Lists tab header
+2. Form collects: list name (required), description (optional), sport (optional pill selector)
+3. Venue search input with 300ms debounce to add venues — results filtered to exclude already-added items
+4. Added venues shown as numbered list with X button to remove
+5. "Create List" button saves the list and all items, then navigates to the new list detail page
+
+**Data flow:**
+- `createList()` inserts into `lists` with `source: 'user'`, `created_by: userId`
+- For each added venue: `addListItem()` inserts into `list_items` with auto-incrementing `display_order`
+- `item_count` on the list is updated after each add/remove via counting query
+
+---
+
+### List Management (Edit)
+
+- Owner sees "Edit" button on list detail page via `ListActions` component
+- Edit page pre-fills name, description, and existing items
+- Items can be added via venue search or removed with X button (live mutations, not batched)
+- `removeListItem()` deletes from `list_items` and recounts `item_count`
+- "Delete List" button with two-step confirmation (Cancel / Delete)
+- `deleteList()` cascades to list_items via FK constraint
+
+---
+
+### Follow / Unfollow Lists
+
+- Non-owner users see a Follow/Unfollow toggle button on list detail pages
+- Optimistic state management matching the FollowButton pattern
+- `followList()` inserts into `list_follows` (unique constraint on `user_id, list_id`)
+- `unfollowList()` deletes from `list_follows`
+- Followed lists appear under "Following" section on the Lists tab with creator attribution
+
+---
+
+### Fork Lists
+
+- All users see a "Fork" button on any list detail page
+- `forkList()` creates a new list with `source: 'user'`, `forked_from: originalListId`, copies all `list_items`
+- Fork is fully independent — changes to original don't affect the fork
+- After forking, user is navigated to their new forked list
+
+---
+
+### Lists Tab Reorganization
+
+The Lists tab (`/lists`) now shows multiple sections:
+
+1. **Header:** "LISTS" title + "Create" button (accent orange, top right)
+2. **Want to Visit** (conditional, only if count > 0): Accent-bordered card with bookmark icon and count
+3. **My Lists** (conditional): User-created lists with progress bars
+4. **Following** (conditional): Lists from other users with "by @username" subtitle
+5. **Challenges**: System lists with sport emoji icons and progress bars
+
+Each section uses `SectionLabel` component for consistent heading style. All list cards use a shared `ListCard` helper function with consistent styling.
+
+---
+
+### List Detail Page Updates
+
+The list detail page (`/lists/[id]/page.tsx`) now includes:
+- Creator attribution for user-created lists (links to creator's profile)
+- `ListActions` component below header with Follow/Fork/Edit buttons
+- `checkListFollow()` query added to `Promise.all` for initial follow state
+
+---
+
+### Query Functions Added to `src/lib/queries/lists.ts`
+
+| Function | Description |
+|----------|-------------|
+| `fetchUserLists(supabase, userId)` | User's own lists with progress |
+| `fetchFollowedLists(supabase, userId)` | Lists the user follows with creator info and progress |
+| `computeListProgress(supabase, userId, lists)` | Shared helper: calculates visited count for venue/event lists |
+| `createList(supabase, userId, data)` | Insert new list with `source: 'user'` |
+| `updateList(supabase, userId, listId, updates)` | Update name/description (owner check via `.eq("created_by")`) |
+| `deleteList(supabase, userId, listId)` | Delete list (owner + source='user' check) |
+| `addListItem(supabase, listId, item)` | Add item with auto display_order, updates item_count |
+| `removeListItem(supabase, listId, itemId)` | Remove item, recounts item_count |
+| `followList(supabase, userId, listId)` | Insert into list_follows |
+| `unfollowList(supabase, userId, listId)` | Delete from list_follows |
+| `checkListFollow(supabase, userId, listId)` | Returns boolean |
+| `forkList(supabase, userId, originalListId)` | Copies list + items with `forked_from` reference |
+| `searchVenuesForList(supabase, query, limit)` | Venue search for adding to lists |
+
+**`ListDetail` type updated** to include `source`, `created_by`, `creator_username`, `creator_display_name`, `forked_from`.
+
+**`fetchListDetail` updated** to join `profiles` table for creator info.
+
+---
+
+### New Files Created
+
+| File | Type | Description |
+|------|------|-------------|
+| `src/app/(app)/lists/create/page.tsx` | Server Component | Create list page |
+| `src/app/(app)/lists/[id]/edit/page.tsx` | Server Component | Edit list page (owner only) |
+| `src/app/(app)/lists/want-to-visit/page.tsx` | Server Component | Want to visit venue list |
+| `src/components/lists/CreateListForm.tsx` | Client Component | Create list form with venue search |
+| `src/components/lists/EditListForm.tsx` | Client Component | Edit list form with add/remove items and delete |
+| `src/components/lists/ListActions.tsx` | Client Component | Follow/fork/edit action buttons |
+| `src/components/venue/VenueStatusToggle.tsx` | Client Component | Visited/want-to-visit toggle |
+
+### Modified Files
+
+| File | Change |
+|------|--------|
+| `src/lib/queries/venue.ts` | Added `fetchVenueVisitStatus`, `upsertVenueVisit`, `removeVenueVisit`, `VenueVisitStatus` type |
+| `src/lib/queries/lists.ts` | Added 13 new functions, updated `ListDetail` type and `fetchListDetail` to include creator info, added `UserListSummary` type |
+| `src/app/(app)/venue/[id]/page.tsx` | Added VenueStatusToggle between hero and history |
+| `src/app/(app)/lists/page.tsx` | Rewritten with sections (My Lists, Following, Challenges), Create button, ListCard helper |
+| `src/app/(app)/lists/[id]/page.tsx` | Added ListActions, creator attribution, checkListFollow query |
+
+---
+
+### Known Issues / Remaining Work
+
+1. **Event-type user lists** — The create form currently only supports venue lists. The `list_type` field is hardcoded to `'venue'`. Adding event-type list creation would require an event tag search interface.
+
+2. **List reordering** — Items are ordered by `display_order` but there is no drag-and-drop or reorder UI. Items are appended in the order they are added.
+
+3. **List item cap** — List detail page shows first 8 remaining items with "+ X more". No "Show All" expansion.
+
+4. **Explore search for lists** — User-created lists are not surfaced in the Explore search. The `searchAll()` function in `social.ts` searches users, venues, and teams but not lists.
+
+5. **Profile lists section** — Other users' profiles don't show their created lists. A "Lists" section on the user profile page would make lists more discoverable.
+
+6. **Fork attribution** — The `forked_from` field is stored but not displayed in the UI. A "Forked from [original list]" label could be added.
+
+7. **List privacy** — All user-created lists from public profiles are visible to everyone (via RLS policy). There is no per-list privacy toggle.
+
+8. **Notifications** — No notifications are generated when a user follows, forks, or comments on a list. The notification infrastructure exists but is not wired to list actions.
+
+9. **item_count sync** — The `lists.item_count` field is manually updated in application code after add/remove. A database trigger would be more reliable but is not yet implemented.
