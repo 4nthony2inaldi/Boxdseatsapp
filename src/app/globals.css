@@ -1,0 +1,30 @@
+@import "tailwindcss";
+@import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap');
+
+@theme inline {
+  --color-bg: #0D0F14;
+  --color-bg-card: #161920;
+  --color-bg-elevated: #1C1F2A;
+  --color-bg-input: #232735;
+  --color-accent: #D4872C;
+  --color-accent-hover: #E8A44E;
+  --color-text-primary: #F0EBE0;
+  --color-text-secondary: #9BA1B5;
+  --color-text-muted: #5A5F72;
+  --color-border: #2A2D3A;
+  --color-win: #3CB878;
+  --color-loss: #C83C2C;
+  --font-display: 'Bebas Neue', sans-serif;
+  --font-body: 'DM Sans', sans-serif;
+}
+
+body {
+  background: var(--color-bg);
+  color: var(--color-text-primary);
+  font-family: var(--font-body);
+}
+
+/* Utility class for display font */
+.font-display {
+  font-family: var(--font-display);
+}
