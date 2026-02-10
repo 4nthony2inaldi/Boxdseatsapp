@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import type { TimelineEntry } from "@/lib/queries/profile";
 import { LEAGUES } from "@/lib/constants";
 import SectionLabel from "./SectionLabel";
-import TimelineCard from "./TimelineCard";
+import TimelineCard from "../TimelineCard";
 import { createClient } from "@/lib/supabase/client";
 
 type TimelineProps = {

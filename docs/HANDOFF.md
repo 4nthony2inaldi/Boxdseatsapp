@@ -416,3 +416,217 @@ This session uses the existing seed data from Session 1. Anthony's profile alrea
 9. **Privacy enforcement** — Timeline cards respect `hide_personal` (hides notes) and the `show_all` check for notes display. However, `hide_all` entries are not filtered out client-side — this relies on RLS policies to exclude them from query results.
 
 10. **Activity chart date math** — Uses JavaScript `Date` constructor which may produce off-by-one month issues near month boundaries depending on timezone. Server time is used for consistency.
+
+---
+
+## Session 3 — Event Logging
+
+**Date:** February 10, 2026
+**Scope:** Complete 4-step event logging flow, shared TimelineCard component, venue search, event matching, event_logs insert with denormalized fields, venue_visits upsert via trigger.
+
+---
+
+### Log Flow Component Structure
+
+```
+LogPage (Server Component — src/app/(app)/log/page.tsx)
+  └── LogFlow (Client Component — src/components/log/LogFlow.tsx)
+       ├── Progress Indicator (4-step dots with labels + connecting lines)
+       ├── Step 1: StepVenue (src/components/log/StepVenue.tsx)
+       ├── Step 2: StepDate (src/components/log/StepDate.tsx)
+       ├── Step 3: StepEvent (src/components/log/StepEvent.tsx)
+       └── Step 4: StepDetails (src/components/log/StepDetails.tsx)
+```
+
+**State management:** `LogFlow` is the orchestrator. It holds all state in `useState` hooks:
+- `step` (1-4) — current step number
+- `selectedVenue: VenueResult | null`
+- `selectedDate: string | null` (YYYY-MM-DD)
+- `selectedEvent: EventMatch | null`
+- `manualTitle: string | null` — for manual event entries
+- `saving: boolean`, `error: string | null`, `success: boolean`
+
+Each step component receives only the data it needs via props and calls a callback (`onSelect`, `onSave`, `onBack`) to advance or retreat. No global state library is used — simple prop drilling within the 4-step flow.
+
+After save success, `LogFlow` shows a success screen for 1.2 seconds then navigates to `/profile` with `router.push` + `router.refresh()` to re-render the profile with the new entry.
+
+---
+
+### How Venue Search Works
+
+**File:** `src/lib/queries/log.ts` — `fetchUserVenues()` and `searchVenues()`
+
+**Initial load (no search query):**
+1. `fetchUserVenues(supabase, userId)` queries `event_logs` for all the user's logged venue IDs with counts
+2. Then queries `venues` table for those IDs to get name/city/state
+3. Results are sorted by `visit_count` descending — most-visited venues appear first
+4. This provides the "Your Venues" list (combined recent + most-visited)
+
+**Search mode (user types in search box):**
+1. Input is debounced at 300ms using `useRef` + `setTimeout`
+2. `searchVenues(supabase, query, userId)` runs `ilike('%query%')` on `venues.name` where `status = 'active'`, limited to 20 results
+3. For each result, a secondary query counts the user's event_logs at that venue to show the visit count badge
+4. Results ordered alphabetically by name
+
+**Debouncing pattern:** `StepVenue` uses a `useRef<ReturnType<typeof setTimeout>>` for the debounce timer. On each keystroke, the previous timer is cleared and a new 300ms timer is set. The search state shows a loading indicator during the async query.
+
+---
+
+### How Event Matching Works
+
+**File:** `src/lib/queries/log.ts` — `findEventsAtVenueOnDate()`
+
+**Date range logic:**
+1. First query: exact date match — `events` where `venue_id = X` AND `event_date = YYYY-MM-DD`
+2. If no results: fallback query — `events` where `venue_id = X` AND `event_date` between `date - 1 day` and `date + 1 day`
+3. This ±1 day fallback handles timezone mismatches (e.g., a late-night game that spans midnight)
+
+**Event display:** Each result shows the league icon, league name (color-coded), matchup (away @ home), score (if available), and round/stage.
+
+**Fallback to manual entry:**
+- If no events are found, a "Enter event manually" button appears immediately
+- If events are found, a "Don't see your event? Enter manually →" dashed button appears below the list
+- Manual entry provides a text input for the event title (e.g., "Yankees vs Red Sox")
+- Manual entries set `is_manual = true`, `event_id = null`, and `manual_title` on the event_logs row
+
+---
+
+### Event Logs Insert Function
+
+**File:** `src/lib/queries/log.ts` — `saveEventLog()`
+
+**Fields written to `event_logs`:**
+
+| Field | Source |
+|-------|--------|
+| `user_id` | Auth user ID (from LogFlow prop) |
+| `event_id` | Selected event's UUID, or `null` for manual entries |
+| `venue_id` | Selected venue's UUID |
+| `event_date` | Selected date (YYYY-MM-DD) |
+| `league_id` | From the matched event, or `null` for manual |
+| `sport` | From the matched event's league, or `null` for manual |
+| `rating` | 1-5 from star picker, or `null` if not set |
+| `notes` | Free text, or `null` |
+| `seat_location` | Free text, or `null` |
+| `privacy` | `show_all` (default), `hide_personal`, or `hide_all` |
+| `rooting_team_id` | UUID of team user rooted for, or `null` |
+| `is_neutral` | `true` if user selected "Neutral" |
+| `outcome` | Computed: `win`, `loss`, `draw`, `neutral`, or `null` |
+| `is_manual` | `true` if no event was selected from the database |
+| `manual_title` | User-typed event title for manual entries |
+| `manual_description` | Reserved for future use, currently always `null` |
+
+**Outcome computation** (`computeOutcome()` in `log.ts`):
+- If `is_neutral` → `"neutral"`
+- If no `rooting_team_id` or no event → `null`
+- If scores not available → `null`
+- Otherwise: compares rooted team's score to opponent's score → `"win"`, `"loss"`, or `"draw"`
+
+**Companion tags:** After inserting the event log, companion tags are bulk-inserted into `companion_tags` with the new `event_log_id`. Each companion has a `display_name` (either `@username` for tagged users or free text like "my dad") and an optional `tagged_user_id`.
+
+---
+
+### How venue_visits Gets Upserted
+
+**Mechanism:** Database trigger `trg_event_log_auto_visit` (defined in the schema).
+
+When a new row is inserted into `event_logs`, the `auto_visit_venue()` trigger function automatically runs:
+```sql
+INSERT INTO venue_visits (user_id, venue_id, relationship)
+VALUES (NEW.user_id, NEW.venue_id, 'visited')
+ON CONFLICT (user_id, venue_id)
+DO UPDATE SET relationship = 'visited', updated_at = now();
+```
+
+This means:
+- If the user has never visited the venue: a new `venue_visits` row is created with `relationship = 'visited'`
+- If the user had the venue as `want_to_visit`: it's upgraded to `visited`
+- If the user already visited: `updated_at` is refreshed
+- No application code needed — the trigger handles everything
+
+---
+
+### Shared TimelineCard Component
+
+**File:** `src/components/TimelineCard.tsx`
+
+**Exported types:**
+- `TimelineCardEntry` — the data shape for a single timeline entry (matches `TimelineEntry` from profile queries, plus optional `manual_title` and `is_manual` fields)
+- `TimelineAuthor` — `{ id, username, display_name, avatar_url }` for feed mode
+
+**Props:**
+
+```typescript
+type TimelineCardProps = {
+  entry: TimelineCardEntry;    // Required: the event log data
+  showAuthor?: boolean;        // Default false. When true, renders author header
+  author?: TimelineAuthor;     // Required when showAuthor=true
+  onLike?: (entryId: string) => void;     // Like button callback
+  onComment?: (entryId: string) => void;  // Comment button callback
+  onShare?: (entryId: string) => void;    // Share button callback
+};
+```
+
+**How `showAuthor` works:**
+- When `false` (default, profile mode): The card renders league icon → outcome badge → stars → matchup → venue/date → notes → actions. This is the same layout as the original profile TimelineCard.
+- When `true` (feed mode): A bordered author row is prepended at the top of the card showing the author's avatar (image or gradient initial fallback), display name (or username), and @username. The rest of the card is identical.
+
+**Feed usage example:**
+```tsx
+<TimelineCard
+  entry={entry}
+  showAuthor={true}
+  author={{ id: "...", username: "kyle", display_name: "Kyle", avatar_url: null }}
+  onLike={(id) => handleLike(id)}
+/>
+```
+
+**Migration note:** The profile `Timeline` component (`src/components/profile/Timeline.tsx`) was updated to import from `../TimelineCard` instead of `./TimelineCard`. The old `src/components/profile/TimelineCard.tsx` is no longer imported anywhere but was left in place. It can be safely deleted.
+
+---
+
+### New Files Created
+
+| File | Type | Description |
+|------|------|-------------|
+| `src/lib/queries/log.ts` | Query functions | Venue search, event matching, save event log, user search |
+| `src/components/log/LogFlow.tsx` | Client Component | 4-step orchestrator with progress indicator |
+| `src/components/log/StepVenue.tsx` | Client Component | Venue search with user venues + real-time search |
+| `src/components/log/StepDate.tsx` | Client Component | Calendar picker with month navigation |
+| `src/components/log/StepEvent.tsx` | Client Component | Event list + manual entry fallback |
+| `src/components/log/StepDetails.tsx` | Client Component | Rating, rooting, seat, notes, companions, privacy |
+| `src/components/TimelineCard.tsx` | Client Component | Shared timeline card with showAuthor prop |
+
+**Modified files:**
+- `src/app/(app)/log/page.tsx` — Replaced placeholder with server component that fetches user and renders `LogFlow`
+- `src/components/profile/Timeline.tsx` — Updated import to use shared `TimelineCard`
+
+---
+
+### No New Seed Data
+
+This session uses the existing seed data from Sessions 1-2. The event logging flow works with the existing 141 venues and 169 events in the database.
+
+---
+
+### Known Issues / Edge Cases
+
+1. **Photo upload** — The photo upload area in Step 4 is a visual placeholder only. Actual file upload to Supabase Storage (`event-photos` bucket) is not yet implemented. The `photo_url` field is always `null` on insert.
+
+2. **Duplicate event log prevention** — The database has a unique index `idx_event_logs_no_duplicates` on `(user_id, event_id)` where `event_id IS NOT NULL`. If a user tries to log the same event twice, the insert will fail with a Supabase error. The error is displayed in the UI but there's no pre-check to warn the user before they fill out the form.
+
+3. **PGA/field event rooting** — The rooting interest UI only shows team buttons for match-type events (where `home_team_id` and `away_team_id` exist). For field events (golf, etc.), no rooting UI is shown. The `rooting_athlete_id` field on `event_logs` is not used yet.
+
+4. **Manual entry league/sport** — When a user enters an event manually, `league_id` and `sport` are set to `null`. This means manual entries won't appear when filtering the timeline by league. A future enhancement could add league selection to the manual entry form.
+
+5. **Venue search limitations** — Uses `ilike('%query%')` which is case-insensitive but doesn't use the `pg_trgm` index for fuzzy matching. The `gin_trgm_ops` index on `venues.name` exists in the schema but `ilike` doesn't leverage it. Switching to `similarity()` or `%` operator would enable fuzzy matching.
+
+6. **Venue aliases** — The `venue_aliases` table (historical venue names like "Staples Center" for Crypto.com Arena) is not queried during venue search. Users searching by an old venue name won't find results.
+
+7. **Stats update after save** — The profile page stats (event count, venue count, W/L/D) update after save because `router.refresh()` triggers a full server re-render. However, there's no optimistic UI update — the user sees the success screen, then the profile loads fresh.
+
+8. **Calendar navigation** — The calendar blocks future date selection and prevents navigating past the current month. There's no lower bound — users can scroll back indefinitely. Very old dates might not have events in the database.
+
+9. **Companion search** — The user search for companion tagging uses `ilike` on both `username` and `display_name`. Users can also add free-text companions (e.g., "my dad") by typing and pressing Enter. Free-text companions have `tagged_user_id = null`.
+
+10. **Privacy default** — The details form defaults to `show_all` privacy. The schema notes that the app should read `profiles.default_privacy` and use it as the default, but this is not implemented yet.
