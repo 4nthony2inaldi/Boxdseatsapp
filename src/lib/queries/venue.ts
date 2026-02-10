@@ -276,3 +276,55 @@ export async function fetchVenueTimeline(
     };
   });
 }
+
+// ── Venue visit status ──
+
+export type VenueVisitStatus = "visited" | "want_to_visit" | null;
+
+export async function fetchVenueVisitStatus(
+  supabase: SupabaseClient,
+  userId: string,
+  venueId: string
+): Promise<VenueVisitStatus> {
+  const { data } = await supabase
+    .from("venue_visits")
+    .select("relationship")
+    .eq("user_id", userId)
+    .eq("venue_id", venueId)
+    .maybeSingle();
+
+  if (!data) return null;
+  return data.relationship as VenueVisitStatus;
+}
+
+export async function upsertVenueVisit(
+  supabase: SupabaseClient,
+  userId: string,
+  venueId: string,
+  relationship: "visited" | "want_to_visit"
+): Promise<{ success: boolean } | { error: string }> {
+  const { error } = await supabase
+    .from("venue_visits")
+    .upsert(
+      { user_id: userId, venue_id: venueId, relationship },
+      { onConflict: "user_id,venue_id" }
+    );
+
+  if (error) return { error: "Failed to update venue status." };
+  return { success: true };
+}
+
+export async function removeVenueVisit(
+  supabase: SupabaseClient,
+  userId: string,
+  venueId: string
+): Promise<{ success: boolean } | { error: string }> {
+  const { error } = await supabase
+    .from("venue_visits")
+    .delete()
+    .eq("user_id", userId)
+    .eq("venue_id", venueId);
+
+  if (error) return { error: "Failed to remove venue status." };
+  return { success: true };
+}

@@ -5,11 +5,13 @@ import {
   fetchVenueTeams,
   fetchVenueCommunityStats,
   fetchVenueTimeline,
+  fetchVenueVisitStatus,
 } from "@/lib/queries/venue";
 import Link from "next/link";
 import SectionLabel from "@/components/profile/SectionLabel";
 import StatBox from "@/components/profile/StatBox";
 import VenueTimelineList from "@/components/venue/VenueTimelineList";
+import VenueStatusToggle from "@/components/venue/VenueStatusToggle";
 
 export default async function VenueDetailPage({
   params,
@@ -39,12 +41,15 @@ export default async function VenueDetailPage({
     );
   }
 
-  const [history, teams, community, timeline] = await Promise.all([
+  const [history, teams, community, timeline, visitStatus] = await Promise.all([
     fetchVenueHistory(supabase, user.id, id),
     fetchVenueTeams(supabase, id),
     fetchVenueCommunityStats(supabase, user.id, id),
     fetchVenueTimeline(supabase, user.id, id),
+    fetchVenueVisitStatus(supabase, user.id, id),
   ]);
+
+  const hasEventLogs = history.totalVisits > 0;
 
   const formatDate = (dateStr: string | null) => {
     if (!dateStr) return "—";
@@ -88,6 +93,16 @@ export default async function VenueDetailPage({
             )}
           </div>
         </div>
+      </div>
+
+      {/* Venue Status Toggle */}
+      <div className="mb-5">
+        <VenueStatusToggle
+          venueId={id}
+          userId={user.id}
+          initialStatus={visitStatus}
+          hasEventLogs={hasEventLogs}
+        />
       </div>
 
       {/* Your History */}
