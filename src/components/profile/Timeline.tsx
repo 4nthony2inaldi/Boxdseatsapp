@@ -182,8 +182,23 @@ export default function Timeline({ initialEntries, userId }: TimelineProps) {
       )}
 
       {!loading && entries.length === 0 && (
-        <div className="text-center text-text-muted text-sm py-8">
-          No events logged yet.
+        <div className="rounded-xl border border-border bg-bg-card p-8 text-center">
+          <div className="text-4xl mb-3">🏟️</div>
+          <div className="font-display text-lg text-text-primary tracking-wide mb-2">
+            Log Your First Event
+          </div>
+          <p className="text-text-muted text-sm mb-4">
+            Start building your sports timeline by logging a game you attended.
+          </p>
+          <a
+            href="/log"
+            className="inline-block px-5 py-2.5 rounded-xl text-sm font-medium text-white transition-opacity"
+            style={{
+              background: "linear-gradient(135deg, var(--color-accent), var(--color-accent-brown))",
+            }}
+          >
+            Log an Event
+          </a>
         </div>
       )}
 

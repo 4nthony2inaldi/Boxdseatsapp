@@ -1028,3 +1028,342 @@ The feed query in `fetchFeed()` works in 6 steps:
 11. **Search result limit** — Each search type is limited to 8 results. There is no "show all" or pagination for search results. For queries that match many results (e.g., searching "New" returns many teams), the user cannot see beyond the first 8.
 
 12. **Block does not retroactively remove likes/comments** — When blocking a user, their existing likes and comments on your event logs remain. Only follow relationships are removed. A future enhancement could clean up social interactions on block.
+
+---
+
+## Session 6 — Onboarding & Polish
+
+**Date:** February 10, 2026
+**Scope:** Complete onboarding flow for new users, Big Four drill-through, notification bell with unread badge, settings page, empty states, loading skeletons, error boundaries, responsive layout, and final polish.
+
+---
+
+### Onboarding Flow
+
+**Route:** `/onboarding`
+**Detection mechanism:** Two-layer check for first-time users:
+1. **Middleware** (`src/lib/supabase/middleware.ts`): On every authenticated request (except auth and onboarding routes), checks `user.user_metadata.onboarding_completed`. If not set, queries `profiles.fav_sport` as a secondary indicator. If neither is truthy, redirects to `/onboarding`.
+2. **Signup redirect:** After successful signup, `src/app/(auth)/signup/page.tsx` redirects to `/onboarding` instead of `/`.
+3. **Onboarding page guard:** `src/app/(app)/onboarding/page.tsx` checks both `user_metadata.onboarding_completed` and `profile.fav_sport` — if either indicates completion, redirects to `/profile`.
+
+**Completion:** `completeOnboarding()` in `src/lib/queries/onboarding.ts` calls `supabase.auth.updateUser({ data: { onboarding_completed: true } })`, which sets the metadata flag that the middleware checks.
+
+**Component structure:**
+
+```
+OnboardingPage (Server Component — src/app/(app)/onboarding/page.tsx)
+  └── OnboardingFlow (Client Component — src/components/onboarding/OnboardingFlow.tsx)
+       ├── Progress Indicator (4 segments with accent fill)
+       ├── Step 0: StepAccount (src/components/onboarding/StepAccount.tsx)
+       ├── Step 1: StepBigFour (src/components/onboarding/StepBigFour.tsx)
+       ├── Step 2: StepVenues (src/components/onboarding/StepVenues.tsx)
+       └── Step 3: StepFirstEvent (src/components/onboarding/StepFirstEvent.tsx)
+```
+
+**Step details:**
+
+| Step | Component | Description |
+|------|-----------|-------------|
+| 0 — Account Setup | `StepAccount` | Edit username with real-time uniqueness validation (400ms debounce), display name, profile photo placeholder. Username validated against `profiles` table excluding current user. Shows check/X status indicators. |
+| 1 — Favorites | `StepBigFour` | Select favorite sport (avatar badge, pill-style buttons), then search/autocomplete for favorite team, venue, athlete, event. Each uses `SearchPicker` — a reusable search component with debounced API calls and dropdown results. All picks are optional. Saves to `profiles` table. |
+| 2 — Mark Venues | `StepVenues` | Searchable checklist of all 141+ venues from the database. Venues are fetched server-side and passed as props. Users tap to toggle visited status. Running count badge shows marked venues. Search filters client-side by name/city/state. |
+| 3 — First Event | `StepFirstEvent` | Optional step. Shows venue buttons from the venues marked in step 2. Tapping a venue navigates to `/log?venueId=X&...&fromOnboarding=1` to pre-fill the log flow. "Go to My Profile" button calls `completeOnboarding()` and navigates to `/profile`. "Skip for now" does the same. |
+
+**Query file:** `src/lib/queries/onboarding.ts`
+
+| Function | Description |
+|----------|-------------|
+| `checkUsernameAvailable(supabase, username, currentUserId)` | Real-time username uniqueness check |
+| `updateProfileSetup(supabase, userId, updates)` | Updates username/display_name on profiles |
+| `updateBigFourAndSport(supabase, userId, updates)` | Updates fav_sport, fav_team_id, etc. on profiles |
+| `searchTeams(supabase, query)` | Autocomplete search for teams with league name |
+| `searchVenuesForOnboarding(supabase, query)` | Autocomplete search for venues |
+| `searchAthletes(supabase, query)` | Autocomplete search for athletes |
+| `searchEvents(supabase, query)` | Autocomplete search for events (by tournament name and team names) |
+| `fetchAllVenues(supabase)` | Fetches all active venues for step 2 |
+| `markVenuesVisited(supabase, userId, venueIds)` | Bulk upserts venue_visits with relationship='visited' |
+| `completeOnboarding(supabase, userId)` | Sets user_metadata.onboarding_completed = true |
+
+---
+
+### Big Four Drill-Through
+
+**Route:** `/profile/favorites/[category]` where category is `team`, `venue`, `athlete`, or `event`.
+
+**How to access:** Tapping any Big Four card on the profile page navigates to the drill-through. `BigFourSection` now wraps each `BigFourCard` in a `<Link>` to `/profile/favorites/[category]` when `linkable=true` (default).
+
+**Component structure:**
+
+```
+BigFourCategoryPage (Server Component — src/app/(app)/profile/favorites/[category]/page.tsx)
+  ├── Back header with link to /profile
+  ├── Overall Favorite card (from profiles.fav_team_id, etc.)
+  └── BigFourDrillThrough (Client Component — src/components/profile/BigFourDrillThrough.tsx)
+       └── Per-league rows (NFL, NBA, MLB, NHL, MLS, PGA Tour)
+            ├── League icon + name
+            ├── Current pick name (or "No pick yet")
+            └── Edit/Add button → inline search picker
+```
+
+**Data source:** `user_league_favorites` table. Each row stores `(user_id, category, league_id, team_id/athlete_id/venue_id/event_id)` with a unique constraint on `(user_id, category, league_id)`.
+
+**Query file:** `src/lib/queries/bigfour.ts`
+
+| Function | Description |
+|----------|-------------|
+| `fetchLeagueFavorites(supabase, userId, category)` | Fetches all league favorites for a category, resolves pick names |
+| `upsertLeagueFavorite(supabase, userId, category, leagueId, pickId)` | Creates or updates a league favorite |
+| `deleteLeagueFavorite(supabase, favoriteId, userId)` | Removes a league favorite |
+
+**Edit flow:** Clicking "Edit" or "Add" on a league row opens an inline search input. Search results appear in a dropdown. Selecting a result calls `upsertLeagueFavorite()` which uses Supabase's `upsert` with `onConflict: "user_id,category,league_id"`. The local state updates optimistically.
+
+---
+
+### Notification System
+
+**Route:** `/notifications`
+
+**Bell icon:** `AppHeader` (`src/components/AppHeader.tsx`) now includes:
+- A `<Link>` to `/notifications` wrapping the bell icon
+- An unread count badge (accent orange, min-width 16px, shows "99+" for >99)
+- Unread count is fetched on mount and polled every 30 seconds via client-side query to `notifications` table where `is_read = false`
+
+**Notification page:** `src/app/(app)/notifications/page.tsx`
+- Server component that fetches all notifications and marks unread ones as read on page load
+- Back button links to `/` (feed)
+- Renders `NotificationList` client component
+
+**Component:** `NotificationList` (`src/components/notifications/NotificationList.tsx`)
+- Renders each notification with actor avatar (gradient initial fallback), message, time ago, and unread dot
+- Links notifications to relevant pages: follow → user profile, like/comment/companion_tag → event detail
+- Empty state shows bell icon with "No Notifications" message
+- Time formatting: just now, Xm, Xh, Xd, Xw, or date
+
+**Query file:** `src/lib/queries/notifications.ts`
+
+| Function | Description |
+|----------|-------------|
+| `fetchNotifications(supabase, userId, limit)` | Fetches notifications with actor profiles |
+| `fetchUnreadCount(supabase, userId)` | Count of unread notifications |
+| `markNotificationsRead(supabase, userId, notificationIds?)` | Marks specific or all notifications as read |
+
+**Notification types supported:** `like`, `comment`, `follow`, `follow_request_approved`, `companion_tag`, `badge_earned`, `progress_nudge`, `friend_activity`, `friend_milestone`
+
+**Note:** Notifications are read from the existing `notifications` table defined in the schema. The app does not currently create notifications — this requires server-side triggers or edge functions to insert notification rows when likes, comments, follows, etc. occur. The notification UI is fully built and ready to display notifications once they are generated.
+
+---
+
+### Settings Page
+
+**Route:** `/settings`
+
+**How to access:** Settings gear icon in `AppHeader` now links to `/settings`. Back button on settings page links to `/profile`.
+
+**Component structure:**
+
+```
+SettingsPage (Server Component — src/app/(app)/settings/page.tsx)
+  └── SettingsForm (Client Component — src/components/settings/SettingsForm.tsx)
+       ├── Edit Profile section
+       │    ├── Display Name (text input)
+       │    ├── Bio (textarea, 160 char max with counter)
+       │    └── Sport Badge (pill-style sport selector)
+       ├── Big Four Favorites section
+       │    └── 4 rows (team/venue/athlete/event) → link to /profile/favorites/[category]
+       ├── Pinned Lists section
+       │    ├── Pinned List 1 (dropdown of system lists)
+       │    └── Pinned List 2 (dropdown of system lists)
+       ├── Privacy section
+       │    ├── Private Profile (toggle switch)
+       │    ├── Default Event Privacy (dropdown: show_all, hide_personal, hide_all)
+       │    └── Allow Comments (toggle switch)
+       ├── Save Changes button (with saved/saving states)
+       └── Account section
+            ├── Email (read-only display)
+            ├── Username (read-only display)
+            ├── Log Out (with confirmation dialog)
+            └── Note about contacting support for password/account deletion
+```
+
+**Query file:** `src/lib/queries/settings.ts`
+
+| Function | Description |
+|----------|-------------|
+| `fetchSettingsProfile(supabase, userId)` | Fetches profile with all settings fields |
+| `updateProfile(supabase, userId, updates)` | Updates profile settings |
+| `fetchAvailableLists(supabase)` | Fetches system lists for pinned list dropdowns |
+
+**Toggle switches:** Custom-built CSS toggle switches (no external library). State managed locally, saved on "Save Changes" button click.
+
+**Logout flow:** "Log Out" button reveals a confirmation dialog with Cancel/Log Out buttons. Confirmation calls `supabase.auth.signOut()` and redirects to `/login`.
+
+---
+
+### Empty States
+
+| Context | Trigger | Display |
+|---------|---------|---------|
+| Profile timeline | No event logs | Stadium icon, "Log Your First Event" heading, CTA button linking to `/log` |
+| Feed | No followed users or no entries | People icon, "Find Fans to Follow" heading, CTA button linking to `/explore` |
+| Lists | No lists available | Clipboard icon, "No Lists Yet" heading, descriptive text |
+| Notifications | No notifications | Bell icon, "No Notifications" heading, descriptive text |
+
+---
+
+### Loading Skeletons & Error Handling
+
+**Skeleton components:** `src/components/Skeleton.tsx`
+
+| Export | Description |
+|--------|-------------|
+| `SkeletonLine` | Single animated pulse line |
+| `SkeletonCard` | Timeline card placeholder with avatar, text lines |
+| `SkeletonProfile` | Full profile page skeleton: header, stats grid, Big Four cards, timeline cards |
+| `SkeletonFeed` | Feed page skeleton: title + 4 card placeholders |
+| `SkeletonList` | Lists page skeleton: title + 6 list item placeholders |
+
+**Loading files:** `loading.tsx` created for:
+- `src/app/(app)/loading.tsx` — Feed page loading (uses `SkeletonFeed`)
+- `src/app/(app)/profile/loading.tsx` — Profile page loading (uses `SkeletonProfile`)
+- `src/app/(app)/lists/loading.tsx` — Lists page loading (uses `SkeletonList`)
+
+**Error boundary:** `src/app/(app)/error.tsx`
+- Client component with warning icon, error message display, and "Try Again" button that calls `reset()`
+- Catches any unhandled errors in `(app)` route group pages
+
+---
+
+### Responsive Layout & Polish
+
+**Viewport configuration:** `src/app/layout.tsx` now exports a `viewport` object:
+- `width: "device-width"`, `initialScale: 1`, `maximumScale: 1`, `userScalable: false`
+- `themeColor: "#0D0F14"` (app background for mobile browser chrome)
+
+**CSS additions** (`src/app/globals.css`):
+- `@keyframes fadeIn` and `@keyframes slideUp` for page transitions
+- `.animate-fade-in` and `.animate-slide-up` utility classes
+- `.scrollbar-hide` for hiding scrollbars on venue lists
+- `@media (min-width: 640px)` constraint: body max-width 640px with auto margins for desktop centering
+
+**Header updates** (`src/components/AppHeader.tsx`):
+- Logo is now a `<Link>` to `/` (feed)
+- Bell icon is a `<Link>` to `/notifications` with unread count badge
+- Settings icon is a `<Link>` to `/settings`
+- Removed unused `ShareIcon`
+
+---
+
+### New Files Created
+
+| File | Type | Description |
+|------|------|-------------|
+| `src/app/(app)/onboarding/page.tsx` | Server Component | Onboarding page with auth guard |
+| `src/app/(app)/onboarding/layout.tsx` | Layout | Onboarding layout wrapper |
+| `src/app/(app)/notifications/page.tsx` | Server Component | Notification list page |
+| `src/app/(app)/settings/page.tsx` | Server Component | Settings page |
+| `src/app/(app)/profile/favorites/[category]/page.tsx` | Server Component | Big Four drill-through |
+| `src/app/(app)/loading.tsx` | Loading UI | Feed skeleton |
+| `src/app/(app)/profile/loading.tsx` | Loading UI | Profile skeleton |
+| `src/app/(app)/lists/loading.tsx` | Loading UI | Lists skeleton |
+| `src/app/(app)/error.tsx` | Error UI | Error boundary for app routes |
+| `src/components/onboarding/OnboardingFlow.tsx` | Client Component | 4-step onboarding orchestrator |
+| `src/components/onboarding/StepAccount.tsx` | Client Component | Username + display name + photo |
+| `src/components/onboarding/StepBigFour.tsx` | Client Component | Sport badge + Big Four search pickers |
+| `src/components/onboarding/StepVenues.tsx` | Client Component | Searchable venue checklist |
+| `src/components/onboarding/StepFirstEvent.tsx` | Client Component | Optional first event with venue shortcuts |
+| `src/components/profile/BigFourDrillThrough.tsx` | Client Component | Per-league favorites with inline editing |
+| `src/components/notifications/NotificationList.tsx` | Client Component | Notification display list |
+| `src/components/settings/SettingsForm.tsx` | Client Component | Settings form with toggles |
+| `src/components/Skeleton.tsx` | Component | Loading skeleton primitives |
+| `src/lib/queries/onboarding.ts` | Query functions | Onboarding data operations |
+| `src/lib/queries/bigfour.ts` | Query functions | League favorites CRUD |
+| `src/lib/queries/notifications.ts` | Query functions | Notification queries |
+| `src/lib/queries/settings.ts` | Query functions | Settings profile queries |
+
+### Modified Files
+
+| File | Change |
+|------|--------|
+| `src/app/(auth)/signup/page.tsx` | Redirect to `/onboarding` after signup instead of `/` |
+| `src/lib/supabase/middleware.ts` | Added onboarding detection: checks `user_metadata.onboarding_completed` and `profiles.fav_sport`, redirects to `/onboarding` if needed |
+| `src/components/AppHeader.tsx` | Added notification bell badge with unread count (30s polling). Logo, bell, settings now Link components. Removed ShareIcon. |
+| `src/components/profile/BigFourSection.tsx` | Added `linkable` prop. Each BigFourCard wrapped in `<Link>` to drill-through page. |
+| `src/components/profile/Timeline.tsx` | Enhanced empty state with icon, heading, and CTA to log flow |
+| `src/components/feed/FeedList.tsx` | Enhanced empty state with icon, heading, and CTA to explore |
+| `src/app/(app)/lists/page.tsx` | Enhanced empty state with icon, heading, and descriptive text |
+| `src/app/layout.tsx` | Added `viewport` export with device-width, theme-color, no user-scalable |
+| `src/app/globals.css` | Added animation keyframes, scrollbar-hide, desktop max-width media query |
+
+---
+
+### Known Issues / Remaining Work
+
+1. **Notification generation** — The notification UI is fully built but notifications are not currently generated. Server-side triggers or Supabase edge functions are needed to insert notification rows when likes, comments, follows, companion tags, etc. occur. The `notifications` table exists in the schema with proper RLS policies.
+
+2. **Avatar upload** — Profile photo upload is a visual placeholder only. Supabase Storage bucket (`avatars`) needs to be created, and upload logic needs to be added to the onboarding StepAccount and settings SettingsForm components.
+
+3. **Big Four images** — BigFourCard still uses gradient color placeholders instead of real team/venue/athlete photos. Would need image URLs on the reference data tables or a third-party sports image API.
+
+4. **Password change / account deletion** — Settings page shows these as "contact support" items. Supabase provides `updateUser({ password })` for password changes and `auth.admin.deleteUser()` for account deletion, but these need dedicated UI and confirmation flows.
+
+5. **Email change** — Would need `supabase.auth.updateUser({ email })` with email verification flow.
+
+6. **Onboarding middleware performance** — The middleware queries `profiles.fav_sport` on every request for users without the metadata flag. For existing test users (created before onboarding was implemented), this query runs on every page load until they either complete onboarding or manually have `fav_sport` set. A migration to set the metadata flag for existing users would eliminate this.
+
+7. **Real-time notifications** — Currently uses 30-second polling in AppHeader. Supabase real-time subscriptions on the `notifications` table would provide instant updates. Subscribe to `INSERT` events where `user_id = current_user.id`.
+
+8. **Blocked users list** — Settings page doesn't include a "Blocked Users" section for viewing/unblocking. The `unblockUser()` function exists in `src/lib/queries/social.ts` but has no UI.
+
+9. **Feed pagination / infinite scroll** — Feed is limited to 30 entries with no "load more" or infinite scroll. The `fetchFeed()` function supports `offset` parameter but the FeedList component doesn't use it.
+
+10. **Team detail pages** — Teams in search results and explore are still not linkable. No `/team/[id]` route exists.
+
+11. **Generated TypeScript types** — Still using `as unknown as Type` casts for Supabase query results. Running `supabase gen types` would provide compile-time type safety.
+
+12. **Photo upload on event logs** — The photo area in StepDetails (log flow step 4) is still a visual placeholder. No Supabase Storage integration for event photos.
+
+13. **Edit event log** — The "Edit" button on event detail pages links to `/log?edit=[logId]` but edit mode is not implemented in the log flow.
+
+14. **Onboarding for existing users** — Test users created before onboarding will be redirected to onboarding on every page load because they don't have the metadata flag or fav_sport set. They need to either complete onboarding or have their profiles manually updated.
+
+---
+
+### Current State Summary
+
+BoxdSeats is a fully functional sports event logging and social platform built with Next.js 15, Supabase, and Tailwind CSS v4. The app includes:
+
+**Core Features (complete):**
+- Email/password authentication with protected routes
+- 4-step event logging flow with venue search, date picker, event matching, and details (rating, notes, companions, privacy, rooting interest, outcome)
+- Full profile with avatar, stats, Big Four showcase, 12-month activity chart, pinned list progress, and timeline with league filtering
+- Social system: follow/unfollow with pending requests for private profiles, block/report
+- Feed page showing entries from followed users with optimistic like toggle
+- Explore search across users, venues, and teams
+- Venue detail pages with visit history, home teams, community stats, and timeline
+- Event detail pages with scoreboard, user log, attendees, and comments
+- Lists index and detail pages with progress tracking (venue and event-based)
+- Cross-navigation links between all entities (events, venues, user profiles, lists)
+
+**Session 6 Features (complete):**
+- 4-step onboarding flow for new users (account setup, Big Four + sport badge, mark venues, optional first event)
+- Automatic onboarding detection via middleware with redirect
+- Big Four drill-through showing per-league favorites with inline editing
+- Notification bell with unread count badge in header
+- Full notification list page with mark-as-read on view
+- Settings page with profile editing, sport badge, pinned lists, privacy controls, and logout
+- Empty states for profile (no events), feed (no follows), lists (no lists), notifications (empty)
+- Loading skeletons for feed, profile, and lists pages
+- Error boundary for unhandled errors
+- Responsive layout with mobile-first design (390px target), desktop max-width constraint
+- CSS animations for page transitions
+- Viewport meta tag with theme color for mobile browser chrome
+
+**Architecture:**
+- 20 page routes across auth, app shell, profile, social, content, and settings
+- 37 components across 8 component directories
+- 8 query files with 40+ exported query/mutation functions
+- Server Components for data fetching, Client Components for interactivity
+- Supabase RLS policies enforce privacy and access control at the database level
+- Database triggers maintain denormalized counts (likes, comments) and auto-create venue visits
+
+**Database:** 18+ tables with full reference data (6 leagues, 153 teams, 141 venues, 24 athletes, 169 events), 5 test users with seeded event logs, follows, likes, comments, and companion tags.

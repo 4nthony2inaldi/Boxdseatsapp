@@ -15,7 +15,7 @@ export async function updateSession(request: NextRequest) {
           return request.cookies.getAll();
         },
         setAll(cookiesToSet) {
-          cookiesToSet.forEach(({ name, value, options }) =>
+          cookiesToSet.forEach(({ name, value }) =>
             request.cookies.set(name, value)
           );
           supabaseResponse = NextResponse.next({
@@ -39,6 +39,8 @@ export async function updateSession(request: NextRequest) {
     request.nextUrl.pathname.startsWith("/signup") ||
     request.nextUrl.pathname.startsWith("/auth");
 
+  const isOnboardingRoute = request.nextUrl.pathname.startsWith("/onboarding");
+
   // If not logged in and trying to access protected route, redirect to login
   if (!user && !isAuthRoute) {
     const url = request.nextUrl.clone();
@@ -51,6 +53,25 @@ export async function updateSession(request: NextRequest) {
     const url = request.nextUrl.clone();
     url.pathname = "/";
     return NextResponse.redirect(url);
+  }
+
+  // If logged in and NOT on onboarding, check if onboarding is needed
+  if (user && !isOnboardingRoute && !isAuthRoute) {
+    const needsOnboarding = !user.user_metadata?.onboarding_completed;
+    if (needsOnboarding) {
+      // Check profile for fav_sport as secondary indicator
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("fav_sport")
+        .eq("id", user.id)
+        .single();
+
+      if (profile && !profile.fav_sport) {
+        const url = request.nextUrl.clone();
+        url.pathname = "/onboarding";
+        return NextResponse.redirect(url);
+      }
+    }
   }
 
   return supabaseResponse;
