@@ -785,3 +785,246 @@ This session uses the existing seed data from Sessions 1-2. The event logging fl
 7. **Edit button on event detail** — The "Edit" link for the user's log entry links to `/log?edit=[logId]`, but the log flow does not yet support edit mode. This is a placeholder for future implementation.
 
 8. **Comment input not debounced** — Comment posting has no debounce or throttle. Rapid clicking could submit duplicate comments. The database doesn't have a unique constraint preventing duplicate comment bodies.
+
+---
+
+## Session 5 — Social
+
+**Date:** February 10, 2026
+**Scope:** Feed page, follow system with private profile gating, other users' profiles, followers/following lists, explore search, like toggle, enhanced comments, block and report.
+
+---
+
+### New Page Routes
+
+| Route | File | Type | Description |
+|-------|------|------|-------------|
+| `/` (Feed) | `src/app/(app)/page.tsx` | Server Component | Feed with entries from self + followed users |
+| `/explore` | `src/app/(app)/explore/page.tsx` | Server Component | Search across users, venues, teams |
+| `/user/[username]` | `src/app/(app)/user/[username]/page.tsx` | Server Component | Other user's profile (same layout, no edit, follow button) |
+| `/user/[username]/followers` | `src/app/(app)/user/[username]/followers/page.tsx` | Server Component | User's followers list |
+| `/user/[username]/following` | `src/app/(app)/user/[username]/following/page.tsx` | Server Component | User's following list |
+| `/profile/followers` | `src/app/(app)/profile/followers/page.tsx` | Server Component | Own followers list (replaces placeholder) |
+| `/profile/following` | `src/app/(app)/profile/following/page.tsx` | Server Component | Own following list (replaces placeholder) |
+
+---
+
+### New Query File
+
+**File:** `src/lib/queries/social.ts`
+
+All social queries are consolidated in this file:
+
+| Function | Description | Tables Queried |
+|----------|-------------|----------------|
+| `fetchFeed(supabase, userId, limit?, offset?)` | Feed entries from self + followed users, with author info and like status | `follows`, `blocks`, `event_logs`, `profiles`, `likes`, `venues`, `leagues`, `events`, `teams` |
+| `fetchFollowRelationship(supabase, currentUserId, targetUserId)` | Checks isFollowing, isPending, isFollowedBy between two users | `follows` |
+| `followUser(supabase, followerId, followingId)` | Creates follow (active) or follow request (pending for private profiles) | `profiles`, `follows` |
+| `unfollowUser(supabase, followerId, followingId)` | Removes follow/request | `follows` |
+| `acceptFollowRequest(supabase, currentUserId, requesterId)` | Accepts a pending follow request | `follows` |
+| `fetchFollowersList(supabase, userId, currentUserId)` | List of followers with current user's follow status | `follows`, `profiles` |
+| `fetchFollowingList(supabase, userId, currentUserId)` | List of following with current user's follow status | `follows`, `profiles` |
+| `toggleLike(supabase, userId, eventLogId, currentlyLiked)` | Like/unlike toggle | `likes` |
+| `checkUserLike(supabase, userId, eventLogId)` | Check if user liked an entry | `likes` |
+| `searchAll(supabase, query, limit?)` | Search users, venues, teams in parallel | `profiles`, `venues`, `teams`, `leagues` |
+| `blockUser(supabase, blockerId, blockedId)` | Block user + remove follow relationships | `blocks`, `follows` |
+| `unblockUser(supabase, blockerId, blockedId)` | Remove block | `blocks` |
+| `checkBlocked(supabase, userId1, userId2)` | Check if either user has blocked the other | `blocks` |
+| `reportContent(supabase, reporterId, targetType, targetId, reason)` | Submit a report | `reports` |
+| `fetchUserProfileByUsername(supabase, username)` | Fetch profile by username (includes is_private) | `profiles` |
+
+---
+
+### New Components
+
+| Component | File | Type | Description |
+|-----------|------|------|-------------|
+| `FeedList` | `src/components/feed/FeedList.tsx` | Client Component | Renders feed entries with optimistic like toggle |
+| `FollowButton` | `src/components/social/FollowButton.tsx` | Client Component | Follow/Unfollow/Requested toggle button |
+| `UserList` | `src/components/social/UserList.tsx` | Client Component | Reusable user list with follow buttons (used by followers/following pages) |
+| `UserProfileActions` | `src/components/social/UserProfileActions.tsx` | Client Component | Three-dot menu with block/report actions |
+| `ExploreSearch` | `src/components/explore/ExploreSearch.tsx` | Client Component | Search input with debounce, results grouped by type |
+
+---
+
+### Feed Query Structure
+
+The feed query in `fetchFeed()` works in 6 steps:
+
+1. **Get following IDs:** Query `follows` table for all users the current user follows (`status = 'active'`). Include self in the feed user list.
+2. **Get blocked IDs:** Query `blocks` table for both directions (blocker or blocked). These users' entries are excluded from the feed.
+3. **Fetch event logs:** Query `event_logs` for all feed user IDs, excluding `privacy = 'hide_all'` entries. Ordered by `created_at DESC` with pagination via `range()`. Joins: `venues(name)`, `leagues(slug, name)`, `events(scores, teams, tournament)`.
+4. **Fetch author profiles:** Get profiles for all unique `user_id` values in the results. Map to `author` object on each entry.
+5. **Fetch like status:** Query `likes` table for the current user's likes on the fetched log IDs. Produces a `liked_by_me` boolean per entry.
+6. **Filter blocked:** Remove entries from blocked users.
+
+---
+
+### Follow/Unfollow Implementation
+
+**Approach:** Optimistic UI with server confirmation.
+
+**Follow flow:**
+1. User clicks Follow button
+2. `followUser()` checks `profiles.is_private` for the target user
+3. If public: inserts into `follows` with `status = 'active'` → instant follow
+4. If private: inserts with `status = 'pending'` → "Requested" state
+5. Uses `upsert` with `onConflict: 'follower_id,following_id'` to handle re-follows after unfollowing
+
+**Unfollow flow:**
+1. User clicks Following/Requested button
+2. Optimistically updates local state to unfollowed
+3. `unfollowUser()` deletes the `follows` row
+4. On error: reverts to previous state
+
+**Button states:**
+- Not following: orange "Follow" button
+- Following: muted "Following" button, hover turns red "Unfollow"
+- Pending: muted "Requested" button, click cancels
+
+---
+
+### Private Profile Gating
+
+**How it works:**
+
+1. `/user/[username]` page loads the profile via `fetchUserProfileByUsername()`, which includes `is_private: boolean`
+2. Checks `fetchFollowRelationship()` between the current user and the profile user
+3. If `is_private = true` AND `isFollowing = false`:
+   - Shows ProfileHeader + FollowButton + StatsRow only
+   - Below stats, shows a lock icon with "This account is private" message
+   - BigFour, ActivityChart, PinnedLists, and Timeline are NOT rendered
+4. If `is_private = false` OR `isFollowing = true`:
+   - Full profile is rendered with all sections
+
+**Block gating:**
+- `checkBlocked()` runs before any profile data is fetched
+- If either user has blocked the other, returns "This profile is not available" immediately
+
+**Own profile redirect:**
+- If `profile.id === user.id`, redirects to `/profile` to avoid showing the Follow button on your own profile
+
+---
+
+### Search Implementation
+
+**File:** `src/components/explore/ExploreSearch.tsx`
+
+**Tables searched:**
+- `profiles` — by `username` or `display_name` using `ilike('%query%')`
+- `venues` — by `name` or `city` using `ilike('%query%')`, filtered to `status = 'active'`
+- `teams` — by `name` or `short_name` using `ilike('%query%')`, joins `leagues(name, slug)` for league display
+
+**Debouncing:** 300ms debounce using `useRef<ReturnType<typeof setTimeout>>`. On each keystroke, the previous timer is cleared and a new 300ms timer is set. Loading indicator shown during the async search.
+
+**Result limit:** 8 per type (configurable via `limit` parameter).
+
+**Indexes used:**
+- No dedicated trigram index is used — all searches use `ilike` which leverages sequential scan. The `gin_trgm_ops` indexes on `venues.name`, `profiles.username`, `profiles.display_name`, and `teams.name` exist in the schema but `ilike` doesn't use them. Switching to `similarity()` or the `%` operator would enable fuzzy matching.
+
+**Result display:** Results are grouped under "Users", "Venues", "Teams" section labels. Users show avatar + name + @username with link to `/user/[username]`. Venues show map pin icon + name + city/state with link to `/venue/[id]`. Teams show league emoji + name + league name (no detail page yet, rendered as static items).
+
+---
+
+### Like Toggle Implementation
+
+**Files modified:**
+- `src/components/TimelineCard.tsx` — Added `liked` prop for visual state (filled red heart vs outline)
+- `src/components/feed/FeedList.tsx` — Manages like state with optimistic updates
+
+**How it works:**
+1. `FeedList` maintains entries in local state
+2. On like click: immediately updates `liked_by_me` and `like_count` in local state (optimistic)
+3. Calls `toggleLike()` which either inserts or deletes from the `likes` table
+4. On error: reverts to previous state
+
+**How like_count stays in sync:**
+- Database triggers `trg_like_insert` and `trg_like_delete` on the `likes` table auto-increment/decrement `event_logs.like_count`
+- The optimistic UI increment/decrement mirrors what the trigger does
+- On next page load, the server-fetched `like_count` reflects the trigger-updated value
+
+**Visual states:**
+- Unliked: outline heart icon, stroke `#5A5F72`, count in muted text
+- Liked: filled heart icon, fill + stroke `#F87171` (red-400), count in red-400
+
+---
+
+### Comment CRUD and Permission Checks
+
+**Modified files:**
+- `src/lib/queries/event.ts` — `deleteComment()` now accepts optional `logOwnerId` parameter
+- `src/components/event/CommentsSection.tsx` — Accepts `logOwnerId` prop, shows delete button for both comment authors and log owners
+
+**Post flow:** Unchanged from Session 4. `postComment()` validates non-empty body, inserts into `comments`, triggers auto-increment of `comment_count`.
+
+**Delete flow — enhanced permissions:**
+1. If `logOwnerId === userId`: the current user owns the log entry → can delete ANY comment on their log. Deletes by `comment.id` only (no `user_id` filter).
+2. If `logOwnerId !== userId`: standard behavior → can only delete own comments. Deletes by `comment.id + user_id` filter.
+3. The delete button now appears when `comment.user_id === userId` OR `logOwnerId === userId`.
+
+**Trigger sync:** `comment_count` on `event_logs` is auto-decremented by the `trg_comment_delete` trigger regardless of who performs the deletion.
+
+---
+
+### How Profile Page Handles "Own" vs "Other User" Mode
+
+**Own profile** (`/profile`):
+- Server component fetches data using `supabase.auth.getUser()` → `user.id`
+- No FollowButton or UserProfileActions rendered
+- StatsRow links to `/profile/followers` and `/profile/following`
+- Edit controls can be added (not yet implemented)
+
+**Other user's profile** (`/user/[username]`):
+- Fetches profile by username via `fetchUserProfileByUsername()`
+- If `profile.id === user.id` → redirects to `/profile`
+- Checks blocked status → shows "not available" if blocked
+- Renders FollowButton + UserProfileActions (three-dot menu with block/report)
+- StatsRow links to `/user/[username]/followers` and `/user/[username]/following`
+- Privacy gating: if private + not following → shows lock message instead of content sections
+- Reuses all the same data-fetching functions and profile components (ProfileHeader, StatsRow, BigFourSection, ActivityChart, PinnedLists, Timeline)
+
+**StatsRow update:** Added optional `followersHref` and `followingHref` props (default to `/profile/followers` and `/profile/following`). The other user's profile passes `/user/[username]/followers` etc.
+
+---
+
+### Other Modified Files
+
+| File | Change |
+|------|--------|
+| `src/components/TimelineCard.tsx` | Added `liked` prop for visual like state. Author row now wrapped in `<Link>` to `/user/[username]`. Timestamp shown in author row. |
+| `src/components/profile/StatsRow.tsx` | Added optional `followersHref` and `followingHref` props for customizable link targets. |
+| `src/lib/queries/event.ts` | `deleteComment()` now accepts optional `logOwnerId` — log owners can delete any comment on their entries. |
+| `src/components/event/CommentsSection.tsx` | Added `logOwnerId` prop. Delete button shows for both comment authors and log owners. |
+| `src/app/(app)/event/[id]/page.tsx` | Passes `logOwnerId` to CommentsSection. Attendee rows now link to `/user/[username]`. |
+| `src/app/(app)/page.tsx` | Replaced static placeholder with server component fetching feed data. |
+| `src/app/(app)/explore/page.tsx` | Replaced static placeholder with ExploreSearch component. |
+| `src/app/(app)/profile/followers/page.tsx` | Replaced placeholder with real followers list using UserList. |
+| `src/app/(app)/profile/following/page.tsx` | Replaced placeholder with real following list using UserList. |
+
+---
+
+### Known Issues / Incomplete Items
+
+1. **Feed pagination** — `fetchFeed()` supports `offset` parameter but the FeedList component does not implement infinite scroll or "load more" button. Currently limited to 30 entries.
+
+2. **Feed real-time updates** — No Supabase real-time subscription. New entries from followed users only appear on page refresh or re-navigation to the feed tab.
+
+3. **Explore fuzzy search** — Uses `ilike` which provides case-insensitive substring matching but not fuzzy/typo-tolerant matching. The `pg_trgm` GIN indexes exist in the schema but are not leveraged. Switching to `similarity()` or `%` operator would improve search quality.
+
+4. **Team detail pages** — Teams in search results are rendered as static items (no link). There is no `/team/[id]` route. A future session should add team detail pages.
+
+5. **Follow request notifications** — When a private profile receives a follow request, there is no notification mechanism. The `acceptFollowRequest()` function exists but there is no UI for viewing/accepting pending requests.
+
+6. **Unblock UI** — `unblockUser()` function exists but there is no settings page or blocked users list to unblock from. Currently, once blocked, the only way to unblock is via database.
+
+7. **Report review** — Reports are inserted into the `reports` table with `status = 'pending'`, but there is no admin panel to review them.
+
+8. **Profile images** — All avatars use gradient initial fallbacks since Supabase Storage upload is not yet implemented. `avatar_url` is always null.
+
+9. **Like state on profile timeline** — The profile Timeline component does not pass `liked` prop to TimelineCard, so like visual state is not shown on the profile page. The feed page has full like support.
+
+10. **Comments on other users' logs** — The event detail page only shows comments for the current user's log. If viewing an event where another user logged it, their comments are not visible. A future enhancement could show all comments across all logs for an event.
+
+11. **Search result limit** — Each search type is limited to 8 results. There is no "show all" or pagination for search results. For queries that match many results (e.g., searching "New" returns many teams), the user cannot see beyond the first 8.
+
+12. **Block does not retroactively remove likes/comments** — When blocking a user, their existing likes and comments on your event logs remain. Only follow relationships are removed. A future enhancement could clean up social interactions on block.

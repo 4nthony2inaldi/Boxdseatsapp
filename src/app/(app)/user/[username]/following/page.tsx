@@ -1,9 +1,14 @@
 import { createClient } from "@/lib/supabase/server";
-import { fetchFollowingList } from "@/lib/queries/social";
+import { fetchFollowingList, fetchUserProfileByUsername } from "@/lib/queries/social";
 import UserList from "@/components/social/UserList";
 import Link from "next/link";
 
-export default async function FollowingPage() {
+type Props = {
+  params: Promise<{ username: string }>;
+};
+
+export default async function UserFollowingPage({ params }: Props) {
+  const { username } = await params;
   const supabase = await createClient();
   const {
     data: { user },
@@ -17,13 +22,22 @@ export default async function FollowingPage() {
     );
   }
 
-  const following = await fetchFollowingList(supabase, user.id, user.id);
+  const profile = await fetchUserProfileByUsername(supabase, username);
+  if (!profile) {
+    return (
+      <div className="px-4 py-8 max-w-lg mx-auto text-center">
+        <p className="text-text-muted">User not found.</p>
+      </div>
+    );
+  }
+
+  const following = await fetchFollowingList(supabase, profile.id, user.id);
 
   return (
     <div className="max-w-lg mx-auto pb-5">
       <div className="px-4 pt-2 mb-3 flex items-center gap-3">
         <Link
-          href="/profile"
+          href={`/user/${username}`}
           className="text-text-muted hover:text-text-secondary transition-colors"
         >
           <svg
@@ -40,7 +54,7 @@ export default async function FollowingPage() {
           </svg>
         </Link>
         <h1 className="font-display text-[22px] text-text-primary tracking-wide">
-          Following
+          {profile.display_name || `@${username}`}&apos;s Following
         </h1>
       </div>
       <UserList users={following} currentUserId={user.id} />

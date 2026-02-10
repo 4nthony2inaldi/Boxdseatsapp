@@ -3,9 +3,15 @@ import StatBox from "./StatBox";
 
 type StatsRowProps = {
   stats: ProfileStats;
+  followersHref?: string;
+  followingHref?: string;
 };
 
-export default function StatsRow({ stats }: StatsRowProps) {
+export default function StatsRow({
+  stats,
+  followersHref = "/profile/followers",
+  followingHref = "/profile/following",
+}: StatsRowProps) {
   return (
     <div className="grid grid-cols-4 gap-2 px-4 mb-5">
       <StatBox value={stats.totalEvents} label="Events" />
@@ -13,12 +19,12 @@ export default function StatsRow({ stats }: StatsRowProps) {
       <StatBox
         value={stats.followers}
         label="Followers"
-        href="/profile/followers"
+        href={followersHref}
       />
       <StatBox
         value={stats.following}
         label="Following"
-        href="/profile/following"
+        href={followingHref}
       />
     </div>
   );

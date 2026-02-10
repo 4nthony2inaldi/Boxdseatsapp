@@ -7,10 +7,11 @@ import { postComment, deleteComment, type EventComment } from "@/lib/queries/eve
 type Props = {
   eventLogId: string;
   userId: string;
+  logOwnerId: string;
   initialComments: EventComment[];
 };
 
-export default function CommentsSection({ eventLogId, userId, initialComments }: Props) {
+export default function CommentsSection({ eventLogId, userId, logOwnerId, initialComments }: Props) {
   const [comments, setComments] = useState<EventComment[]>(initialComments);
   const [body, setBody] = useState("");
   const [posting, setPosting] = useState(false);
@@ -71,7 +72,7 @@ export default function CommentsSection({ eventLogId, userId, initialComments }:
 
   const handleDelete = async (commentId: string) => {
     const supabase = createClient();
-    const result = await deleteComment(supabase, commentId, userId);
+    const result = await deleteComment(supabase, commentId, userId, logOwnerId);
 
     if ("error" in result) {
       setError(result.error);
@@ -130,7 +131,7 @@ export default function CommentsSection({ eventLogId, userId, initialComments }:
                     <span className="text-[10px] text-text-muted">
                       {formatTime(comment.created_at)}
                     </span>
-                    {comment.user_id === userId && (
+                    {(comment.user_id === userId || logOwnerId === userId) && (
                       <button
                         onClick={() => handleDelete(comment.id)}
                         className="ml-auto text-[10px] text-text-muted hover:text-loss transition-colors bg-transparent border-none cursor-pointer p-0"

@@ -260,17 +260,31 @@ export async function postComment(
 }
 
 // ── Delete a comment ──
+// Allows deletion if the user is either the comment author or the log owner.
 
 export async function deleteComment(
   supabase: SupabaseClient,
   commentId: string,
-  userId: string
+  userId: string,
+  logOwnerId?: string
 ): Promise<{ success: boolean } | { error: string }> {
+  // If the user is the log owner, they can delete any comment on their log
+  if (logOwnerId && logOwnerId === userId) {
+    const { error } = await supabase
+      .from("comments")
+      .delete()
+      .eq("id", commentId);
+
+    if (error) return { error: "Failed to delete comment." };
+    return { success: true };
+  }
+
+  // Otherwise, only allow deleting own comments
   const { error } = await supabase
     .from("comments")
     .delete()
     .eq("id", commentId)
-    .eq("user_id", userId); // Only allow deleting own comments
+    .eq("user_id", userId);
 
   if (error) {
     return { error: "Failed to delete comment." };

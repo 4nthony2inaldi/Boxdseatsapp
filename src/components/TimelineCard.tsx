@@ -42,6 +42,7 @@ type TimelineCardProps = {
   entry: TimelineCardEntry;
   showAuthor?: boolean;
   author?: TimelineAuthor | null;
+  liked?: boolean;
   onLike?: (entryId: string) => void;
   onComment?: (entryId: string) => void;
   onShare?: (entryId: string) => void;
@@ -51,6 +52,7 @@ export default function TimelineCard({
   entry,
   showAuthor = false,
   author,
+  liked = false,
   onLike,
   onComment,
   onShare,
@@ -76,7 +78,10 @@ export default function TimelineCard({
       <div className="px-4 py-3.5">
         {/* Author row (feed mode only) */}
         {showAuthor && author && (
-          <div className="flex items-center gap-2.5 mb-3 pb-3 border-b border-border">
+          <Link
+            href={`/user/${author.username}`}
+            className="flex items-center gap-2.5 mb-3 pb-3 border-b border-border"
+          >
             {/* Avatar */}
             <div className="w-8 h-8 rounded-full shrink-0 overflow-hidden">
               {author.avatar_url ? (
@@ -95,7 +100,7 @@ export default function TimelineCard({
                 </div>
               )}
             </div>
-            {/* Name + username */}
+            {/* Name + username + timestamp */}
             <div className="flex-1 min-w-0">
               <div className="text-sm text-text-primary font-medium truncate">
                 {author.display_name || author.username}
@@ -104,7 +109,10 @@ export default function TimelineCard({
                 @{author.username}
               </div>
             </div>
-          </div>
+            <span className="text-[11px] text-text-muted shrink-0">
+              {formattedDate}
+            </span>
+          </Link>
         )}
 
         {/* Header row: league + outcome + stars */}
@@ -226,15 +234,15 @@ export default function TimelineCard({
               width="16"
               height="16"
               viewBox="0 0 24 24"
-              fill="transparent"
-              stroke="#5A5F72"
+              fill={liked ? "#F87171" : "transparent"}
+              stroke={liked ? "#F87171" : "#5A5F72"}
               strokeWidth="2"
               strokeLinecap="round"
               strokeLinejoin="round"
             >
               <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" />
             </svg>
-            <span className="text-xs text-text-muted">{entry.like_count}</span>
+            <span className={`text-xs ${liked ? "text-red-400" : "text-text-muted"}`}>{entry.like_count}</span>
           </button>
           <button
             onClick={() => onComment?.(entry.id)}

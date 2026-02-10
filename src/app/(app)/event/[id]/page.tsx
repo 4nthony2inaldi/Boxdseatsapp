@@ -210,9 +210,10 @@ export default async function EventDetailPage({
           <SectionLabel>BoxdSeats Attendees ({attendees.length})</SectionLabel>
           <div className="space-y-2">
             {attendees.map((attendee) => (
-              <div
+              <Link
                 key={attendee.id}
-                className="bg-bg-card rounded-xl border border-border px-4 py-3 flex items-center gap-3"
+                href={`/user/${attendee.username}`}
+                className="bg-bg-card rounded-xl border border-border px-4 py-3 flex items-center gap-3 hover:bg-bg-elevated/50 transition-colors"
               >
                 {/* Avatar */}
                 <div className="w-8 h-8 rounded-full shrink-0 overflow-hidden">
@@ -242,7 +243,7 @@ export default async function EventDetailPage({
                   {attendee.rating && <StarRating rating={attendee.rating} size={10} />}
                   <OutcomeBadge outcome={attendee.outcome} />
                 </div>
-              </div>
+              </Link>
             ))}
           </div>
         </div>
@@ -255,6 +256,7 @@ export default async function EventDetailPage({
           <CommentsSection
             eventLogId={userLog.id}
             userId={user.id}
+            logOwnerId={userLog.user_id}
             initialComments={comments}
           />
         </div>
