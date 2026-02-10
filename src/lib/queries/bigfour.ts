@@ -73,16 +73,22 @@ export async function fetchLeagueFavorites(
       const { data: event } = await supabase
         .from("events")
         .select(
-          `tournament_name,
-           home_team:teams!events_home_team_id_fkey(short_name),
-           away_team:teams!events_away_team_id_fkey(short_name)`
+          `event_date, tournament_name,
+           home_team:teams!events_home_team_id_fkey(short_name, abbreviation),
+           away_team:teams!events_away_team_id_fkey(short_name, abbreviation)`
         )
         .eq("id", fav.event_id)
         .single();
       if (event) {
-        const home = (event.home_team as unknown as { short_name: string } | null)?.short_name;
-        const away = (event.away_team as unknown as { short_name: string } | null)?.short_name;
-        pickName = home && away ? `${away} @ ${home}` : event.tournament_name || "Event";
+        const home = event.home_team as unknown as { short_name: string; abbreviation: string } | null;
+        const away = event.away_team as unknown as { short_name: string; abbreviation: string } | null;
+        const homeAbbr = home?.abbreviation || home?.short_name;
+        const awayAbbr = away?.abbreviation || away?.short_name;
+        const d = new Date(event.event_date + "T00:00:00");
+        const dateStr = `${d.getMonth() + 1}/${d.getDate()}/${String(d.getFullYear()).slice(2)}`;
+        pickName = homeAbbr && awayAbbr
+          ? `${awayAbbr} @ ${homeAbbr} ${dateStr}`
+          : event.tournament_name || "Event";
       }
       pickId = fav.event_id;
     }

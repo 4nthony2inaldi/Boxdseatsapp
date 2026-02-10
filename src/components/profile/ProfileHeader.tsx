@@ -68,12 +68,15 @@ export default function ProfileHeader({ profile, stats }: ProfileHeaderProps) {
         </div>
         <div className="flex items-center justify-between">
           <div className="text-xs text-text-muted">@{profile.username}</div>
-          <div className="flex gap-1 items-center">
-            <span className="text-[11px] text-win">{stats.wins}</span>
-            <span className="text-[11px] text-text-muted">—</span>
-            <span className="text-[11px] text-loss">{stats.losses}</span>
-            <span className="text-[11px] text-text-muted">—</span>
-            <span className="text-[11px] text-draw">{stats.draws}</span>
+          <div className="flex flex-col items-center">
+            <span className="font-display text-[9px] text-text-muted tracking-[1px] uppercase leading-none mb-0.5">Fan Record</span>
+            <div className="flex gap-1 items-center">
+              <span className="text-[11px] text-win">{stats.wins}</span>
+              <span className="text-[11px] text-text-muted">—</span>
+              <span className="text-[11px] text-loss">{stats.losses}</span>
+              <span className="text-[11px] text-text-muted">—</span>
+              <span className="text-[11px] text-draw">{stats.draws}</span>
+            </div>
           </div>
         </div>
         {profile.bio && (

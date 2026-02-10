@@ -197,19 +197,21 @@ export async function fetchBigFour(
     const { data } = await supabase
       .from("events")
       .select(
-        "event_date, home_team:teams!events_home_team_id_fkey(short_name), away_team:teams!events_away_team_id_fkey(short_name), tournament_name, venues(name)"
+        "event_date, home_team:teams!events_home_team_id_fkey(short_name, abbreviation), away_team:teams!events_away_team_id_fkey(short_name, abbreviation), tournament_name, venues(name)"
       )
       .eq("id", profile.fav_event_id)
       .single();
     if (data) {
-      const home = (data.home_team as unknown as { short_name: string } | null)
-        ?.short_name;
-      const away = (data.away_team as unknown as { short_name: string } | null)
-        ?.short_name;
+      const home = (data.home_team as unknown as { short_name: string; abbreviation: string } | null);
+      const away = (data.away_team as unknown as { short_name: string; abbreviation: string } | null);
       const venue = (data.venues as unknown as { name: string } | null)?.name || "";
+      const d = new Date(data.event_date + "T00:00:00");
+      const dateStr = `${d.getMonth() + 1}/${d.getDate()}/${String(d.getFullYear()).slice(2)}`;
+      const homeAbbr = home?.abbreviation || home?.short_name;
+      const awayAbbr = away?.abbreviation || away?.short_name;
       const name =
-        home && away
-          ? `${away} @ ${home}`
+        homeAbbr && awayAbbr
+          ? `${awayAbbr} @ ${homeAbbr} ${dateStr}`
           : data.tournament_name || "Event";
       items.push({
         category: "event",
