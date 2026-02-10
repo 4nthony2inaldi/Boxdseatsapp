@@ -9,7 +9,7 @@ import {
   searchAthletes,
   searchEvents,
 } from "@/lib/queries/onboarding";
-import { upsertLeagueFavorite } from "@/lib/queries/bigfour";
+import { upsertLeagueFavorite, setFeaturedFavorite } from "@/lib/queries/bigfour";
 
 const ALL_LEAGUES = [
   { slug: "nfl", name: "NFL", icon: "🏈" },
@@ -24,6 +24,7 @@ type Props = {
   userId: string;
   category: "team" | "venue" | "athlete" | "event";
   initialFavorites: LeagueFavorite[];
+  featuredPickId: string | null;
 };
 
 type SearchResult = { id: string; label: string; subtitle?: string };
@@ -32,8 +33,10 @@ export default function BigFourDrillThrough({
   userId,
   category,
   initialFavorites,
+  featuredPickId,
 }: Props) {
   const [favorites, setFavorites] = useState(initialFavorites);
+  const [featuredId, setFeaturedId] = useState(featuredPickId);
   const [editingLeagueSlug, setEditingLeagueSlug] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [searchResults, setSearchResults] = useState<SearchResult[]>([]);
@@ -130,6 +133,15 @@ export default function BigFourDrillThrough({
     setSearchResults([]);
   }
 
+  async function handleSetFeatured(pickId: string) {
+    setSaving(true);
+    const result = await setFeaturedFavorite(supabase, userId, category, pickId);
+    if ("success" in result) {
+      setFeaturedId(pickId);
+    }
+    setSaving(false);
+  }
+
   return (
     <div className="space-y-2">
       {ALL_LEAGUES.map((league) => {
@@ -150,6 +162,25 @@ export default function BigFourDrillThrough({
                   <div className="text-xs text-text-muted">No pick yet</div>
                 )}
               </div>
+              {fav && (
+                <button
+                  onClick={() => handleSetFeatured(fav.pick_id)}
+                  disabled={saving}
+                  title={featuredId === fav.pick_id ? "Featured favorite" : "Set as featured"}
+                  className="p-1 transition-colors disabled:opacity-50"
+                >
+                  <svg
+                    width="16"
+                    height="16"
+                    viewBox="0 0 24 24"
+                    fill={featuredId === fav.pick_id ? "#D4872C" : "transparent"}
+                    stroke={featuredId === fav.pick_id ? "#D4872C" : "#5A5F72"}
+                    strokeWidth="1.5"
+                  >
+                    <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
+                  </svg>
+                </button>
+              )}
               <button
                 onClick={() => {
                   if (isEditing) {

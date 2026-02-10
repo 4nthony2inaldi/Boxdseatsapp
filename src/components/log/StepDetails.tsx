@@ -18,6 +18,8 @@ type StepDetailsProps = {
   onSave: (details: DetailsData) => void;
   onBack: () => void;
   saving: boolean;
+  isEditMode?: boolean;
+  initialValues?: DetailsData;
 };
 
 export type DetailsData = {
@@ -39,16 +41,18 @@ export default function StepDetails({
   onSave,
   onBack,
   saving,
+  isEditMode,
+  initialValues,
 }: StepDetailsProps) {
-  const [rating, setRating] = useState<number | null>(null);
-  const [rootingTeamId, setRootingTeamId] = useState<string | null>(null);
-  const [isNeutral, setIsNeutral] = useState(false);
-  const [seatLocation, setSeatLocation] = useState("");
-  const [notes, setNotes] = useState("");
+  const [rating, setRating] = useState<number | null>(initialValues?.rating ?? null);
+  const [rootingTeamId, setRootingTeamId] = useState<string | null>(initialValues?.rooting_team_id ?? null);
+  const [isNeutral, setIsNeutral] = useState(initialValues?.is_neutral ?? false);
+  const [seatLocation, setSeatLocation] = useState(initialValues?.seat_location ?? "");
+  const [notes, setNotes] = useState(initialValues?.notes ?? "");
   const [privacy, setPrivacy] = useState<
     "show_all" | "hide_personal" | "hide_all"
-  >("show_all");
-  const [companions, setCompanions] = useState<CompanionInput[]>([]);
+  >(initialValues?.privacy ?? "show_all");
+  const [companions, setCompanions] = useState<CompanionInput[]>(initialValues?.companions ?? []);
   const [companionSearch, setCompanionSearch] = useState("");
   const [companionResults, setCompanionResults] = useState<UserSearchResult[]>(
     []
@@ -371,7 +375,7 @@ export default function StepDetails({
           boxShadow: "0 4px 20px rgba(212, 135, 44, 0.25)",
         }}
       >
-        {saving ? "SAVING..." : "SAVE EVENT"}
+        {saving ? "SAVING..." : isEditMode ? "UPDATE EVENT" : "SAVE EVENT"}
       </button>
 
       {/* Back */}

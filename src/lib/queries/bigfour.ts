@@ -131,6 +131,33 @@ export async function upsertLeagueFavorite(
   return { success: true };
 }
 
+/**
+ * Set a league favorite's pick as the user's featured (overall) favorite
+ * by updating the corresponding column on the profiles table.
+ */
+export async function setFeaturedFavorite(
+  supabase: SupabaseClient,
+  userId: string,
+  category: "team" | "venue" | "athlete" | "event",
+  pickId: string
+): Promise<{ success: boolean } | { error: string }> {
+  const columnMap: Record<string, string> = {
+    team: "fav_team_id",
+    venue: "fav_venue_id",
+    athlete: "fav_athlete_id",
+    event: "fav_event_id",
+  };
+
+  const column = columnMap[category];
+  const { error } = await supabase
+    .from("profiles")
+    .update({ [column]: pickId })
+    .eq("id", userId);
+
+  if (error) return { error: "Failed to update featured favorite." };
+  return { success: true };
+}
+
 export async function deleteLeagueFavorite(
   supabase: SupabaseClient,
   favoriteId: string,

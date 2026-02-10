@@ -3,7 +3,13 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
-import { saveEventLog, type VenueResult, type EventMatch } from "@/lib/queries/log";
+import {
+  saveEventLog,
+  updateEventLog,
+  type VenueResult,
+  type EventMatch,
+  type EditableEventLog,
+} from "@/lib/queries/log";
 import StepVenue from "./StepVenue";
 import StepDate from "./StepDate";
 import StepEvent from "./StepEvent";
@@ -12,17 +18,28 @@ import StepDetails, { type DetailsData } from "./StepDetails";
 type LogFlowProps = {
   userId: string;
   prefillVenue?: VenueResult;
+  editLog?: EditableEventLog;
 };
 
 const STEP_LABELS = ["Venue", "Date", "Event", "Details"];
 
-export default function LogFlow({ userId, prefillVenue }: LogFlowProps) {
+export default function LogFlow({ userId, prefillVenue, editLog }: LogFlowProps) {
   const router = useRouter();
-  const [step, setStep] = useState(prefillVenue ? 2 : 1);
-  const [selectedVenue, setSelectedVenue] = useState<VenueResult | null>(prefillVenue || null);
-  const [selectedDate, setSelectedDate] = useState<string | null>(null);
-  const [selectedEvent, setSelectedEvent] = useState<EventMatch | null>(null);
-  const [manualTitle, setManualTitle] = useState<string | null>(null);
+  const isEditMode = !!editLog;
+
+  const [step, setStep] = useState(editLog ? 4 : prefillVenue ? 2 : 1);
+  const [selectedVenue, setSelectedVenue] = useState<VenueResult | null>(
+    editLog?.venue || prefillVenue || null
+  );
+  const [selectedDate, setSelectedDate] = useState<string | null>(
+    editLog?.event_date || null
+  );
+  const [selectedEvent, setSelectedEvent] = useState<EventMatch | null>(
+    editLog?.event || null
+  );
+  const [manualTitle, setManualTitle] = useState<string | null>(
+    editLog?.manual_title || null
+  );
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
@@ -55,29 +72,29 @@ export default function LogFlow({ userId, prefillVenue }: LogFlowProps) {
 
     const supabase = createClient();
 
-    const result = await saveEventLog(
-      supabase,
-      {
-        user_id: userId,
-        event_id: selectedEvent?.id || null,
-        venue_id: selectedVenue.id,
-        event_date: selectedDate,
-        league_id: selectedEvent?.league_id || null,
-        sport: selectedEvent?.sport || null,
-        rating: details.rating,
-        notes: details.notes || null,
-        seat_location: details.seat_location || null,
-        privacy: details.privacy,
-        rooting_team_id: details.rooting_team_id,
-        is_neutral: details.is_neutral,
-        outcome: null, // computed by saveEventLog
-        is_manual: !selectedEvent,
-        manual_title: manualTitle,
-        manual_description: null,
-        companions: details.companions,
-      },
-      selectedEvent
-    );
+    const logInput = {
+      user_id: userId,
+      event_id: selectedEvent?.id || null,
+      venue_id: selectedVenue.id,
+      event_date: selectedDate,
+      league_id: selectedEvent?.league_id || null,
+      sport: selectedEvent?.sport || null,
+      rating: details.rating,
+      notes: details.notes || null,
+      seat_location: details.seat_location || null,
+      privacy: details.privacy,
+      rooting_team_id: details.rooting_team_id,
+      is_neutral: details.is_neutral,
+      outcome: null as "win" | "loss" | "draw" | "neutral" | null,
+      is_manual: !selectedEvent,
+      manual_title: manualTitle,
+      manual_description: null,
+      companions: details.companions,
+    };
+
+    const result = isEditMode
+      ? await updateEventLog(supabase, editLog!.id, logInput, selectedEvent)
+      : await saveEventLog(supabase, logInput, selectedEvent);
 
     setSaving(false);
 
@@ -85,9 +102,12 @@ export default function LogFlow({ userId, prefillVenue }: LogFlowProps) {
       setError(result.error);
     } else {
       setSuccess(true);
-      // Navigate to profile after brief delay to show success
       setTimeout(() => {
-        router.push("/profile");
+        if (isEditMode && editLog?.event_id) {
+          router.push(`/event/${editLog.event_id}`);
+        } else {
+          router.push("/profile");
+        }
         router.refresh();
       }, 1200);
     }
@@ -97,12 +117,12 @@ export default function LogFlow({ userId, prefillVenue }: LogFlowProps) {
   if (success) {
     return (
       <div className="px-4 py-16 max-w-lg mx-auto text-center">
-        <div className="text-5xl mb-4">🎉</div>
+        <div className="text-5xl mb-4">{isEditMode ? "✅" : "🎉"}</div>
         <div className="font-display text-2xl text-text-primary tracking-wider mb-2">
-          EVENT LOGGED
+          {isEditMode ? "EVENT UPDATED" : "EVENT LOGGED"}
         </div>
         <div className="text-sm text-text-secondary">
-          Redirecting to your profile...
+          Redirecting...
         </div>
       </div>
     );
@@ -175,7 +195,7 @@ export default function LogFlow({ userId, prefillVenue }: LogFlowProps) {
         {step === 1 && "Log Event"}
         {step === 2 && "Select Date"}
         {step === 3 && "Confirm Event"}
-        {step === 4 && "Log Details"}
+        {step === 4 && (isEditMode ? "Edit Details" : "Log Details")}
       </div>
 
       {/* Error */}
@@ -219,6 +239,20 @@ export default function LogFlow({ userId, prefillVenue }: LogFlowProps) {
           onSave={handleSave}
           onBack={() => setStep(3)}
           saving={saving}
+          isEditMode={isEditMode}
+          initialValues={
+            editLog
+              ? {
+                  rating: editLog.rating,
+                  rooting_team_id: editLog.rooting_team_id,
+                  is_neutral: editLog.is_neutral,
+                  seat_location: editLog.seat_location || "",
+                  notes: editLog.notes || "",
+                  companions: editLog.companions,
+                  privacy: editLog.privacy,
+                }
+              : undefined
+          }
         />
       )}
     </div>

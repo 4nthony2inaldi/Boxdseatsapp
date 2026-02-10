@@ -385,6 +385,203 @@ export async function saveEventLog(
   return { id: inserted.id };
 }
 
+// ── Fetch Event Log for Editing ──
+
+export type EditableEventLog = {
+  id: string;
+  user_id: string;
+  event_id: string | null;
+  venue_id: string;
+  event_date: string;
+  league_id: string | null;
+  sport: string | null;
+  rating: number | null;
+  notes: string | null;
+  seat_location: string | null;
+  privacy: "show_all" | "hide_personal" | "hide_all";
+  rooting_team_id: string | null;
+  is_neutral: boolean;
+  outcome: "win" | "loss" | "draw" | "neutral" | null;
+  is_manual: boolean;
+  manual_title: string | null;
+  manual_description: string | null;
+  venue: VenueResult;
+  event: EventMatch | null;
+  companions: CompanionInput[];
+};
+
+/**
+ * Fetch a single event log with venue, event, and companion data for editing.
+ * Only returns the log if it belongs to the given user.
+ */
+export async function fetchEventLogForEdit(
+  supabase: SupabaseClient,
+  logId: string,
+  userId: string
+): Promise<EditableEventLog | null> {
+  const { data: log } = await supabase
+    .from("event_logs")
+    .select(
+      `
+      id, user_id, event_id, venue_id, event_date, league_id, sport,
+      rating, notes, seat_location, privacy, rooting_team_id, is_neutral,
+      outcome, is_manual, manual_title, manual_description
+    `
+    )
+    .eq("id", logId)
+    .eq("user_id", userId)
+    .single();
+
+  if (!log) return null;
+
+  // Fetch venue
+  const { data: venue } = await supabase
+    .from("venues")
+    .select("id, name, city, state")
+    .eq("id", log.venue_id)
+    .single();
+
+  if (!venue) return null;
+
+  // Fetch event if linked
+  let event: EventMatch | null = null;
+  if (log.event_id) {
+    const { data: eventData } = await supabase
+      .from("events")
+      .select(
+        `
+        id, event_date, league_id, event_template, round_or_stage,
+        home_team_id, away_team_id, home_score, away_score,
+        tournament_name,
+        leagues(name, slug, sport),
+        home_team:teams!events_home_team_id_fkey(short_name),
+        away_team:teams!events_away_team_id_fkey(short_name)
+      `
+      )
+      .eq("id", log.event_id)
+      .single();
+
+    if (eventData) {
+      const league = eventData.leagues as unknown as {
+        name: string;
+        slug: string;
+        sport: string;
+      } | null;
+      const homeTeam = eventData.home_team as unknown as {
+        short_name: string;
+      } | null;
+      const awayTeam = eventData.away_team as unknown as {
+        short_name: string;
+      } | null;
+
+      event = {
+        id: eventData.id,
+        event_date: eventData.event_date,
+        league_id: eventData.league_id,
+        league_name: league?.name || "",
+        league_slug: league?.slug || "",
+        sport: league?.sport || "",
+        sport_icon: league?.sport
+          ? sportIcons[league.sport] || "🏟️"
+          : "🏟️",
+        home_team_id: eventData.home_team_id,
+        away_team_id: eventData.away_team_id,
+        home_team_short: homeTeam?.short_name || null,
+        away_team_short: awayTeam?.short_name || null,
+        home_score: eventData.home_score,
+        away_score: eventData.away_score,
+        tournament_name: eventData.tournament_name,
+        round_or_stage: eventData.round_or_stage,
+        event_template: eventData.event_template,
+        start_time: null,
+      };
+    }
+  }
+
+  // Fetch companions
+  const { data: companionRows } = await supabase
+    .from("companion_tags")
+    .select("tagged_user_id, display_name")
+    .eq("event_log_id", log.id);
+
+  const companions: CompanionInput[] = (companionRows || []).map((c) => ({
+    tagged_user_id: c.tagged_user_id,
+    display_name: c.display_name,
+  }));
+
+  return {
+    ...log,
+    venue: {
+      id: venue.id,
+      name: venue.name,
+      city: venue.city,
+      state: venue.state,
+      visit_count: 0,
+      sport_icon: log.sport ? sportIcons[log.sport] || "🏟️" : "🏟️",
+    },
+    event,
+    companions,
+  };
+}
+
+// ── Update Event Log ──
+
+/**
+ * Update an existing event log. Replaces companion tags.
+ */
+export async function updateEventLog(
+  supabase: SupabaseClient,
+  logId: string,
+  input: EventLogInsert,
+  selectedEvent: EventMatch | null
+): Promise<{ id: string } | { error: string }> {
+  const outcome = computeOutcome(
+    selectedEvent,
+    input.rooting_team_id,
+    input.is_neutral
+  );
+
+  const { error } = await supabase
+    .from("event_logs")
+    .update({
+      event_id: input.event_id,
+      venue_id: input.venue_id,
+      event_date: input.event_date,
+      league_id: input.league_id,
+      sport: input.sport,
+      rating: input.rating,
+      notes: input.notes || null,
+      seat_location: input.seat_location || null,
+      privacy: input.privacy,
+      rooting_team_id: input.rooting_team_id,
+      is_neutral: input.is_neutral,
+      outcome,
+      is_manual: input.is_manual,
+      manual_title: input.manual_title,
+      manual_description: input.manual_description,
+    })
+    .eq("id", logId)
+    .eq("user_id", input.user_id);
+
+  if (error) {
+    return { error: friendlyError(error.message) };
+  }
+
+  // Replace companion tags: delete old, insert new
+  await supabase.from("companion_tags").delete().eq("event_log_id", logId);
+
+  if (input.companions.length > 0) {
+    const companionRows = input.companions.map((c) => ({
+      event_log_id: logId,
+      tagged_user_id: c.tagged_user_id,
+      display_name: c.display_name,
+    }));
+    await supabase.from("companion_tags").insert(companionRows);
+  }
+
+  return { id: logId };
+}
+
 // ── User Search (for companion tagging) ──
 
 export type UserSearchResult = {
