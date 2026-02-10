@@ -2,8 +2,26 @@ import type { Metadata, Viewport } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "BoxdSeats",
-  description: "Your sports identity platform — log, track, and share your live event experiences.",
+  title: {
+    default: "BoxdSeats",
+    template: "%s | BoxdSeats",
+  },
+  description:
+    "Your sports identity platform — log, track, and share your live event experiences.",
+  applicationName: "BoxdSeats",
+  openGraph: {
+    type: "website",
+    siteName: "BoxdSeats",
+    title: "BoxdSeats",
+    description:
+      "Your sports identity platform — log, track, and share your live event experiences.",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "BoxdSeats",
+    description:
+      "Your sports identity platform — log, track, and share your live event experiences.",
+  },
 };
 
 export const viewport: Viewport = {

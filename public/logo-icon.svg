@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512">
+  <rect width="512" height="512" rx="96" fill="#0D0F14"/>
+  <!-- Basketball -->
+  <circle cx="115.2" cy="256" r="104.96" fill="#D4872C"/>
+  <!-- Football -->
+  <circle cx="396.8" cy="256" r="104.96" fill="#7B5B3A"/>
+  <!-- Baseball -->
+  <circle cx="256" cy="256" r="128" fill="#F0EBE0"/>
+  <!-- Left stitch -->
+  <path d="M 207.36 192 A 94.464 94.464 0 0 1 207.36 320" fill="none" stroke="#C83C2C" stroke-width="14.08" stroke-linecap="round"/>
+  <!-- Right stitch -->
+  <path d="M 304.64 192 A 94.464 94.464 0 0 0 304.64 320" fill="none" stroke="#C83C2C" stroke-width="14.08" stroke-linecap="round"/>
+</svg>
