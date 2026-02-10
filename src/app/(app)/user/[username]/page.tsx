@@ -159,7 +159,7 @@ export default async function UserProfilePage({ params }: Props) {
         followersHref={`/user/${username}/followers`}
         followingHref={`/user/${username}/following`}
       />
-      <BigFourSection items={bigFour} />
+      <BigFourSection items={bigFour} linkable={false} />
       <ActivityChart months={activityData.months} total={activityData.total} />
       <PinnedLists lists={pinnedLists} />
       <Timeline initialEntries={timelineEntries} userId={profile.id} />
