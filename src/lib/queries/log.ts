@@ -165,6 +165,27 @@ export async function searchVenues(
   }));
 }
 
+// ── Event Dates for a Venue ──
+
+/**
+ * Fetch all event dates for a given venue.
+ * Returns a Set of YYYY-MM-DD strings for fast lookup in the calendar.
+ */
+export async function fetchEventDatesForVenue(
+  supabase: SupabaseClient,
+  venueId: string
+): Promise<Set<string>> {
+  const { data } = await supabase
+    .from("events")
+    .select("event_date")
+    .eq("venue_id", venueId)
+    .order("event_date", { ascending: false });
+
+  if (!data) return new Set();
+
+  return new Set(data.map((e) => e.event_date));
+}
+
 // ── Event Matching ──
 
 /**

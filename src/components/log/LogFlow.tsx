@@ -191,6 +191,7 @@ export default function LogFlow({ userId }: LogFlowProps) {
 
       {step === 2 && selectedVenue && (
         <StepDate
+          venueId={selectedVenue.id}
           venueName={selectedVenue.name}
           onSelect={handleDateSelect}
           onBack={() => setStep(1)}
