@@ -26,7 +26,7 @@ export default async function ListsPage() {
       <p className="text-text-secondary text-sm">
         Track your progress on stadium challenges and custom lists.
       </p>
-      <div className="mt-6 space-y-3">
+      <div className="mt-6 space-y-4">
         {lists.map((list) => {
           const pct =
             list.item_count > 0
