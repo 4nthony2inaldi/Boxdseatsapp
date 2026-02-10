@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import type { SettingsProfile } from "@/lib/queries/settings";
 import { updateProfile } from "@/lib/queries/settings";
+import AvatarUpload from "@/components/AvatarUpload";
 
 type Props = {
   profile: SettingsProfile;
@@ -97,6 +98,15 @@ export default function SettingsForm({ profile, userEmail, availableLists }: Pro
       {/* Edit Profile */}
       <SectionHeader>Edit Profile</SectionHeader>
       <div className="bg-bg-card border-y border-border">
+        <div className="px-4 py-4 border-b border-border flex justify-center">
+          <AvatarUpload
+            userId={profile.id}
+            currentAvatarUrl={profile.avatar_url}
+            displayName={profile.display_name}
+            username={profile.username}
+            size={80}
+          />
+        </div>
         <div className="px-4 py-3 border-b border-border">
           <label className="text-xs text-text-muted block mb-1">Display Name</label>
           <input

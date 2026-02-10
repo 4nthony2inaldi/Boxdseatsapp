@@ -6,6 +6,7 @@ import {
   checkUsernameAvailable,
   updateProfileSetup,
 } from "@/lib/queries/onboarding";
+import AvatarUpload from "@/components/AvatarUpload";
 
 type StepAccountProps = {
   userId: string;
@@ -168,20 +169,18 @@ export default function StepAccount({
         />
       </div>
 
-      {/* Profile Photo placeholder */}
+      {/* Profile Photo */}
       <div className="mb-8">
         <label className="font-display text-[11px] text-text-muted tracking-[1.2px] uppercase block mb-2">
           Profile Photo
         </label>
-        <div className="w-20 h-20 rounded-full border-2 border-dashed border-border flex items-center justify-center mx-auto cursor-pointer hover:border-text-muted transition-colors">
-          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="var(--color-text-muted)" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-            <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z" />
-            <circle cx="12" cy="13" r="4" />
-          </svg>
-        </div>
-        <p className="text-[11px] text-text-muted text-center mt-2">
-          Photo upload coming soon
-        </p>
+        <AvatarUpload
+          userId={userId}
+          currentAvatarUrl={null}
+          displayName={displayName || null}
+          username={username}
+          size={80}
+        />
       </div>
 
       {error && <p className="text-loss text-sm mb-4">{error}</p>}

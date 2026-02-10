@@ -1300,7 +1300,7 @@ SettingsPage (Server Component — src/app/(app)/settings/page.tsx)
 
 1. **Notification generation** — The notification UI is fully built but notifications are not currently generated. Server-side triggers or Supabase edge functions are needed to insert notification rows when likes, comments, follows, companion tags, etc. occur. The `notifications` table exists in the schema with proper RLS policies.
 
-2. **Avatar upload** — Profile photo upload is a visual placeholder only. Supabase Storage bucket (`avatars`) needs to be created, and upload logic needs to be added to the onboarding StepAccount and settings SettingsForm components.
+2. ~~**Avatar upload**~~ — **RESOLVED.** Profile photo upload is now fully implemented via Supabase Storage `avatars` bucket. See "Session 6 Addendum — Avatar Upload & Bug Fixes" below.
 
 3. **Big Four images** — BigFourCard still uses gradient color placeholders instead of real team/venue/athlete photos. Would need image URLs on the reference data tables or a third-party sports image API.
 
@@ -1322,7 +1322,7 @@ SettingsPage (Server Component — src/app/(app)/settings/page.tsx)
 
 12. **Photo upload on event logs** — The photo area in StepDetails (log flow step 4) is still a visual placeholder. No Supabase Storage integration for event photos.
 
-13. **Edit event log** — The "Edit" button on event detail pages links to `/log?edit=[logId]` but edit mode is not implemented in the log flow.
+13. ~~**Edit event log**~~ — **RESOLVED.** The edit button now loads the existing log data and pre-fills the details step for updating. See "Session 6 Addendum" below.
 
 14. **Onboarding for existing users** — Test users created before onboarding will be redirected to onboarding on every page load because they don't have the metadata flag or fav_sport set. They need to either complete onboarding or have their profiles manually updated.
 
@@ -1367,3 +1367,138 @@ BoxdSeats is a fully functional sports event logging and social platform built w
 - Database triggers maintain denormalized counts (likes, comments) and auto-create venue visits
 
 **Database:** 18+ tables with full reference data (6 leagues, 153 teams, 141 venues, 24 athletes, 169 events), 5 test users with seeded event logs, follows, likes, comments, and companion tags.
+
+---
+
+## Session 6 Addendum — Avatar Upload & Bug Fixes
+
+**Date:** February 10, 2026
+**Scope:** Profile photo upload via Supabase Storage, edit event log bug fix, Big Four featured favorite selector.
+
+---
+
+### Avatar Upload — Supabase Storage
+
+**Bucket:** `avatars` (public)
+
+**Required Supabase setup** (run in Supabase Dashboard → SQL Editor):
+```sql
+-- Create the avatars bucket (public so images are accessible via URL)
+INSERT INTO storage.buckets (id, name, public)
+VALUES ('avatars', 'avatars', true)
+ON CONFLICT (id) DO NOTHING;
+
+-- Allow authenticated users to upload to their own folder
+CREATE POLICY "Users can upload their own avatar"
+  ON storage.objects FOR INSERT
+  TO authenticated
+  WITH CHECK (bucket_id = 'avatars' AND (storage.foldername(name))[1] = auth.uid()::text);
+
+-- Allow authenticated users to update/overwrite their own avatar
+CREATE POLICY "Users can update their own avatar"
+  ON storage.objects FOR UPDATE
+  TO authenticated
+  USING (bucket_id = 'avatars' AND (storage.foldername(name))[1] = auth.uid()::text);
+
+-- Allow public read access to all avatars
+CREATE POLICY "Public avatar read access"
+  ON storage.objects FOR SELECT
+  TO public
+  USING (bucket_id = 'avatars');
+```
+
+**File path pattern:** `avatars/{user_id}/avatar.jpg` — each user gets one avatar file that is overwritten on re-upload.
+
+**Image processing** (`src/lib/avatar.ts`):
+- **Validation:** Accepts JPG, PNG, WebP; max 5MB
+- **Resize:** Client-side Canvas API crops to center square, scales to 400×400px
+- **Output:** JPEG at 85% quality (~30-80KB typical)
+- **Upload:** Uses `supabase.storage.from("avatars").upload()` with `upsert: true`
+- **URL:** Public URL with cache-busting `?v=timestamp` query param
+- **Profile update:** After upload, updates `profiles.avatar_url` with the public URL
+
+**Reusable component:** `src/components/AvatarUpload.tsx`
+- Shows current avatar (or gradient initial fallback)
+- Hover overlay with camera icon
+- Click opens file picker
+- Shows spinner during upload
+- Error messages for validation failures
+- `onUploadComplete` callback prop for parent components
+
+**Integration points:**
+1. **Settings page** (`src/components/settings/SettingsForm.tsx`): AvatarUpload at top of "Edit Profile" section
+2. **Onboarding step 1** (`src/components/onboarding/StepAccount.tsx`): AvatarUpload replaces the "coming soon" placeholder
+
+**Next.js image config:** `next.config.ts` updated with `remotePatterns` for the Supabase Storage hostname, enabling future migration to `next/image` if desired. Currently uses standard `<img>` tags consistent with the rest of the app.
+
+---
+
+### Avatar Display Locations
+
+All components that render user avatars follow the same pattern: show `<img>` if `avatar_url` exists, otherwise show gradient initial fallback.
+
+| Component | Size | Notes |
+|-----------|------|-------|
+| `ProfileHeader.tsx` | 72×72px | Profile page header |
+| `UserList.tsx` | 40×40px | Followers/following lists |
+| `TimelineCard.tsx` | 32×32px | Feed author rows |
+| `CommentsSection.tsx` | 28×28px | Comment authors |
+| `ExploreSearch.tsx` | 36×36px | Search result users |
+| `NotificationList.tsx` | 40×40px | Notification actors (was initial-only, now fixed) |
+| `event/[id]/page.tsx` | 32×32px | Event attendee rows |
+| `venue/[id]/page.tsx` | 32×32px | Venue community friends |
+| `StepDetails.tsx` | 24×24px | Companion tag search results |
+
+**Gradient fallback:** `linear-gradient(135deg, #D4872C 0%, #7B5B3A 100%)` with white initial letter (uppercase first char of display_name or username).
+
+---
+
+### Edit Event Log Fix
+
+**Bug:** The "Edit" button on event detail pages linked to `/log?edit={logId}` but the log flow ignored the `edit` parameter and always started a new log.
+
+**Fix:**
+
+| File | Change |
+|------|--------|
+| `src/lib/queries/log.ts` | Added `fetchEventLogForEdit()` — fetches log with venue, event (teams/league), and companions. Added `updateEventLog()` — updates existing log and replaces companion tags. |
+| `src/app/(app)/log/page.tsx` | Reads `edit` search param. When present, fetches existing log and passes to `LogFlow` as `editLog` prop. |
+| `src/components/log/LogFlow.tsx` | Accepts `editLog` prop. In edit mode: starts at step 4 with all fields pre-filled, uses `updateEventLog()` instead of `saveEventLog()`, shows "EVENT UPDATED" on success, redirects back to event detail page. |
+| `src/components/log/StepDetails.tsx` | Accepts `initialValues` and `isEditMode` props. Pre-fills rating, rooting team, seat location, notes, companions, and privacy from existing data. Button shows "UPDATE EVENT". |
+
+---
+
+### Big Four Featured Favorite Selector
+
+**Feature:** Users can now choose which league favorite is "featured" (displayed on their profile Big Four cards) by tapping a star icon on the drill-through page.
+
+| File | Change |
+|------|--------|
+| `src/lib/queries/bigfour.ts` | Added `setFeaturedFavorite()` — updates `profiles.fav_team_id` / `fav_venue_id` / `fav_athlete_id` / `fav_event_id` with the selected pick ID. |
+| `src/components/profile/BigFourDrillThrough.tsx` | Added `featuredPickId` prop and star icon button per league row. Filled amber star = current featured; empty star = tap to set. |
+| `src/app/(app)/profile/favorites/[category]/page.tsx` | Passes `featuredPickId` from profile to drill-through component. Added hint text explaining the star interaction. Card label changed from "Overall Favorite" to "Featured Favorite". |
+
+---
+
+### New Files Created
+
+| File | Type | Description |
+|------|------|-------------|
+| `src/lib/avatar.ts` | Utility | Image validation, Canvas resize/crop, Supabase Storage upload, profile update |
+| `src/components/AvatarUpload.tsx` | Client Component | Reusable avatar upload with preview, hover overlay, file picker, error handling |
+
+### Modified Files
+
+| File | Change |
+|------|--------|
+| `next.config.ts` | Added `images.remotePatterns` for Supabase Storage hostname |
+| `src/components/settings/SettingsForm.tsx` | Added AvatarUpload component at top of Edit Profile section |
+| `src/components/onboarding/StepAccount.tsx` | Replaced photo placeholder with AvatarUpload component |
+| `src/components/notifications/NotificationList.tsx` | Fixed actor avatar to render `<img>` when `avatar_url` exists instead of always showing initial |
+| `src/components/log/LogFlow.tsx` | Added edit mode support with `editLog` prop |
+| `src/components/log/StepDetails.tsx` | Added `initialValues` and `isEditMode` props for pre-filling edit data |
+| `src/app/(app)/log/page.tsx` | Reads `edit` search param and fetches existing log for edit mode |
+| `src/lib/queries/log.ts` | Added `fetchEventLogForEdit()`, `updateEventLog()`, and `EditableEventLog` type |
+| `src/lib/queries/bigfour.ts` | Added `setFeaturedFavorite()` function |
+| `src/components/profile/BigFourDrillThrough.tsx` | Added star button for setting featured favorite |
+| `src/app/(app)/profile/favorites/[category]/page.tsx` | Passes featured pick ID, added hint text |

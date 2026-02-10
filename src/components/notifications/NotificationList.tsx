@@ -88,14 +88,24 @@ export default function NotificationList({ notifications }: Props) {
           >
             {/* Actor avatar or icon */}
             {n.actor ? (
-              <div className="w-10 h-10 rounded-full flex-shrink-0 flex items-center justify-center"
-                style={{
-                  background: "linear-gradient(135deg, var(--color-accent), var(--color-accent-brown))",
-                }}
-              >
-                <span className="font-display text-sm text-white">
-                  {(n.actor.display_name || n.actor.username).charAt(0).toUpperCase()}
-                </span>
+              <div className="w-10 h-10 rounded-full flex-shrink-0 overflow-hidden">
+                {n.actor.avatar_url ? (
+                  <img
+                    src={n.actor.avatar_url}
+                    alt={n.actor.display_name || n.actor.username}
+                    className="w-full h-full object-cover"
+                  />
+                ) : (
+                  <div className="w-full h-full flex items-center justify-center"
+                    style={{
+                      background: "linear-gradient(135deg, var(--color-accent), var(--color-accent-brown))",
+                    }}
+                  >
+                    <span className="font-display text-sm text-white">
+                      {(n.actor.display_name || n.actor.username).charAt(0).toUpperCase()}
+                    </span>
+                  </div>
+                )}
               </div>
             ) : (
               <div className="w-10 h-10 rounded-full flex-shrink-0 flex items-center justify-center bg-bg-elevated text-lg">
