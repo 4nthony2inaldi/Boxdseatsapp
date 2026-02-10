@@ -12,6 +12,7 @@ import SectionLabel from "@/components/profile/SectionLabel";
 import StatBox from "@/components/profile/StatBox";
 import VenueTimelineList from "@/components/venue/VenueTimelineList";
 import VenueStatusToggle from "@/components/venue/VenueStatusToggle";
+import SportIcon from "@/components/SportIcon";
 
 export default async function VenueDetailPage({
   params,
@@ -141,7 +142,7 @@ export default async function VenueDetailPage({
                 key={team.id}
                 className="bg-bg-card rounded-xl border border-border px-4 py-3 flex items-center gap-3"
               >
-                <span className="text-lg">{team.league_icon}</span>
+                <SportIcon src={team.league_icon} size={24} />
                 <div className="flex-1 min-w-0">
                   <div className="font-display text-sm text-text-primary tracking-wider truncate">
                     {team.name}

@@ -10,15 +10,10 @@ import {
   searchEvents,
 } from "@/lib/queries/onboarding";
 import { upsertLeagueFavorite, setFeaturedFavorite } from "@/lib/queries/bigfour";
+import SportIcon from "@/components/SportIcon";
+import { LEAGUES_LIST } from "@/lib/sportIcons";
 
-const ALL_LEAGUES = [
-  { slug: "nfl", name: "NFL", icon: "🏈" },
-  { slug: "nba", name: "NBA", icon: "🏀" },
-  { slug: "mlb", name: "MLB", icon: "⚾" },
-  { slug: "nhl", name: "NHL", icon: "🏒" },
-  { slug: "mls", name: "MLS", icon: "⚽" },
-  { slug: "pga-tour", name: "PGA Tour", icon: "⛳" },
-];
+const ALL_LEAGUES = LEAGUES_LIST;
 
 type Props = {
   userId: string;
@@ -119,7 +114,7 @@ export default function BigFourDrillThrough({
             league_id: league.id,
             league_name: ALL_LEAGUES.find((l) => l.slug === leagueSlug)?.name || "",
             league_slug: leagueSlug,
-            league_icon: ALL_LEAGUES.find((l) => l.slug === leagueSlug)?.icon || "🏟️",
+            league_icon: ALL_LEAGUES.find((l) => l.slug === leagueSlug)?.icon || "",
             pick_name: pickName,
             pick_id: pickId,
           },
@@ -151,7 +146,7 @@ export default function BigFourDrillThrough({
         return (
           <div key={league.slug} className="bg-bg-card rounded-xl border border-border overflow-hidden">
             <div className="flex items-center gap-3 px-4 py-3">
-              <span className="text-lg">{league.icon}</span>
+              <SportIcon league={league.slug} size={24} />
               <div className="flex-1 min-w-0">
                 <div className="text-sm text-text-primary font-medium">
                   {league.name}

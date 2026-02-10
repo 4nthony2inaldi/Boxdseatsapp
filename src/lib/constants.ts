@@ -35,10 +35,10 @@ export const colors = {
 } as const;
 
 export const LEAGUES = {
-  NFL: { color: "#013369", icon: "🏈", sport: "football" },
-  NBA: { color: "#1D428A", icon: "🏀", sport: "basketball" },
-  MLB: { color: "#002D72", icon: "⚾", sport: "baseball" },
-  NHL: { color: "#000000", icon: "🏒", sport: "hockey" },
-  MLS: { color: "#5B2C82", icon: "⚽", sport: "soccer" },
-  PGA: { color: "#003B2F", icon: "⛳", sport: "golf" },
+  NFL: { color: "#013369", icon: "/football.svg", sport: "football" },
+  NBA: { color: "#1D428A", icon: "/basketball.svg", sport: "basketball" },
+  MLB: { color: "#002D72", icon: "/baseball.svg", sport: "baseball" },
+  NHL: { color: "#000000", icon: "/hockey.svg", sport: "hockey" },
+  MLS: { color: "#5B2C82", icon: "/soccer.svg", sport: "soccer" },
+  PGA: { color: "#003B2F", icon: "/golf.svg", sport: "golf" },
 } as const;

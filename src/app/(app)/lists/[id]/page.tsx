@@ -3,6 +3,7 @@ import { fetchListDetail, fetchListItems, checkListFollow } from "@/lib/queries/
 import Link from "next/link";
 import SectionLabel from "@/components/profile/SectionLabel";
 import ListActions from "@/components/lists/ListActions";
+import SportIcon from "@/components/SportIcon";
 
 export default async function ListDetailPage({
   params,
@@ -53,7 +54,7 @@ export default async function ListDetailPage({
     <div className="px-4 pb-8 max-w-lg mx-auto">
       {/* Header */}
       <div className="flex items-center gap-3 mt-4 mb-1">
-        <span className="text-3xl">{list.icon}</span>
+        {list.icon && <SportIcon src={list.icon} size={36} />}
         <div className="flex-1 min-w-0">
           <h1 className="font-display text-2xl text-text-primary tracking-wide leading-tight">
             {list.name}

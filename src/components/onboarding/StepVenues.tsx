@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useMemo } from "react";
+import SportIcon from "@/components/SportIcon";
 
 type Venue = {
   id: string;
@@ -18,14 +19,6 @@ type StepVenuesProps = {
   onNext: () => void;
 };
 
-const SPORT_ICONS: Record<string, string> = {
-  football: "🏈",
-  basketball: "🏀",
-  baseball: "⚾",
-  hockey: "🏒",
-  soccer: "⚽",
-  golf: "⛳",
-};
 
 export default function StepVenues({
   allVenues,
@@ -90,7 +83,6 @@ export default function StepVenues({
       <div className="max-h-[340px] overflow-y-auto rounded-xl">
         {filtered.map((venue) => {
           const checked = markedVenueIds.includes(venue.id);
-          const icon = venue.sport ? SPORT_ICONS[venue.sport] || "🏟️" : "🏟️";
 
           return (
             <button
@@ -108,7 +100,7 @@ export default function StepVenues({
                   background: `rgba(212,135,44,0.12)`,
                 }}
               >
-                {icon}
+                <SportIcon sport={venue.sport} size={22} />
               </div>
               <div className="flex-1 min-w-0">
                 <div className="text-[13px] text-text-primary font-medium truncate">

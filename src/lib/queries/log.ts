@@ -1,4 +1,5 @@
 import { SupabaseClient } from "@supabase/supabase-js";
+import { getSportIconPath } from "@/lib/sportIcons";
 
 // ── Types ──
 
@@ -18,7 +19,7 @@ export type EventMatch = {
   league_name: string;
   league_slug: string;
   sport: string;
-  sport_icon: string;
+  sport_icon: string | null;
   home_team_id: string | null;
   away_team_id: string | null;
   home_team_short: string | null;
@@ -56,17 +57,9 @@ export type EventLogInsert = {
   companions: CompanionInput[];
 };
 
-// ── Sport icons by sport name ──
-const sportIcons: Record<string, string> = {
-  football: "🏈",
-  basketball: "🏀",
-  baseball: "⚾",
-  hockey: "🏒",
-  soccer: "⚽",
-  golf: "⛳",
-  motorsports: "🏎️",
-  tennis: "🎾",
-};
+// ── Sport icon helper ──
+const sportIcon = (sport: string | null | undefined): string | null =>
+  getSportIconPath(sport);
 
 // ── Venue Search ──
 
@@ -111,9 +104,7 @@ export async function fetchUserVenues(
       city: v.city,
       state: v.state,
       visit_count: venueCounts[v.id]?.count || 0,
-      sport_icon: venueCounts[v.id]?.sport
-        ? sportIcons[venueCounts[v.id].sport!] || "🏟️"
-        : "🏟️",
+      sport_icon: sportIcon(venueCounts[v.id]?.sport),
     }))
     .sort((a, b) => b.visit_count - a.visit_count);
 }
@@ -161,7 +152,7 @@ export async function searchVenues(
     city: v.city,
     state: v.state,
     visit_count: venueCounts[v.id] || 0,
-    sport_icon: "🏟️",
+    sport_icon: null,
   }));
 }
 
@@ -263,7 +254,7 @@ export async function findEventsAtVenueOnDate(
       league_name: league?.name || "",
       league_slug: league?.slug || "",
       sport: league?.sport || "",
-      sport_icon: league?.sport ? sportIcons[league.sport] || "🏟️" : "🏟️",
+      sport_icon: sportIcon(league?.sport),
       home_team_id: e.home_team_id,
       away_team_id: e.away_team_id,
       home_team_short: homeTeam?.short_name || null,
@@ -481,9 +472,7 @@ export async function fetchEventLogForEdit(
         league_name: league?.name || "",
         league_slug: league?.slug || "",
         sport: league?.sport || "",
-        sport_icon: league?.sport
-          ? sportIcons[league.sport] || "🏟️"
-          : "🏟️",
+        sport_icon: sportIcon(league?.sport),
         home_team_id: eventData.home_team_id,
         away_team_id: eventData.away_team_id,
         home_team_short: homeTeam?.short_name || null,
@@ -517,7 +506,7 @@ export async function fetchEventLogForEdit(
       city: venue.city,
       state: venue.state,
       visit_count: 0,
-      sport_icon: log.sport ? sportIcons[log.sport] || "🏟️" : "🏟️",
+      sport_icon: sportIcon(log.sport),
     },
     event,
     companions,

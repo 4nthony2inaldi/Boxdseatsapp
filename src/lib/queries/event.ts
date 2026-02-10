@@ -64,13 +64,13 @@ export type EventComment = {
 
 // League config
 const LEAGUE_CONFIG: Record<string, { icon: string; color: string }> = {
-  nfl: { icon: "🏈", color: "#013369" },
-  nba: { icon: "🏀", color: "#1D428A" },
-  mlb: { icon: "⚾", color: "#002D72" },
-  nhl: { icon: "🏒", color: "#000000" },
-  mls: { icon: "⚽", color: "#5B2C82" },
-  "pga-tour": { icon: "⛳", color: "#003B2F" },
-  pga: { icon: "⛳", color: "#003B2F" },
+  nfl: { icon: "/football.svg", color: "#013369" },
+  nba: { icon: "/basketball.svg", color: "#1D428A" },
+  mlb: { icon: "/baseball.svg", color: "#002D72" },
+  nhl: { icon: "/hockey.svg", color: "#000000" },
+  mls: { icon: "/soccer.svg", color: "#5B2C82" },
+  "pga-tour": { icon: "/golf.svg", color: "#003B2F" },
+  pga: { icon: "/golf.svg", color: "#003B2F" },
 };
 
 // ── Fetch event details ──
@@ -101,7 +101,7 @@ export async function fetchEventDetail(
   const awayTeam = data.away_team as unknown as { short_name: string; abbreviation: string } | null;
 
   const slug = league?.slug || "";
-  const config = LEAGUE_CONFIG[slug] || { icon: "🏟️", color: "#D4872C" };
+  const config = LEAGUE_CONFIG[slug] || { icon: "", color: "#D4872C" };
 
   return {
     id: data.id,

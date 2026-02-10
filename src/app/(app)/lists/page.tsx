@@ -7,6 +7,7 @@ import {
 } from "@/lib/queries/lists";
 import Link from "next/link";
 import SectionLabel from "@/components/profile/SectionLabel";
+import SportIcon from "@/components/SportIcon";
 
 export default async function ListsPage() {
   const supabase = await createClient();
@@ -192,7 +193,7 @@ function ListCard({
   return (
     <Link href={`/lists/${list.id}`} className="block">
       <div className="rounded-xl border border-border bg-bg-card p-4 flex items-center gap-4 cursor-pointer hover:border-accent transition-colors">
-        {showIcon && <span className="text-2xl">{list.icon}</span>}
+        {showIcon && list.icon && <SportIcon src={list.icon} size={28} />}
         <div className="flex-1 min-w-0">
           <div className="font-display text-sm tracking-wider text-text-primary">
             {list.name}

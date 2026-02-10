@@ -1,4 +1,5 @@
 import { SupabaseClient } from "@supabase/supabase-js";
+import { getSportIconPath } from "@/lib/sportIcons";
 
 // ── Types ──
 
@@ -60,16 +61,6 @@ export type VenueTimelineEntry = {
   manual_title?: string | null;
 };
 
-// Sport icons lookup
-const sportIcons: Record<string, string> = {
-  football: "🏈",
-  basketball: "🏀",
-  baseball: "⚾",
-  hockey: "🏒",
-  soccer: "⚽",
-  golf: "⛳",
-  tennis: "🎾",
-};
 
 // ── Fetch venue details ──
 
@@ -147,7 +138,7 @@ export async function fetchVenueTeams(
         abbreviation: team.abbreviation,
         league_name: team.leagues?.name || "",
         league_slug: (team.leagues?.slug || "").toUpperCase(),
-        league_icon: team.leagues?.sport ? sportIcons[team.leagues.sport] || "🏟️" : "🏟️",
+        league_icon: getSportIconPath(team.leagues?.sport) || "",
       };
     })
     .filter(Boolean) as VenueTeam[];

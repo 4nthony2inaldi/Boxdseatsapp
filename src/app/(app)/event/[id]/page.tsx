@@ -10,6 +10,7 @@ import StarRating from "@/components/profile/StarRating";
 import OutcomeBadge from "@/components/profile/OutcomeBadge";
 import SectionLabel from "@/components/profile/SectionLabel";
 import CommentsSection from "@/components/event/CommentsSection";
+import SportIcon from "@/components/SportIcon";
 
 export default async function EventDetailPage({
   params,
@@ -71,7 +72,7 @@ export default async function EventDetailPage({
         />
         <div className="px-4 -mt-10">
           <div className="flex items-center gap-2 mb-2">
-            <span className="text-lg">{event.league_icon}</span>
+            <SportIcon src={event.league_icon} size={22} />
             <span
               className="font-display text-xs tracking-[1.5px] uppercase"
               style={{ color: event.league_color }}

@@ -7,6 +7,7 @@ import {
   searchVenues,
   type VenueResult,
 } from "@/lib/queries/log";
+import SportIcon from "@/components/SportIcon";
 
 type StepVenueProps = {
   userId: string;
@@ -129,8 +130,8 @@ export default function StepVenue({ userId, onSelect }: StepVenueProps) {
             onClick={() => onSelect(venue)}
             className="w-full flex items-center gap-3 p-3 bg-bg-card rounded-[10px] border border-border mb-2 cursor-pointer text-left hover:border-accent/50 transition-colors"
           >
-            <div className="w-10 h-10 rounded-[10px] bg-accent/10 flex items-center justify-center text-lg shrink-0">
-              {venue.sport_icon || "🏟️"}
+            <div className="w-10 h-10 rounded-[10px] bg-accent/10 flex items-center justify-center shrink-0">
+              <SportIcon src={venue.sport_icon} size={24} />
             </div>
             <div className="flex-1 min-w-0">
               <div className="text-sm text-text-primary font-medium truncate">

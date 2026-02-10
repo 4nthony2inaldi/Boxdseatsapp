@@ -11,12 +11,12 @@ export type LeagueFavorite = {
 };
 
 const LEAGUE_ICONS: Record<string, string> = {
-  nfl: "🏈",
-  nba: "🏀",
-  mlb: "⚾",
-  nhl: "🏒",
-  mls: "⚽",
-  "pga-tour": "⛳",
+  nfl: "/football.svg",
+  nba: "/basketball.svg",
+  mlb: "/baseball.svg",
+  nhl: "/hockey.svg",
+  mls: "/soccer.svg",
+  "pga-tour": "/golf.svg",
 };
 
 export async function fetchLeagueFavorites(
@@ -98,7 +98,7 @@ export async function fetchLeagueFavorites(
       league_id: fav.league_id,
       league_name: league.name,
       league_slug: league.slug,
-      league_icon: LEAGUE_ICONS[league.slug] || "🏟️",
+      league_icon: LEAGUE_ICONS[league.slug] || "",
       pick_name: pickName,
       pick_id: pickId,
     });

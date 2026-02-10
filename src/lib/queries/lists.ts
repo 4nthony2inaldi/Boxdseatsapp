@@ -1,4 +1,5 @@
 import { SupabaseClient } from "@supabase/supabase-js";
+import { getSportIconPath } from "@/lib/sportIcons";
 
 // ── Types ──
 
@@ -37,16 +38,6 @@ export type ListVenueItem = {
   visited: boolean;
 };
 
-// Sport icons lookup
-const sportIcons: Record<string, string> = {
-  baseball: "⚾",
-  football: "🏈",
-  basketball: "🏀",
-  hockey: "🏒",
-  soccer: "⚽",
-  golf: "⛳",
-  tennis: "🎾",
-};
 
 // ── Fetch all system lists with progress ──
 
@@ -123,7 +114,7 @@ export async function fetchAllLists(
       description: list.description,
       list_type: list.list_type,
       sport: list.sport,
-      icon: list.sport ? sportIcons[list.sport] || "🏟️" : "🏟️",
+      icon: getSportIconPath(list.sport) || "",
       item_count: list.item_count,
       visited,
     });
@@ -165,7 +156,7 @@ export async function fetchListDetail(
     creator_username: creator?.username || null,
     creator_display_name: creator?.display_name || null,
     forked_from: data.forked_from,
-    icon: data.sport ? sportIcons[data.sport] || "🏟️" : "🏟️",
+    icon: getSportIconPath(data.sport) || "",
   };
 }
 
@@ -364,7 +355,7 @@ async function computeListProgress(
       description: list.description,
       list_type: list.list_type,
       sport: list.sport,
-      icon: list.sport ? sportIcons[list.sport] || "🏟️" : "🏟️",
+      icon: getSportIconPath(list.sport) || "",
       item_count: list.item_count,
       visited,
       source: list.source,

@@ -1,4 +1,5 @@
 import type { PinnedListData } from "@/lib/queries/profile";
+import SportIcon from "@/components/SportIcon";
 import SectionLabel from "./SectionLabel";
 
 type PinnedListsProps = {
@@ -24,7 +25,7 @@ export default function PinnedLists({ lists }: PinnedListsProps) {
           >
             <div className="flex justify-between items-center mb-2">
               <div className="flex items-center gap-2">
-                <span className="text-base">{list.icon}</span>
+                {list.icon && <SportIcon src={list.icon} size={20} />}
                 <span className="text-[13px] text-text-primary font-medium">
                   {list.name}
                 </span>

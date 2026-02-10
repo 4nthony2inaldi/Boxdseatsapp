@@ -4,6 +4,7 @@ import { useState, useRef } from "react";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
 import { searchAll, type SearchResults } from "@/lib/queries/social";
+import SportIcon from "@/components/SportIcon";
 import SectionLabel from "@/components/profile/SectionLabel";
 
 export default function ExploreSearch() {
@@ -206,9 +207,7 @@ export default function ExploreSearch() {
                     className="flex items-center gap-3 py-2.5 px-2"
                   >
                     <div className="w-9 h-9 rounded-lg bg-bg-elevated flex items-center justify-center shrink-0">
-                      <span className="text-base">
-                        {t.league_icon || "🏟️"}
-                      </span>
+                      <SportIcon src={t.league_icon} size={22} />
                     </div>
                     <div className="flex-1 min-w-0">
                       <div className="text-sm text-text-primary font-medium truncate">

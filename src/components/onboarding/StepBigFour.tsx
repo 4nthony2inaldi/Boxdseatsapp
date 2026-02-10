@@ -9,6 +9,8 @@ import {
   searchEvents,
   updateBigFourAndSport,
 } from "@/lib/queries/onboarding";
+import SportIcon from "@/components/SportIcon";
+import { SPORTS_LIST } from "@/lib/sportIcons";
 
 type StepBigFourProps = {
   userId: string;
@@ -26,14 +28,9 @@ type StepBigFourProps = {
   onNext: () => void;
 };
 
-const SPORTS = [
-  { key: "basketball", icon: "🏀", label: "Basketball" },
-  { key: "football", icon: "🏈", label: "Football" },
-  { key: "baseball", icon: "⚾", label: "Baseball" },
-  { key: "hockey", icon: "🏒", label: "Hockey" },
-  { key: "soccer", icon: "⚽", label: "Soccer" },
-  { key: "golf", icon: "⛳", label: "Golf" },
-];
+const SPORTS = SPORTS_LIST.filter((s) =>
+  ["basketball", "football", "baseball", "hockey", "soccer", "golf"].includes(s.key)
+);
 
 type SearchResult = { id: string; label: string; subtitle?: string };
 
@@ -223,7 +220,7 @@ export default function StepBigFour({
                   fontWeight: selected ? 600 : 400,
                 }}
               >
-                {s.icon} {s.label}
+                <SportIcon sport={s.key} size={14} className="inline-block mr-1 -mt-0.5" /> {s.label}
               </button>
             );
           })}

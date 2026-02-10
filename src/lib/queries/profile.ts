@@ -1,4 +1,5 @@
 import { SupabaseClient } from "@supabase/supabase-js";
+import { getSportIconPath } from "@/lib/sportIcons";
 
 export type ProfileData = {
   id: string;
@@ -335,20 +336,10 @@ export async function fetchPinnedLists(
       }
     }
 
-    const sportIcons: Record<string, string> = {
-      baseball: "⚾",
-      football: "🏈",
-      basketball: "🏀",
-      hockey: "🏒",
-      soccer: "⚽",
-      golf: "⛳",
-      tennis: "🎾",
-    };
-
     result.push({
       id: list.id,
       name: list.name,
-      icon: list.sport ? sportIcons[list.sport] || "🏟️" : "🏟️",
+      icon: getSportIconPath(list.sport) || "",
       list_type: list.list_type,
       sport: list.sport,
       item_count: list.item_count,

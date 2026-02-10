@@ -513,13 +513,13 @@ export async function searchAll(
   ]);
 
   const LEAGUE_ICONS: Record<string, string> = {
-    nfl: "🏈",
-    nba: "🏀",
-    mlb: "⚾",
-    nhl: "🏒",
-    mls: "⚽",
-    "pga-tour": "⛳",
-    pga: "⛳",
+    nfl: "/football.svg",
+    nba: "/basketball.svg",
+    mlb: "/baseball.svg",
+    nhl: "/hockey.svg",
+    mls: "/soccer.svg",
+    "pga-tour": "/golf.svg",
+    pga: "/golf.svg",
   };
 
   return {

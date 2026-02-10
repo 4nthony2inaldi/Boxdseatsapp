@@ -1,27 +1,12 @@
 import type { ProfileData, ProfileStats } from "@/lib/queries/profile";
-import { LEAGUES } from "@/lib/constants";
+import SportIcon from "@/components/SportIcon";
 
 type ProfileHeaderProps = {
   profile: ProfileData;
   stats: ProfileStats;
 };
 
-const sportEmojis: Record<string, string> = {
-  basketball: "🏀",
-  football: "🏈",
-  baseball: "⚾",
-  hockey: "🏒",
-  soccer: "⚽",
-  golf: "⛳",
-  tennis: "🎾",
-  motorsports: "🏎️",
-};
-
 export default function ProfileHeader({ profile, stats }: ProfileHeaderProps) {
-  const sportEmoji = profile.fav_sport
-    ? sportEmojis[profile.fav_sport] || "🏟️"
-    : null;
-
   return (
     <div className="flex items-center px-4 pt-2 gap-3.5 mb-3">
       {/* Avatar with sport badge */}
@@ -54,9 +39,9 @@ export default function ProfileHeader({ profile, stats }: ProfileHeaderProps) {
           )}
         </div>
         {/* Sport badge */}
-        {sportEmoji && (
+        {profile.fav_sport && (
           <div className="absolute -bottom-0.5 -right-0.5 w-[26px] h-[26px] rounded-full bg-bg flex items-center justify-center border-2 border-border">
-            <span className="text-sm">{sportEmoji}</span>
+            <SportIcon sport={profile.fav_sport} size={16} />
           </div>
         )}
       </div>

@@ -6,6 +6,8 @@ import { createClient } from "@/lib/supabase/client";
 import type { SettingsProfile } from "@/lib/queries/settings";
 import { updateProfile } from "@/lib/queries/settings";
 import AvatarUpload from "@/components/AvatarUpload";
+import SportIcon from "@/components/SportIcon";
+import { SPORTS_LIST } from "@/lib/sportIcons";
 
 type Props = {
   profile: SettingsProfile;
@@ -13,14 +15,9 @@ type Props = {
   availableLists: { id: string; name: string; sport: string | null; item_count: number }[];
 };
 
-const SPORTS = [
-  { key: "basketball", icon: "🏀", label: "Basketball" },
-  { key: "football", icon: "🏈", label: "Football" },
-  { key: "baseball", icon: "⚾", label: "Baseball" },
-  { key: "hockey", icon: "🏒", label: "Hockey" },
-  { key: "soccer", icon: "⚽", label: "Soccer" },
-  { key: "golf", icon: "⛳", label: "Golf" },
-];
+const SPORTS = SPORTS_LIST.filter((s) =>
+  ["basketball", "football", "baseball", "hockey", "soccer", "golf"].includes(s.key)
+);
 
 function SectionHeader({ children }: { children: React.ReactNode }) {
   return (
@@ -148,7 +145,7 @@ export default function SettingsForm({ profile, userEmail, availableLists }: Pro
                     fontWeight: selected ? 600 : 400,
                   }}
                 >
-                  {s.icon} {s.label}
+                  <SportIcon sport={s.key} size={14} className="inline-block mr-1 -mt-0.5" /> {s.label}
                 </button>
               );
             })}

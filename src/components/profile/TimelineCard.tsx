@@ -1,5 +1,6 @@
 import type { TimelineEntry } from "@/lib/queries/profile";
 import { LEAGUES } from "@/lib/constants";
+import SportIcon from "@/components/SportIcon";
 import StarRating from "./StarRating";
 import OutcomeBadge from "./OutcomeBadge";
 
@@ -10,7 +11,6 @@ type TimelineCardProps = {
 export default function TimelineCard({ entry }: TimelineCardProps) {
   const leagueKey = entry.league_slug as keyof typeof LEAGUES | null;
   const leagueData = leagueKey ? LEAGUES[leagueKey] : null;
-  const leagueIcon = leagueData?.icon || "🏟️";
   const leagueColor = leagueData?.color || "#D4872C";
 
   const formattedDate = new Date(entry.event_date + "T00:00:00").toLocaleDateString(
@@ -28,7 +28,7 @@ export default function TimelineCard({ entry }: TimelineCardProps) {
         {/* Header row: league + outcome + stars */}
         <div className="flex items-center justify-between mb-2">
           <div className="flex items-center gap-2">
-            <span className="text-base">{leagueIcon}</span>
+            <SportIcon sport={leagueData?.sport} src={leagueData?.icon} size={20} />
             <span
               className="font-display text-xs tracking-[1.5px] uppercase opacity-90"
               style={{ color: leagueColor }}

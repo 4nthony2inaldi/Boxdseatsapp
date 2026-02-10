@@ -7,6 +7,7 @@ import {
   type EventMatch,
 } from "@/lib/queries/log";
 import { LEAGUES } from "@/lib/constants";
+import SportIcon from "@/components/SportIcon";
 
 type StepEventProps = {
   venueId: string;
@@ -85,9 +86,7 @@ export default function StepEvent({
               className="w-full bg-bg-card rounded-[14px] border border-border p-4 cursor-pointer text-left mb-3 hover:border-accent/50 transition-colors"
             >
               <div className="flex items-center gap-2 mb-2">
-                <span className="text-lg">
-                  {leagueData?.icon || event.sport_icon}
-                </span>
+                <SportIcon src={leagueData?.icon || event.sport_icon} sport={event.sport} size={22} />
                 <span
                   className="font-display text-[11px] tracking-[1.5px] uppercase"
                   style={{ color: leagueData?.color || "#D4872C" }}
