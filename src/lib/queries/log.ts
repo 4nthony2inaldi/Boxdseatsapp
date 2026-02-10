@@ -302,6 +302,28 @@ function computeOutcome(
   }
 }
 
+// ── User-Friendly Error Messages ──
+
+function friendlyError(message: string): string {
+  if (message.includes("idx_event_logs_no_duplicates") || message.includes("duplicate key")) {
+    return "You've already logged this event. Each event can only be logged once.";
+  }
+  if (message.includes("violates foreign key constraint")) {
+    return "Something went wrong — one of the selected items no longer exists. Please go back and try again.";
+  }
+  if (message.includes("violates check constraint") && message.includes("rating")) {
+    return "Rating must be between 1 and 5.";
+  }
+  if (message.includes("violates row-level security") || message.includes("new row violates row-level security")) {
+    return "You don't have permission to perform this action. Please log in again.";
+  }
+  if (message.includes("JWT expired") || message.includes("not authenticated")) {
+    return "Your session has expired. Please log in again.";
+  }
+  // Fallback — still avoid raw Postgres jargon
+  return "Something went wrong while saving. Please try again.";
+}
+
 // ── Save Event Log ──
 
 /**
@@ -344,7 +366,7 @@ export async function saveEventLog(
     .single();
 
   if (error) {
-    return { error: error.message };
+    return { error: friendlyError(error.message) };
   }
 
   // Insert companion tags

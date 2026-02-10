@@ -630,3 +630,9 @@ This session uses the existing seed data from Sessions 1-2. The event logging fl
 9. **Companion search** — The user search for companion tagging uses `ilike` on both `username` and `display_name`. Users can also add free-text companions (e.g., "my dad") by typing and pressing Enter. Free-text companions have `tagged_user_id = null`.
 
 10. **Privacy default** — The details form defaults to `show_all` privacy. The schema notes that the app should read `profiles.default_privacy` and use it as the default, but this is not implemented yet.
+
+11. **Calendar event date preloading — scalability** — `fetchEventDatesForVenue()` currently fetches *all* event dates for a venue with no date range limit. This works fine with seed data (~169 events total) but could be slow for high-volume venues (e.g., MSG with decades of events) once real data is loaded. Future fix: add a date floor (e.g., last 2-3 years) or load dates per-month as the user navigates the calendar.
+
+12. **Calendar auto-navigate may be disorienting** — When the calendar opens, it auto-jumps to the most recent month with events. If a user picks a baseball stadium in February expecting to log today's game but the most recent event is from October, the calendar jumps back 4 months. The "Today" shortcut is still visible, but consider only auto-navigating when the current month has zero events, or showing a brief indicator of why the month changed.
+
+13. **Error messages** — `saveEventLog()` maps raw Supabase/Postgres error messages to user-friendly strings via `friendlyError()`. The mapping covers: duplicate event logs, foreign key violations, rating check constraints, RLS violations, and expired sessions. Unknown errors fall back to a generic message. The raw error is never shown to the user.
