@@ -1968,3 +1968,156 @@ Back button links to `/profile` (own) or `/user/[username]` (other users).
 4. **Venues page sorting** — Venues are ordered by `updated_at` descending (most recently updated venue_visit first). Could add sorting options (alphabetical, by event count, etc.).
 
 5. **User lists page progress** — The `/user/[username]/lists` page shows progress bars but only for venue-type lists since `fetchUserLists()` computes progress for the list creator, not the viewer. The progress bars show the other user's progress correctly since we pass `profile.id` to the function.
+
+---
+
+## Session 9 — Badges
+
+**Date:** February 10, 2026
+**Scope:** Badge system — earning badges on list completion, badge display on profiles, badge detail modal, list mutability with vintage markers, badge celebration on event log, badges in OG share cards.
+
+---
+
+### How Badges Work
+
+**Concept:** When a user completes a list (all venues visited or all events attended), they earn a badge. Badges are visual, shareable, and motivating. Completed badges glow in the accent color. Incomplete tracked lists show as locked/muted.
+
+**Database table:** `badges` (already defined in schema)
+
+| Column | Type | Description |
+|--------|------|-------------|
+| `id` | uuid | Primary key |
+| `user_id` | uuid | References profiles(id) |
+| `list_id` | uuid | References lists(id) |
+| `completed_at` | timestamptz | When the badge was earned |
+| `item_count_at_completion` | smallint | Count at time of completion (e.g., 30 for "30/30") |
+| `is_legacy` | boolean | True if the list has expanded since completion |
+| `unique (user_id, list_id)` | | One badge per user per list |
+
+**Badge earning trigger:** After every `saveEventLog()` call, `checkAndAwardBadges()` runs automatically. It:
+1. Fetches all system lists + user-followed lists
+2. Checks if the user already has a badge for each list
+3. Calculates current progress (venue visits or event tag matching)
+4. If progress = 100%, inserts a new badge row
+5. Returns newly earned badges to the log flow for celebration display
+
+---
+
+### New Files
+
+| File | Type | Description |
+|------|------|-------------|
+| `src/lib/queries/badges.ts` | Query functions | `fetchUserBadges`, `fetchTrackedIncomplete`, `checkAndAwardBadges`, `fetchBadgeItems` |
+| `src/components/profile/BadgeSection.tsx` | Client Component | Badge grid with earned (glowing) and tracked (locked) badges |
+| `src/components/profile/BadgeDetailModal.tsx` | Client Component | Modal showing badge details, items, vintage marker, progress bar |
+
+---
+
+### Query Functions
+
+**File:** `src/lib/queries/badges.ts`
+
+| Function | Description |
+|----------|-------------|
+| `fetchUserBadges(supabase, userId)` | Returns all earned badges with list name, sport, completion date, legacy status, and current progress against potentially-updated list |
+| `fetchTrackedIncomplete(supabase, userId)` | Returns followed lists that the user hasn't completed yet, with progress |
+| `checkAndAwardBadges(supabase, userId)` | Checks all system + followed lists for completion, awards new badges, marks old badges as legacy if list has expanded |
+| `fetchBadgeItems(supabase, listId, userId)` | Returns all list items with visited/unvisited status for the badge detail modal |
+
+---
+
+### Badge Section on Profile
+
+**Placement:** Between Pinned Lists and Latest Event (timeline) sections.
+
+**Visual layout:**
+- **Earned badges:** 56px accent-bordered circles with sport icon, glowing box-shadow. Badge name below. Legacy badges show a small star indicator.
+- **Tracked incomplete:** 56px muted circles with lock icon overlay, reduced opacity. List name and percentage below.
+- Tapping an earned badge opens the detail modal.
+
+**Appears on:**
+- Own profile (`/profile`)
+- Other user profiles (`/user/[username]`)
+- Public profiles (`/u/[username]`)
+
+---
+
+### Badge Detail Modal
+
+**Triggered by:** Tapping an earned badge in the BadgeSection.
+
+**Content:**
+- Badge icon with accent glow
+- List name
+- Completion date (formatted as "Month Day, Year")
+- Completion count (e.g., "30/30")
+- Vintage marker for legacy badges (e.g., "Vintage 2026")
+- **Legacy progress bar:** If the list has been updated (e.g., 30 → 32 items), shows a new progress bar with current progress against the new total
+- Scrollable list of all items with checkmark (visited) or empty circle (not visited)
+
+---
+
+### List Mutability (Vintage Badges)
+
+**Scenario:** MLB expands from 30 to 32 teams. The "All MLB Stadiums" list is updated from 30 to 32 items.
+
+**Behavior:**
+1. Users who completed the list at 30/30 keep their badge
+2. The badge's `item_count_at_completion` remains 30
+3. `is_legacy` is set to `true` (detected dynamically when `item_count_at_completion !== list.item_count`)
+4. The badge shows a "Vintage 2026" marker
+5. The badge detail modal shows a new progress bar: "Current progress (32 items)" with the user's current progress (e.g., 30/32)
+6. If the user visits the 2 new stadiums, `checkAndAwardBadges()` will not award a duplicate since a badge already exists for that list
+
+**OG share card:** Legacy badges show a star (★) next to their name.
+
+---
+
+### Badge Celebration in Log Flow
+
+When `saveEventLog()` returns newly earned badges, the log flow success screen shows:
+- "Badge(s) Earned!" header in accent color
+- Animated glowing badge circles with star icon
+- Badge name and completion count
+- Extended redirect delay (2.5s instead of 1.2s) to let the user see the celebration
+
+---
+
+### OG Share Card Integration
+
+The profile OG image route (`/u/[username]/og/route.tsx`) now includes a badges row between the Big Four cards and the footer. Each earned badge is rendered as a pill with:
+- Accent-colored dot indicator
+- List name in primary text
+- Star (★) for legacy/vintage badges
+- Up to 6 badges displayed (truncated for space)
+
+---
+
+### Modified Files
+
+| File | Change |
+|------|--------|
+| `src/lib/queries/log.ts` | Added import for `checkAndAwardBadges`. `saveEventLog()` now calls `checkAndAwardBadges()` after insert and returns `newBadges` in the success response. Return type updated to include optional `newBadges: BadgeData[]`. |
+| `src/components/log/LogFlow.tsx` | Added `BadgeData` import, `earnedBadges` state. Success screen now shows badge celebration when badges are earned. Extended redirect delay for badge celebrations. |
+| `src/app/(app)/profile/page.tsx` | Added `fetchUserBadges` and `fetchTrackedIncomplete` to `Promise.all`. Added `BadgeSection` between `PinnedLists` and `LatestEvent`. |
+| `src/app/(app)/user/[username]/page.tsx` | Same badge integration as own profile. |
+| `src/app/(public)/u/[username]/page.tsx` | Added badge section to public profile view. |
+| `src/app/(public)/u/[username]/og/route.tsx` | Added `fetchUserBadges` to data fetching. Added badges pill row to OG image between Big Four and footer. |
+
+---
+
+### Known Issues / Edge Cases
+
+1. **Badge check performance** — `checkAndAwardBadges()` iterates through all system lists + followed lists and queries list items for each. With 6 system lists and a small number of followed lists this is fine, but could benefit from a database function or batch query if the number of lists grows significantly.
+
+2. **No badge revocation** — If a venue visit is removed (via `removeVenueVisit`), badges are not revoked. A user who loses a venue visit still keeps their badge. This is intentional (badges are permanent achievements) but means progress can go below 100% while the badge persists.
+
+3. **Event-type list badges** — Event-type list completion depends on `event_tags` matching. The matching logic checks if any of the user's logged events have a tag matching the list item's `event_tag`. This works for tags like `"grand_slam"` but requires events to have properly set `event_tags` arrays.
+
+4. **Badge detail modal on public pages** — The modal loads item data via the browser Supabase client. On public pages, this requires the user to be authenticated to read the badge items (due to RLS policies on `list_items` and `venue_visits`). Unauthenticated visitors will see the badge but the detail modal items may fail to load.
+
+5. **Legacy detection is dynamic** — `is_legacy` is computed by comparing `item_count_at_completion` to the list's current `item_count`. The `badges.is_legacy` column in the database is also updated by `checkAndAwardBadges()` when it detects a mismatch. However, if a list shrinks (items removed), the badge would also appear as legacy.
+
+6. **Concurrent badge awards** — If two event logs are saved simultaneously (unlikely in practice), both could trigger `checkAndAwardBadges()`. The `unique (user_id, list_id)` constraint on the `badges` table prevents duplicate badges, but the second insert will fail silently.
+
+7. **No badge for user-created lists** — Badge checking includes user-followed lists but not the user's own created lists. A user who creates a list and completes it won't get a badge unless they also follow their own list.

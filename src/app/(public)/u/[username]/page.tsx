@@ -7,12 +7,14 @@ import {
   fetchPinnedLists,
   fetchTimeline,
 } from "@/lib/queries/profile";
+import { fetchUserBadges, fetchTrackedIncomplete } from "@/lib/queries/badges";
 import { fetchUserProfileByUsername } from "@/lib/queries/social";
 import ProfileHeader from "@/components/profile/ProfileHeader";
 import StatsRow from "@/components/profile/StatsRow";
 import BigFourSection from "@/components/profile/BigFourSection";
 import ActivityChart from "@/components/profile/ActivityChart";
 import PinnedLists from "@/components/profile/PinnedLists";
+import BadgeSection from "@/components/profile/BadgeSection";
 import Timeline from "@/components/profile/Timeline";
 import ShareButton from "@/components/sharing/ShareButton";
 import Link from "next/link";
@@ -168,7 +170,7 @@ export default async function PublicProfilePage({ params }: Props) {
   }
 
   // Full profile — fetch remaining data
-  const [bigFour, activityData, pinnedLists, timelineEntries] =
+  const [bigFour, activityData, pinnedLists, timelineEntries, badges, trackedIncomplete] =
     await Promise.all([
       fetchBigFour(supabase, profile),
       fetchActivityChart(supabase, profile.id),
@@ -177,6 +179,8 @@ export default async function PublicProfilePage({ params }: Props) {
         profile.pinned_list_2_id,
       ]),
       fetchTimeline(supabase, profile.id),
+      fetchUserBadges(supabase, profile.id),
+      fetchTrackedIncomplete(supabase, profile.id),
     ]);
 
   return (
@@ -200,6 +204,7 @@ export default async function PublicProfilePage({ params }: Props) {
         <BigFourSection items={bigFour} linkable={false} />
         <ActivityChart months={activityData.months} total={activityData.total} />
         <PinnedLists lists={pinnedLists} />
+        <BadgeSection badges={badges} tracked={trackedIncomplete} userId={profile.id} />
         <Timeline initialEntries={timelineEntries} userId={profile.id} />
 
         {/* CTA for logged-out visitors */}

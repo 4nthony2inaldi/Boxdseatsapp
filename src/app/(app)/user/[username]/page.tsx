@@ -8,6 +8,7 @@ import {
   fetchTimeline,
   fetchProfileSummaryCounts,
 } from "@/lib/queries/profile";
+import { fetchUserBadges, fetchTrackedIncomplete } from "@/lib/queries/badges";
 import {
   fetchUserProfileByUsername,
   fetchFollowRelationship,
@@ -18,6 +19,7 @@ import StatsRow from "@/components/profile/StatsRow";
 import BigFourSection from "@/components/profile/BigFourSection";
 import ActivityChart from "@/components/profile/ActivityChart";
 import PinnedLists from "@/components/profile/PinnedLists";
+import BadgeSection from "@/components/profile/BadgeSection";
 import LatestEvent from "@/components/profile/LatestEvent";
 import SummaryRows from "@/components/profile/SummaryRows";
 import FollowButton from "@/components/social/FollowButton";
@@ -125,7 +127,7 @@ export default async function UserProfilePage({ params }: Props) {
   }
 
   // Full profile — fetch remaining data
-  const [bigFour, activityData, pinnedLists, timelineEntries, summaryCounts] =
+  const [bigFour, activityData, pinnedLists, timelineEntries, summaryCounts, badges, trackedIncomplete] =
     await Promise.all([
       fetchBigFour(supabase, profile),
       fetchActivityChart(supabase, profile.id),
@@ -135,6 +137,8 @@ export default async function UserProfilePage({ params }: Props) {
       ]),
       fetchTimeline(supabase, profile.id),
       fetchProfileSummaryCounts(supabase, profile.id),
+      fetchUserBadges(supabase, profile.id),
+      fetchTrackedIncomplete(supabase, profile.id),
     ]);
 
   const latestEvent = timelineEntries.length > 0 ? timelineEntries[0] : null;
@@ -163,6 +167,7 @@ export default async function UserProfilePage({ params }: Props) {
       <BigFourSection items={bigFour} linkable={false} />
       <ActivityChart months={activityData.months} total={activityData.total} />
       <PinnedLists lists={pinnedLists} />
+      <BadgeSection badges={badges} tracked={trackedIncomplete} userId={profile.id} />
       <LatestEvent entry={latestEvent} timelineHref={`/user/${username}/timeline`} />
       <SummaryRows
         counts={summaryCounts}

@@ -10,6 +10,7 @@ import {
   type EventMatch,
   type EditableEventLog,
 } from "@/lib/queries/log";
+import type { BadgeData } from "@/lib/queries/badges";
 import StepVenue from "./StepVenue";
 import StepDate from "./StepDate";
 import StepEvent from "./StepEvent";
@@ -43,6 +44,7 @@ export default function LogFlow({ userId, prefillVenue, editLog }: LogFlowProps)
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
+  const [earnedBadges, setEarnedBadges] = useState<BadgeData[]>([]);
 
   // Step 1: Venue selected
   const handleVenueSelect = (venue: VenueResult) => {
@@ -101,6 +103,11 @@ export default function LogFlow({ userId, prefillVenue, editLog }: LogFlowProps)
     if ("error" in result) {
       setError(result.error);
     } else {
+      const newBadges = (result as { newBadges?: BadgeData[] }).newBadges;
+      const hasBadges = newBadges && newBadges.length > 0;
+      if (hasBadges) {
+        setEarnedBadges(newBadges);
+      }
       setSuccess(true);
       setTimeout(() => {
         if (isEditMode && editLog?.event_id) {
@@ -109,7 +116,7 @@ export default function LogFlow({ userId, prefillVenue, editLog }: LogFlowProps)
           router.push("/profile");
         }
         router.refresh();
-      }, 1200);
+      }, hasBadges ? 2500 : 1200);
     }
   };
 
@@ -121,6 +128,33 @@ export default function LogFlow({ userId, prefillVenue, editLog }: LogFlowProps)
         <div className="font-display text-2xl text-text-primary tracking-wider mb-2">
           {isEditMode ? "EVENT UPDATED" : "EVENT LOGGED"}
         </div>
+        {earnedBadges.length > 0 && (
+          <div className="mt-4 mb-3">
+            <div className="font-display text-sm text-accent tracking-wider uppercase mb-3">
+              Badge{earnedBadges.length > 1 ? "s" : ""} Earned!
+            </div>
+            <div className="flex justify-center gap-3">
+              {earnedBadges.map((badge) => (
+                <div key={badge.id} className="flex flex-col items-center gap-1.5">
+                  <div
+                    className="w-14 h-14 rounded-full flex items-center justify-center border-2 border-accent bg-bg-elevated animate-pulse"
+                    style={{
+                      boxShadow: "0 0 16px rgba(212, 135, 44, 0.5), 0 0 6px rgba(212, 135, 44, 0.3)",
+                    }}
+                  >
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#D4872C" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M12 2l3 6h6l-4.5 4 1.5 6L12 15l-6 3 1.5-6L3 8h6z" />
+                    </svg>
+                  </div>
+                  <span className="text-[11px] text-text-primary font-medium">{badge.list_name}</span>
+                  <span className="text-[10px] text-text-muted">
+                    {badge.item_count_at_completion}/{badge.item_count_at_completion}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
         <div className="text-sm text-text-secondary">
           Redirecting...
         </div>

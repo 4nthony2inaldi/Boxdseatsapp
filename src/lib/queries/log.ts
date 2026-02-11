@@ -1,5 +1,6 @@
 import { SupabaseClient } from "@supabase/supabase-js";
 import { getSportIconPath } from "@/lib/sportIcons";
+import { checkAndAwardBadges, type BadgeData } from "@/lib/queries/badges";
 
 // ── Types ──
 
@@ -326,7 +327,7 @@ export async function saveEventLog(
   supabase: SupabaseClient,
   input: EventLogInsert,
   selectedEvent: EventMatch | null
-): Promise<{ id: string } | { error: string }> {
+): Promise<{ id: string; newBadges?: BadgeData[] } | { error: string }> {
   const outcome = computeOutcome(
     selectedEvent,
     input.rooting_team_id,
@@ -373,7 +374,10 @@ export async function saveEventLog(
 
   // venue_visits upsert is handled by the auto_visit_venue trigger
 
-  return { id: inserted.id };
+  // Check if any lists are now complete → award badges
+  const newBadges = await checkAndAwardBadges(supabase, input.user_id);
+
+  return { id: inserted.id, newBadges: newBadges.length > 0 ? newBadges : undefined };
 }
 
 // ── Fetch Event Log for Editing ──

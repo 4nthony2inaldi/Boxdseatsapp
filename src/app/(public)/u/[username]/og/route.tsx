@@ -1,6 +1,7 @@
 import { ImageResponse } from "next/og";
 import { createClient } from "@/lib/supabase/server";
 import { fetchProfileStats, fetchBigFour } from "@/lib/queries/profile";
+import { fetchUserBadges } from "@/lib/queries/badges";
 import { fetchUserProfileByUsername } from "@/lib/queries/social";
 
 export const runtime = "edge";
@@ -47,9 +48,10 @@ export async function GET(
     );
   }
 
-  const [stats, bigFour] = await Promise.all([
+  const [stats, bigFour, badges] = await Promise.all([
     fetchProfileStats(supabase, profile.id),
     fetchBigFour(supabase, profile),
+    fetchUserBadges(supabase, profile.id),
   ]);
 
   const displayName = profile.display_name || profile.username;
@@ -305,6 +307,55 @@ export async function GET(
               </div>
             ))}
           </div>
+
+          {/* Badges */}
+          {badges.length > 0 && (
+            <div style={{ display: "flex", alignItems: "center", gap: 12, marginTop: 20 }}>
+              <div
+                style={{
+                  fontSize: 11,
+                  color: TEXT_MUTED,
+                  letterSpacing: 1.5,
+                  textTransform: "uppercase",
+                  marginRight: 4,
+                }}
+              >
+                Badges
+              </div>
+              {badges.slice(0, 6).map((badge) => (
+                <div
+                  key={badge.id}
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 6,
+                    backgroundColor: CARD_BG,
+                    border: `1px solid ${ACCENT}40`,
+                    borderRadius: 20,
+                    padding: "6px 14px",
+                  }}
+                >
+                  <div
+                    style={{
+                      width: 8,
+                      height: 8,
+                      borderRadius: "50%",
+                      backgroundColor: ACCENT,
+                      display: "flex",
+                    }}
+                  />
+                  <span style={{ fontSize: 12, color: TEXT_PRIMARY, fontWeight: 600 }}>
+                    {badge.list_name}
+                  </span>
+                  {badge.is_legacy && (
+                    <span style={{ fontSize: 9, color: "#7B5B3A", fontWeight: 600 }}>
+                      {"\u2605"}
+                    </span>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
         </div>
 
         {/* Footer */}

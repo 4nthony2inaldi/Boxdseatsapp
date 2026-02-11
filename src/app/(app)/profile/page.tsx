@@ -8,11 +8,13 @@ import {
   fetchTimeline,
   fetchProfileSummaryCounts,
 } from "@/lib/queries/profile";
+import { fetchUserBadges, fetchTrackedIncomplete } from "@/lib/queries/badges";
 import ProfileHeader from "@/components/profile/ProfileHeader";
 import StatsRow from "@/components/profile/StatsRow";
 import BigFourSection from "@/components/profile/BigFourSection";
 import ActivityChart from "@/components/profile/ActivityChart";
 import PinnedLists from "@/components/profile/PinnedLists";
+import BadgeSection from "@/components/profile/BadgeSection";
 import LatestEvent from "@/components/profile/LatestEvent";
 import SummaryRows from "@/components/profile/SummaryRows";
 import ShareButton from "@/components/sharing/ShareButton";
@@ -41,7 +43,7 @@ export default async function ProfilePage() {
     );
   }
 
-  const [stats, bigFour, activityData, pinnedLists, timelineEntries, summaryCounts] =
+  const [stats, bigFour, activityData, pinnedLists, timelineEntries, summaryCounts, badges, trackedIncomplete] =
     await Promise.all([
       fetchProfileStats(supabase, user.id),
       fetchBigFour(supabase, profile),
@@ -52,6 +54,8 @@ export default async function ProfilePage() {
       ]),
       fetchTimeline(supabase, user.id, undefined),
       fetchProfileSummaryCounts(supabase, user.id),
+      fetchUserBadges(supabase, user.id),
+      fetchTrackedIncomplete(supabase, user.id),
     ]);
 
   // Latest event is the first (most recent) entry
@@ -64,6 +68,7 @@ export default async function ProfilePage() {
       <BigFourSection items={bigFour} />
       <ActivityChart months={activityData.months} total={activityData.total} />
       <PinnedLists lists={pinnedLists} />
+      <BadgeSection badges={badges} tracked={trackedIncomplete} userId={user.id} />
       <LatestEvent entry={latestEvent} />
       <SummaryRows counts={summaryCounts} />
       {/* Share Profile */}
