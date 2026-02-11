@@ -202,10 +202,39 @@ export default function Timeline({ initialEntries, userId }: TimelineProps) {
         </div>
       )}
 
-      {!loading &&
-        entries.map((entry) => (
-          <TimelineCard key={entry.id} entry={entry} />
-        ))}
+      {!loading && entries.length > 0 && (() => {
+        // Group entries by month for visual breaks
+        const groups: { label: string; entries: typeof entries }[] = [];
+        let currentLabel = "";
+
+        for (const entry of entries) {
+          const d = new Date(entry.event_date + "T00:00:00");
+          const label = d.toLocaleDateString("en-US", {
+            month: "long",
+            year: "numeric",
+          });
+          if (label !== currentLabel) {
+            currentLabel = label;
+            groups.push({ label, entries: [] });
+          }
+          groups[groups.length - 1].entries.push(entry);
+        }
+
+        return groups.map((group) => (
+          <div key={group.label}>
+            <div className="flex items-center gap-3 mt-4 mb-3 first:mt-0">
+              <div className="h-px flex-1 bg-border" />
+              <span className="text-[11px] font-display tracking-[1.5px] uppercase text-text-muted shrink-0">
+                {group.label}
+              </span>
+              <div className="h-px flex-1 bg-border" />
+            </div>
+            {group.entries.map((entry) => (
+              <TimelineCard key={entry.id} entry={entry} />
+            ))}
+          </div>
+        ));
+      })()}
     </div>
   );
 }
