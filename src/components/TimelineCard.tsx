@@ -6,6 +6,7 @@ import SportIcon from "@/components/SportIcon";
 import StarRating from "./profile/StarRating";
 import OutcomeBadge from "./profile/OutcomeBadge";
 import ShareButton from "./sharing/ShareButton";
+import VerifiedBadge from "./VerifiedBadge";
 
 export type TimelineAuthor = {
   id: string;
@@ -38,6 +39,9 @@ export type TimelineCardEntry = {
   // Manual entry fields
   manual_title?: string | null;
   is_manual?: boolean;
+  // Photo fields
+  photo_url?: string | null;
+  photo_is_verified?: boolean;
 };
 
 type TimelineCardProps = {
@@ -171,6 +175,22 @@ export default function TimelineCard({
           <span className="text-xs text-text-muted">·</span>
           <span className="text-xs text-text-muted">{formattedDate}</span>
         </div>
+
+        {/* Photo */}
+        {entry.photo_url && (
+          <div className="relative rounded-lg overflow-hidden mb-2.5 -mx-1">
+            <img
+              src={entry.photo_url}
+              alt="Event photo"
+              className="w-full h-[180px] object-cover"
+            />
+            {entry.photo_is_verified && (
+              <div className="absolute top-2 left-2">
+                <VerifiedBadge size="sm" />
+              </div>
+            )}
+          </div>
+        )}
 
         {/* Seat location */}
         {entry.seat_location && entry.privacy === "show_all" && (

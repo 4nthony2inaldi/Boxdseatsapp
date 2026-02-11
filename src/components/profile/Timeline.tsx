@@ -48,6 +48,7 @@ export default function Timeline({ initialEntries, userId }: TimelineProps) {
         .select(
           `
           id, event_date, rating, notes, outcome, privacy, like_count, comment_count, seat_location, sport,
+          photo_url, photo_is_verified,
           event_id,
           venue_id,
           venues(name),
@@ -116,6 +117,8 @@ export default function Timeline({ initialEntries, userId }: TimelineProps) {
             home_score: event?.home_score ?? null,
             away_score: event?.away_score ?? null,
             sport: log.sport,
+            photo_url: log.photo_url || null,
+            photo_is_verified: log.photo_is_verified || false,
           };
         });
         setEntries(mapped);

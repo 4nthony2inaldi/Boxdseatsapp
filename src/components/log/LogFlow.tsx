@@ -11,6 +11,8 @@ import {
   type EditableEventLog,
 } from "@/lib/queries/log";
 import type { BadgeData } from "@/lib/queries/badges";
+import { uploadEventPhoto, updateEventLogPhoto, isPhotoVerified } from "@/lib/photos";
+import { ensureVotingWindow } from "@/lib/queries/coverPhotos";
 import StepVenue from "./StepVenue";
 import StepDate from "./StepDate";
 import StepEvent from "./StepEvent";
@@ -103,6 +105,42 @@ export default function LogFlow({ userId, prefillVenue, editLog }: LogFlowProps)
     if ("error" in result) {
       setError(result.error);
     } else {
+      const eventLogId = result.id;
+
+      // Upload photo if provided
+      if (details.photo) {
+        const photoResult = await uploadEventPhoto(
+          supabase,
+          userId,
+          eventLogId,
+          details.photo.file
+        );
+
+        if ("url" in photoResult) {
+          const verified = isPhotoVerified(
+            details.photo.captureMethod,
+            new Date(details.photo.capturedAt),
+            selectedDate!
+          );
+
+          await updateEventLogPhoto(
+            supabase,
+            eventLogId,
+            userId,
+            photoResult.url,
+            details.photo.captureMethod,
+            details.photo.capturedAt,
+            verified
+          );
+
+          // Ensure voting window is set for the event
+          if (selectedEvent?.id && selectedDate) {
+            await ensureVotingWindow(supabase, selectedEvent.id, selectedDate);
+          }
+        }
+        // Photo upload failure is non-blocking — the event is still saved
+      }
+
       const newBadges = (result as { newBadges?: BadgeData[] }).newBadges;
       const hasBadges = newBadges && newBadges.length > 0;
       if (hasBadges) {

@@ -24,6 +24,8 @@ export type EventDetail = {
   league_icon: string;
   league_color: string;
   sport: string | null;
+  cover_photo_url: string | null;
+  cover_photo_event_log_id: string | null;
 };
 
 export type UserEventLog = {
@@ -38,6 +40,8 @@ export type UserEventLog = {
   comment_count: number;
   is_manual: boolean;
   manual_title: string | null;
+  photo_url: string | null;
+  photo_is_verified: boolean;
   companions: { display_name: string; tagged_user_id: string | null }[];
 };
 
@@ -85,6 +89,7 @@ export async function fetchEventDetail(
       id, event_date, event_template, season, round_or_stage,
       home_team_id, away_team_id, home_score, away_score,
       tournament_name, venue_id,
+      cover_photo_url, cover_photo_event_log_id,
       venues(name),
       leagues(name, slug, sport),
       home_team:teams!events_home_team_id_fkey(short_name, abbreviation),
@@ -125,6 +130,8 @@ export async function fetchEventDetail(
     league_icon: config.icon,
     league_color: config.color,
     sport: league?.sport || null,
+    cover_photo_url: data.cover_photo_url || null,
+    cover_photo_event_log_id: data.cover_photo_event_log_id || null,
   };
 }
 
@@ -137,7 +144,7 @@ export async function fetchUserEventLog(
 ): Promise<UserEventLog | null> {
   const { data } = await supabase
     .from("event_logs")
-    .select("id, user_id, rating, notes, outcome, seat_location, privacy, like_count, comment_count, is_manual, manual_title")
+    .select("id, user_id, rating, notes, outcome, seat_location, privacy, like_count, comment_count, is_manual, manual_title, photo_url, photo_is_verified")
     .eq("user_id", userId)
     .eq("event_id", eventId)
     .single();
@@ -288,6 +295,115 @@ export async function deleteComment(
 
   if (error) {
     return { error: "Failed to delete comment." };
+  }
+
+  return { success: true };
+}
+
+// ── Photo Gallery Types ──
+
+export type GalleryPhoto = {
+  event_log_id: string;
+  photo_url: string;
+  photo_is_verified: boolean;
+  photo_like_count: number;
+  photo_captured_at: string | null;
+  user_id: string;
+  username: string;
+  display_name: string | null;
+  avatar_url: string | null;
+  liked_by_me: boolean;
+};
+
+// ── Fetch photo gallery for an event ──
+
+export async function fetchEventGallery(
+  supabase: SupabaseClient,
+  eventId: string,
+  currentUserId: string
+): Promise<GalleryPhoto[]> {
+  // Get all event logs with photos for this event
+  const { data: logs } = await supabase
+    .from("event_logs")
+    .select("id, user_id, photo_url, photo_is_verified, photo_like_count, photo_captured_at")
+    .eq("event_id", eventId)
+    .not("photo_url", "is", null)
+    .neq("privacy", "hide_all");
+
+  if (!logs || logs.length === 0) return [];
+
+  // Fetch profiles for all photographers
+  const userIds = [...new Set(logs.map((l) => l.user_id))];
+  const { data: profiles } = await supabase
+    .from("profiles")
+    .select("id, username, display_name, avatar_url")
+    .in("id", userIds);
+
+  const profileMap = new Map(
+    (profiles || []).map((p) => [p.id, p])
+  );
+
+  // Fetch current user's likes on these photos
+  const logIds = logs.map((l) => l.id);
+  const { data: myLikes } = await supabase
+    .from("photo_likes")
+    .select("event_log_id")
+    .eq("user_id", currentUserId)
+    .in("event_log_id", logIds);
+
+  const likedSet = new Set((myLikes || []).map((l) => l.event_log_id));
+
+  // Map and sort: likes desc, then capture time asc
+  return logs
+    .map((log) => {
+      const profile = profileMap.get(log.user_id);
+      return {
+        event_log_id: log.id,
+        photo_url: log.photo_url!,
+        photo_is_verified: log.photo_is_verified || false,
+        photo_like_count: log.photo_like_count || 0,
+        photo_captured_at: log.photo_captured_at,
+        user_id: log.user_id,
+        username: profile?.username || "unknown",
+        display_name: profile?.display_name || null,
+        avatar_url: profile?.avatar_url || null,
+        liked_by_me: likedSet.has(log.id),
+      };
+    })
+    .sort((a, b) => {
+      // Sort by like count descending
+      if (b.photo_like_count !== a.photo_like_count) {
+        return b.photo_like_count - a.photo_like_count;
+      }
+      // Tiebreaker: capture time ascending
+      const aTime = a.photo_captured_at ? new Date(a.photo_captured_at).getTime() : Infinity;
+      const bTime = b.photo_captured_at ? new Date(b.photo_captured_at).getTime() : Infinity;
+      return aTime - bTime;
+    });
+}
+
+// ── Toggle photo like ──
+
+export async function togglePhotoLike(
+  supabase: SupabaseClient,
+  userId: string,
+  eventLogId: string,
+  currentlyLiked: boolean
+): Promise<{ success: boolean } | { error: string }> {
+  if (currentlyLiked) {
+    const { error } = await supabase
+      .from("photo_likes")
+      .delete()
+      .eq("user_id", userId)
+      .eq("event_log_id", eventLogId);
+
+    if (error) return { error: "Failed to unlike photo." };
+  } else {
+    const { error } = await supabase
+      .from("photo_likes")
+      .insert({ user_id: userId, event_log_id: eventLogId });
+
+    if (error) return { error: "Failed to like photo." };
   }
 
   return { success: true };

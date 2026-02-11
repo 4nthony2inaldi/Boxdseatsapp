@@ -124,6 +124,7 @@ export async function fetchFeed(
       `
       id, event_date, rating, notes, outcome, privacy, like_count, comment_count,
       seat_location, sport, is_manual, manual_title, created_at,
+      photo_url, photo_is_verified,
       user_id,
       event_id,
       venue_id,
@@ -216,6 +217,8 @@ export async function fetchFeed(
         sport: log.sport,
         manual_title: log.manual_title,
         is_manual: log.is_manual,
+        photo_url: log.photo_url || null,
+        photo_is_verified: log.photo_is_verified || false,
         created_at: log.created_at,
         author: {
           id: log.user_id,

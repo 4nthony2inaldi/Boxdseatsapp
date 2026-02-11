@@ -4,7 +4,9 @@ import {
   fetchUserEventLog,
   fetchEventAttendees,
   fetchEventComments,
+  fetchEventGallery,
 } from "@/lib/queries/event";
+import { fetchCoverPhotoCredit, ensureVotingWindow } from "@/lib/queries/coverPhotos";
 import Link from "next/link";
 import StarRating from "@/components/profile/StarRating";
 import OutcomeBadge from "@/components/profile/OutcomeBadge";
@@ -12,6 +14,8 @@ import SectionLabel from "@/components/profile/SectionLabel";
 import CommentsSection from "@/components/event/CommentsSection";
 import SportIcon from "@/components/SportIcon";
 import ShareButton from "@/components/sharing/ShareButton";
+import VerifiedBadge from "@/components/VerifiedBadge";
+import EventGallery from "@/components/event/EventGallery";
 
 export default async function EventDetailPage({
   params,
@@ -41,9 +45,16 @@ export default async function EventDetailPage({
     );
   }
 
-  const [userLog, attendees] = await Promise.all([
+  // Ensure voting window is set for this event
+  await ensureVotingWindow(supabase, id, event.event_date);
+
+  const [userLog, attendees, gallery, coverCredit] = await Promise.all([
     fetchUserEventLog(supabase, user.id, id),
     fetchEventAttendees(supabase, id, user.id),
+    fetchEventGallery(supabase, id, user.id),
+    event.cover_photo_event_log_id
+      ? fetchCoverPhotoCredit(supabase, event.cover_photo_event_log_id)
+      : Promise.resolve(null),
   ]);
 
   // Fetch comments for the user's log if they have one
@@ -63,15 +74,31 @@ export default async function EventDetailPage({
 
   return (
     <div className="px-4 pb-8 max-w-lg mx-auto">
-      {/* League-colored gradient header */}
+      {/* Hero: Cover photo or league-colored gradient */}
       <div className="relative -mx-4 mb-5">
-        <div
-          className="h-28"
-          style={{
-            background: `linear-gradient(to bottom, ${event.league_color}33, transparent)`,
-          }}
-        />
-        <div className="px-4 -mt-10">
+        {coverCredit ? (
+          <div className="relative">
+            <img
+              src={coverCredit.photo_url}
+              alt="Event cover photo"
+              className="w-full h-44 object-cover"
+            />
+            <div className="absolute inset-0 bg-gradient-to-t from-bg via-transparent to-transparent" />
+            <div className="absolute bottom-2 right-3 flex items-center gap-1 bg-black/50 backdrop-blur-sm rounded-full px-2 py-0.5">
+              <span className="text-[10px] text-white/80">
+                📸 @{coverCredit.username}
+              </span>
+            </div>
+          </div>
+        ) : (
+          <div
+            className="h-28"
+            style={{
+              background: `linear-gradient(to bottom, ${event.league_color}33, transparent)`,
+            }}
+          />
+        )}
+        <div className={`px-4 ${coverCredit ? "-mt-8" : "-mt-10"}`}>
           <div className="flex items-center gap-2 mb-2">
             <SportIcon src={event.league_icon} size={22} />
             <span
@@ -159,6 +186,22 @@ export default async function EventDetailPage({
             </Link>
           </div>
           <div className="bg-bg-card rounded-xl border border-border p-4">
+            {/* Photo */}
+            {userLog.photo_url && (
+              <div className="relative rounded-lg overflow-hidden mb-3 -mx-1">
+                <img
+                  src={userLog.photo_url}
+                  alt="Event photo"
+                  className="w-full h-[200px] object-cover"
+                />
+                {userLog.photo_is_verified && (
+                  <div className="absolute top-2 left-2">
+                    <VerifiedBadge size="md" />
+                  </div>
+                )}
+              </div>
+            )}
+
             {/* Outcome + Rating */}
             <div className="flex items-center justify-between mb-3">
               <OutcomeBadge outcome={userLog.outcome} />
@@ -248,6 +291,14 @@ export default async function EventDetailPage({
               </Link>
             ))}
           </div>
+        </div>
+      )}
+
+      {/* Photo Gallery */}
+      {gallery.length > 0 && (
+        <div className="mb-6">
+          <SectionLabel>Photos ({gallery.length})</SectionLabel>
+          <EventGallery photos={gallery} currentUserId={user.id} />
         </div>
       )}
 

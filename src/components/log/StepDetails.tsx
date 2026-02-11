@@ -8,6 +8,8 @@ import {
   type UserSearchResult,
   type EventMatch,
 } from "@/lib/queries/log";
+import PhotoSection, { type PhotoData } from "./PhotoSection";
+import { isToday } from "@/lib/photos";
 
 type StepDetailsProps = {
   userId: string;
@@ -30,6 +32,7 @@ export type DetailsData = {
   notes: string;
   companions: CompanionInput[];
   privacy: "show_all" | "hide_personal" | "hide_all";
+  photo?: PhotoData | null;
 };
 
 export default function StepDetails({
@@ -53,6 +56,7 @@ export default function StepDetails({
     "show_all" | "hide_personal" | "hide_all"
   >(initialValues?.privacy ?? "show_all");
   const [companions, setCompanions] = useState<CompanionInput[]>(initialValues?.companions ?? []);
+  const [photo, setPhoto] = useState<PhotoData | null>(null);
   const [companionSearch, setCompanionSearch] = useState("");
   const [companionResults, setCompanionResults] = useState<UserSearchResult[]>(
     []
@@ -120,6 +124,8 @@ export default function StepDetails({
     setCompanions(companions.filter((_, i) => i !== index));
   };
 
+  const allowCamera = isToday(date);
+
   const handleSubmit = () => {
     onSave({
       rating,
@@ -129,6 +135,7 @@ export default function StepDetails({
       notes,
       companions,
       privacy,
+      photo,
     });
   };
 
@@ -324,15 +331,12 @@ export default function StepDetails({
         )}
       </div>
 
-      {/* Photo upload placeholder */}
-      <div className="mb-5">
-        <label className="font-display text-[11px] text-text-muted tracking-[1.2px] uppercase block mb-2">
-          Photo
-        </label>
-        <div className="w-full h-[100px] rounded-[10px] border-2 border-dashed border-border flex items-center justify-center cursor-pointer hover:border-accent/30 transition-colors">
-          <span className="text-[13px] text-text-muted">+ Add photo</span>
-        </div>
-      </div>
+      {/* Photo */}
+      <PhotoSection
+        photo={photo}
+        onPhotoChange={setPhoto}
+        allowCamera={allowCamera}
+      />
 
       {/* Privacy */}
       <div className="mb-6">

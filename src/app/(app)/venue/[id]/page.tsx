@@ -7,6 +7,7 @@ import {
   fetchVenueTimeline,
   fetchVenueVisitStatus,
 } from "@/lib/queries/venue";
+import { fetchVenueCoverPhoto } from "@/lib/queries/coverPhotos";
 import Link from "next/link";
 import SectionLabel from "@/components/profile/SectionLabel";
 import StatBox from "@/components/profile/StatBox";
@@ -42,12 +43,13 @@ export default async function VenueDetailPage({
     );
   }
 
-  const [history, teams, community, timeline, visitStatus] = await Promise.all([
+  const [history, teams, community, timeline, visitStatus, venueCover] = await Promise.all([
     fetchVenueHistory(supabase, user.id, id),
     fetchVenueTeams(supabase, id),
     fetchVenueCommunityStats(supabase, user.id, id),
     fetchVenueTimeline(supabase, user.id, id),
     fetchVenueVisitStatus(supabase, user.id, id),
+    fetchVenueCoverPhoto(supabase, id),
   ]);
 
   const hasEventLogs = history.totalVisits > 0;
@@ -71,7 +73,23 @@ export default async function VenueDetailPage({
 
       {/* Hero header */}
       <div className="relative -mx-4 -mt-0 mb-5">
-        <div className="h-36 bg-gradient-to-b from-accent/20 via-accent/5 to-bg" />
+        {venueCover ? (
+          <div className="relative">
+            <img
+              src={venueCover.photo_url}
+              alt={`${venue.name} cover photo`}
+              className="w-full h-44 object-cover"
+            />
+            <div className="absolute inset-0 bg-gradient-to-t from-bg via-transparent to-transparent" />
+            <div className="absolute bottom-2 right-3 flex items-center gap-1 bg-black/50 backdrop-blur-sm rounded-full px-2 py-0.5">
+              <span className="text-[10px] text-white/80">
+                📸 @{venueCover.username}
+              </span>
+            </div>
+          </div>
+        ) : (
+          <div className="h-36 bg-gradient-to-b from-accent/20 via-accent/5 to-bg" />
+        )}
         <div className="px-4 -mt-8">
           <h1 className="font-display text-3xl text-text-primary tracking-wide leading-tight">
             {venue.name}

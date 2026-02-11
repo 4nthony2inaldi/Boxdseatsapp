@@ -2121,3 +2121,261 @@ The profile OG image route (`/u/[username]/og/route.tsx`) now includes a badges 
 6. **Concurrent badge awards** — If two event logs are saved simultaneously (unlikely in practice), both could trigger `checkAndAwardBadges()`. The `unique (user_id, list_id)` constraint on the `badges` table prevents duplicate badges, but the second insert will fail silently.
 
 7. **No badge for user-created lists** — Badge checking includes user-followed lists but not the user's own created lists. A user who creates a list and completes it won't get a badge unless they also follow their own list.
+
+---
+
+## Session 10 — Photo System (Verified Photos, Event Gallery, Cover Photos)
+
+### Overview
+
+Built a comprehensive three-phase photo system:
+
+- **Phase A — Verified Photos**: In-app camera capture with verified badge logic
+- **Phase B — Event Gallery**: Photo gallery on event detail with likes
+- **Phase C — Cover Photos**: Voting window, winner selection, venue hero propagation, photographer recognition
+
+---
+
+### Schema Changes
+
+Migration file: `scripts/photos-migration.sql`
+
+#### Phase A — event_logs additions
+
+| Column | Type | Description |
+|---|---|---|
+| `photo_url` | `text` | URL of the uploaded photo in Supabase Storage |
+| `photo_capture_method` | `text` | `"camera"` or `"upload"` |
+| `photo_captured_at` | `timestamptz` | When the photo was taken |
+| `photo_is_verified` | `boolean DEFAULT false` | Whether the photo passed verification |
+
+Index: `idx_event_logs_photo_verified` on `(photo_is_verified)` where `photo_url IS NOT NULL`.
+
+#### Phase B — photo_likes table + event_logs addition
+
+| Column | Type | Description |
+|---|---|---|
+| `photo_like_count` | `integer DEFAULT 0` | Denormalized like count on `event_logs` |
+
+New table `photo_likes`:
+
+| Column | Type |
+|---|---|
+| `id` | `uuid DEFAULT gen_random_uuid() PRIMARY KEY` |
+| `event_log_id` | `uuid REFERENCES event_logs(id) ON DELETE CASCADE` |
+| `user_id` | `uuid REFERENCES auth.users(id) ON DELETE CASCADE` |
+| `created_at` | `timestamptz DEFAULT now()` |
+
+Unique constraint: `(event_log_id, user_id)`. Database triggers `increment_photo_like_count` / `decrement_photo_like_count` keep the denormalized count in sync. RLS: authenticated users can read all likes, insert/delete their own.
+
+#### Phase C — events, venues, profiles additions
+
+**events:**
+
+| Column | Type | Description |
+|---|---|---|
+| `cover_photo_event_log_id` | `uuid REFERENCES event_logs(id)` | Winning cover photo log |
+| `cover_photo_url` | `text` | Cached URL of cover photo |
+| `voting_closes_at` | `timestamptz` | End of voting window |
+
+**venues:**
+
+| Column | Type | Description |
+|---|---|---|
+| `current_cover_event_id` | `uuid REFERENCES events(id)` | Most recent event with a cover photo |
+
+**profiles:**
+
+| Column | Type | Description |
+|---|---|---|
+| `cover_photo_count` | `integer DEFAULT 0` | Number of cover photo wins |
+
+#### Storage
+
+Supabase Storage bucket `event-photos` with RLS policies:
+- Authenticated users can upload to `{userId}/{eventLogId}/*`
+- Anyone can read (public bucket)
+- Users can delete their own photos
+
+---
+
+### Camera Implementation Approach
+
+**`src/components/log/CameraCapture.tsx`** — Full-screen camera viewfinder:
+- Uses `navigator.mediaDevices.getUserMedia({ video: { facingMode } })` to access the device camera
+- Supports front/back camera toggle via `facingMode` ("user" / "environment")
+- Capture flow: live viewfinder → capture frame to `<canvas>` → review (retake / confirm)
+- Captured frame is converted to JPEG Blob via `canvas.toBlob(cb, "image/jpeg", 0.85)`
+- Error handling for denied permissions and no camera available
+- Returns `Blob` to parent via `onCapture` callback
+
+**`src/components/log/PhotoSection.tsx`** — Photo mode selector:
+- `PhotoData` type: `{ file: File, previewUrl: string, captureMethod: "camera" | "upload", capturedAt: string }`
+- When `allowCamera` is true (same-day events), shows two mode buttons: Camera and Upload
+- When `allowCamera` is false (historical events), directly shows file picker
+- Camera mode opens `CameraCapture` overlay; Upload mode uses `<input type="file" accept="image/*">`
+- Shows photo preview with remove button and capture method badge
+
+**Camera availability logic** (`src/lib/photos.ts` → `isToday()`):
+- Camera mode is only available when `event_date` matches today's date
+- This prevents gaming the verified badge by using camera on historical event logs
+
+---
+
+### Verified Badge Logic
+
+**`src/lib/photos.ts` → `isPhotoVerified()`:**
+
+A photo is verified when ALL conditions are met:
+1. `photo_capture_method === "camera"` (taken via in-app camera, not uploaded from gallery)
+2. `photo_captured_at` falls within the event window: **3 hours before** through **3 hours after** the event date
+
+Since exact event start/end times are not available in the schema, the function uses the full event date (midnight to midnight) extended by 3 hours on each side. This means:
+- Window start: event_date 00:00:00 minus 3 hours = previous day 21:00:00
+- Window end: event_date 23:59:59 plus 3 hours = next day 02:59:59
+
+**`src/components/VerifiedBadge.tsx`:**
+- Camera SVG icon with "Verified" text
+- Two sizes: `sm` (12px icon, used on timeline cards) and `md` (16px icon, used on event detail)
+- Styled with `bg-accent/15`, `border-accent/30`, subtle `box-shadow` glow
+
+**Photo upload flow** (in `LogFlow.tsx` → `handleSave`):
+1. Event log is saved first (without photo data)
+2. Photo is uploaded to Supabase Storage: `event-photos/{userId}/{eventLogId}/{timestamp}.jpg`
+3. Photo is resized client-side before upload (max 1200×1200, JPEG 85%)
+4. `updateEventLogPhoto()` sets `photo_url`, `photo_capture_method`, `photo_captured_at`, `photo_is_verified` on the event log
+5. If event has an `event_id`, `ensureVotingWindow()` is called to set the voting deadline
+6. Photo upload failure is non-blocking — the event log is still saved
+
+---
+
+### Gallery Component Structure
+
+**`src/components/event/EventGallery.tsx`** — Client component:
+- Receives `GalleryPhoto[]` and `currentUserId` as props
+- Each photo card shows: image, photographer avatar + username, verified badge (if verified), like count, like/unlike button
+- Verified photos get a visual distinction: `border-accent/30` border
+- Like/unlike uses optimistic UI: immediately updates local state, then calls `togglePhotoLike()`
+- If server call fails, reverts the optimistic update
+- Photos are sorted server-side by `photo_like_count DESC, photo_captured_at ASC`
+
+**`src/lib/queries/event.ts` → `fetchEventGallery()`:**
+- Queries `event_logs` joined with `profiles` for photographer info
+- Filters: `event_id = eventId`, `photo_url IS NOT NULL`
+- Left-joins `photo_likes` to determine if current user has liked each photo
+- Returns `GalleryPhoto[]` with `liked_by_me` boolean
+
+**`src/lib/queries/event.ts` → `togglePhotoLike()`:**
+- If `currentlyLiked`: deletes from `photo_likes` (trigger decrements count)
+- If not liked: inserts into `photo_likes` (trigger increments count)
+
+---
+
+### Voting / Selection Mechanism
+
+**Voting Window:**
+- `ensureVotingWindow()` in `src/lib/queries/coverPhotos.ts` sets `voting_closes_at` on the event
+- Computed as: event_date + 1 day at 23:59:59 UTC (end of the calendar day after the event)
+- Idempotent: only sets the value if currently null
+- Called from two places: `LogFlow.tsx` (when a photo is attached) and `event/[id]/page.tsx` (on every event detail view)
+
+**Cover Photo Selection** (`selectCoverPhoto()`):
+1. Finds all event_logs for the event that have a `photo_url`
+2. Selects the winner by: most `photo_like_count` → prefers `photo_is_verified` → earliest `photo_captured_at`
+3. If no photos exist, returns early (no cover photo)
+4. Updates `events` with `cover_photo_event_log_id` and `cover_photo_url`
+5. Calls `propagateVenueHero()` and `notifyCoverPhotoWinner()`
+
+**Processing Closed Voting** (`processClosedVoting()`):
+- Finds events where `voting_closes_at < NOW()` and `cover_photo_event_log_id IS NULL`
+- Calls `selectCoverPhoto()` for each
+- Designed to be called by a scheduled cron job
+
+**Cron Endpoint** (`src/app/api/cover-photos/route.ts`):
+- `POST /api/cover-photos` with `Authorization: Bearer {CRON_SECRET}`
+- Uses service role Supabase client for admin operations
+- Returns `{ success: true, processed: number, errors: number }`
+
+**Venue Hero Propagation** (`propagateVenueHero()`):
+- After a cover photo is selected, checks if this event is the most recent at its venue that has a cover photo
+- If so, updates `venues.current_cover_event_id` to point to this event
+
+**Photographer Recognition** (`notifyCoverPhotoWinner()`):
+- Inserts a notification for the winning photographer
+- Increments `profiles.cover_photo_count`
+
+---
+
+### Display Integration
+
+**Timeline cards** (`src/components/TimelineCard.tsx`):
+- Photos displayed between venue/date line and seat location
+- `180px` height, full width, `object-cover`
+- Verified badge overlay in top-left corner
+
+**Event detail page** (`src/app/(app)/event/[id]/page.tsx`):
+- **Cover photo hero**: replaces the league-colored gradient when a cover photo exists; shows photographer credit `📸 @username` in bottom-right corner
+- **User's log section**: photo with verified badge, `200px` height
+- **Gallery section**: between attendees and share button, shows `EventGallery` component
+
+**Venue detail page** (`src/app/(app)/venue/[id]/page.tsx`):
+- Community cover photo replaces the gradient header when available
+- Shows photographer credit `📸 @username` overlay
+
+**Profile timeline** (`src/components/profile/Timeline.tsx`):
+- Updated client-side fetch query to include `photo_url` and `photo_is_verified`
+- Photo fields mapped in filtered results
+
+**Feed** (`src/lib/queries/social.ts`):
+- Updated `fetchFeed` select query and return mapping to include photo fields
+
+---
+
+### New Files
+
+| File | Purpose |
+|---|---|
+| `scripts/photos-migration.sql` | Complete SQL migration for all three phases |
+| `src/lib/photos.ts` | Photo validation, resize, upload, verification logic |
+| `src/components/log/CameraCapture.tsx` | Full-screen camera viewfinder component |
+| `src/components/log/PhotoSection.tsx` | Photo mode selector (camera vs upload) |
+| `src/components/VerifiedBadge.tsx` | Verified photo badge component |
+| `src/components/event/EventGallery.tsx` | Photo gallery with likes |
+| `src/lib/queries/coverPhotos.ts` | Cover photo voting, selection, propagation |
+| `src/app/api/cover-photos/route.ts` | Cron endpoint for processing closed voting |
+
+### Modified Files
+
+| File | Changes |
+|---|---|
+| `src/components/log/StepDetails.tsx` | Added `PhotoSection` integration, `PhotoData` in `DetailsData` type, `allowCamera` check |
+| `src/components/log/LogFlow.tsx` | Photo upload after save, voting window creation, photo imports |
+| `src/components/TimelineCard.tsx` | Photo display with verified badge, `photo_url`/`photo_is_verified` in type |
+| `src/lib/queries/profile.ts` | `photo_url`/`photo_is_verified` in `TimelineEntry` type and `fetchTimeline` query |
+| `src/lib/queries/social.ts` | `photo_url`/`photo_is_verified` in `fetchFeed` query and return mapping |
+| `src/lib/queries/event.ts` | Cover photo fields in `EventDetail`, photo fields in `UserEventLog`, new `GalleryPhoto` type, `fetchEventGallery`, `togglePhotoLike` |
+| `src/app/(app)/event/[id]/page.tsx` | Cover photo hero, photo in user log, gallery section, voting window init |
+| `src/app/(app)/venue/[id]/page.tsx` | Community cover photo hero with photographer credit |
+| `src/components/profile/Timeline.tsx` | Photo fields in client-side filtered fetch |
+
+---
+
+### Known Issues / Edge Cases
+
+1. **Event window approximation** — Verified badge uses a 3-hour buffer around the full event date since exact start/end times are not in the schema. This means a photo taken at 8:59 PM the day before (within the 3hr pre-buffer) could technically be verified. In practice this is unlikely to be gamed.
+
+2. **Photo upload is non-blocking** — If the Storage upload fails (network error, bucket misconfiguration), the event log is still saved without a photo. The user is not shown an error for photo upload failure.
+
+3. **No photo editing/cropping** — Photos are resized to fit within 1200×1200 but not cropped. Users cannot adjust framing after capture.
+
+4. **Gallery requires event_id** — Only event logs linked to an actual `event_id` appear in galleries. Manual events (no matched event) do not have galleries or cover photo voting.
+
+5. **Voting window is UTC-based** — `voting_closes_at` is computed as event_date + 1 day at 23:59:59 UTC. For events in non-UTC timezones, this may close voting earlier or later than expected relative to local time.
+
+6. **Concurrent likes** — The `photo_likes` unique constraint prevents duplicate likes, and database triggers handle the count. However, rapid like/unlike could cause brief inconsistencies between the optimistic UI and actual count.
+
+7. **Service role required for cron** — The cover photo processing endpoint uses the Supabase service role key to bypass RLS. This key must be set in environment variables (`SUPABASE_SERVICE_ROLE_KEY`).
+
+8. **No photo deletion UI** — Users can remove a photo during the log flow (before saving), but there is no UI to remove a photo from an already-saved event log. The edit flow would need to be extended to support this.
+
+9. **Camera on desktop** — `getUserMedia` works on desktop browsers with webcams, but the experience is optimized for mobile. Desktop users may prefer the Upload mode.
