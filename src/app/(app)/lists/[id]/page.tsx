@@ -3,6 +3,7 @@ import { fetchListDetail, fetchListItems, checkListFollow } from "@/lib/queries/
 import Link from "next/link";
 import SectionLabel from "@/components/profile/SectionLabel";
 import ListActions from "@/components/lists/ListActions";
+import ListItemCheckbox from "@/components/lists/ListItemCheckbox";
 import SportIcon from "@/components/SportIcon";
 
 export default async function ListDetailPage({
@@ -131,10 +132,11 @@ export default async function ListDetailPage({
           <SectionLabel>Visited ({visitedItems.length})</SectionLabel>
           <div className="space-y-2">
             {visitedItems.map((item) => (
-              <ListItemRow
+              <ListItemCheckbox
                 key={item.id}
                 item={item}
-                visited={true}
+                initialVisited={true}
+                userId={user.id}
               />
             ))}
           </div>
@@ -147,10 +149,11 @@ export default async function ListDetailPage({
           <SectionLabel>Remaining ({remainingItems.length})</SectionLabel>
           <div className="space-y-2">
             {remainingVisible.map((item) => (
-              <ListItemRow
+              <ListItemCheckbox
                 key={item.id}
                 item={item}
-                visited={false}
+                initialVisited={false}
+                userId={user.id}
               />
             ))}
             {remainingHidden > 0 && (
@@ -167,75 +170,3 @@ export default async function ListDetailPage({
   );
 }
 
-// ── List item row ──
-
-function ListItemRow({
-  item,
-  visited,
-}: {
-  item: { id: string; venue_id: string | null; display_name: string };
-  visited: boolean;
-}) {
-  const content = (
-    <div
-      className={`rounded-xl border px-4 py-3 flex items-center gap-3 transition-colors ${
-        visited
-          ? "bg-bg-card border-border"
-          : "bg-bg-card/50 border-border/50"
-      }`}
-    >
-      {/* Check / empty box */}
-      <div
-        className={`w-5 h-5 rounded flex items-center justify-center shrink-0 ${
-          visited
-            ? "bg-win/20 text-win"
-            : "border border-border"
-        }`}
-      >
-        {visited && (
-          <svg
-            width="12"
-            height="12"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="3"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-          >
-            <polyline points="20 6 9 17 4 12" />
-          </svg>
-        )}
-      </div>
-
-      <span
-        className={`text-sm flex-1 ${
-          visited ? "text-text-primary" : "text-text-muted"
-        }`}
-      >
-        {item.display_name}
-      </span>
-
-      {visited && item.venue_id && (
-        <svg
-          width="14"
-          height="14"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="#5A5F72"
-          strokeWidth="2"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-        >
-          <polyline points="9 18 15 12 9 6" />
-        </svg>
-      )}
-    </div>
-  );
-
-  if (visited && item.venue_id) {
-    return <Link href={`/venue/${item.venue_id}`}>{content}</Link>;
-  }
-
-  return content;
-}
