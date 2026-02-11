@@ -53,7 +53,7 @@ export async function fetchUserBadges(
   // Get user's event tags for current progress
   const { data: userEventLogs } = await supabase
     .from("event_logs")
-    .select("event_id, events(event_tags)")
+    .select("event_id, events!event_logs_event_id_fkey(event_tags)")
     .eq("user_id", userId)
     .not("event_id", "is", null);
 
@@ -159,7 +159,7 @@ export async function fetchTrackedIncomplete(
 
   const { data: userEventLogs } = await supabase
     .from("event_logs")
-    .select("event_id, events(event_tags)")
+    .select("event_id, events!event_logs_event_id_fkey(event_tags)")
     .eq("user_id", userId)
     .not("event_id", "is", null);
 
@@ -258,7 +258,7 @@ export async function checkAndAwardBadges(
 
   const { data: userEventLogs } = await supabase
     .from("event_logs")
-    .select("event_id, events(event_tags)")
+    .select("event_id, events!event_logs_event_id_fkey(event_tags)")
     .eq("user_id", userId)
     .not("event_id", "is", null);
 
@@ -383,7 +383,7 @@ export async function fetchBadgeItems(
   } else if (list.list_type === "event") {
     const { data: userEvents } = await supabase
       .from("event_logs")
-      .select("event_id, events(event_tags)")
+      .select("event_id, events!event_logs_event_id_fkey(event_tags)")
       .eq("user_id", userId)
       .not("event_id", "is", null);
 

@@ -208,7 +208,7 @@ export async function fetchVenueTimeline(
       event_id, venue_id, is_manual, manual_title,
       venues(name),
       leagues(slug, name),
-      events(
+      events!event_logs_event_id_fkey(
         home_score, away_score,
         home_team:teams!events_home_team_id_fkey(short_name, abbreviation),
         away_team:teams!events_away_team_id_fkey(short_name, abbreviation),

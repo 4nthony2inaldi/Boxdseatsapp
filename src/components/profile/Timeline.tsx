@@ -53,7 +53,7 @@ export default function Timeline({ initialEntries, userId }: TimelineProps) {
           venue_id,
           venues(name),
           leagues(slug, name),
-          events(
+          events!event_logs_event_id_fkey(
             home_score, away_score,
             home_team:teams!events_home_team_id_fkey(short_name, abbreviation),
             away_team:teams!events_away_team_id_fkey(short_name, abbreviation),

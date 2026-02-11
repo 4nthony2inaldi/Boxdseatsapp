@@ -67,7 +67,7 @@ export async function fetchAllLists(
   // Get user's event logs for event-type list matching
   const { data: userEventLogs } = await supabase
     .from("event_logs")
-    .select("event_id, events(event_tags)")
+    .select("event_id, events!event_logs_event_id_fkey(event_tags)")
     .eq("user_id", userId)
     .not("event_id", "is", null);
 
@@ -129,13 +129,17 @@ export async function fetchListDetail(
   supabase: SupabaseClient,
   listId: string
 ): Promise<ListDetail | null> {
-  const { data } = await supabase
+  const { data, error } = await supabase
     .from("lists")
     .select(
       "id, name, description, list_type, sport, item_count, source, created_by, forked_from, profiles(username, display_name)"
     )
     .eq("id", listId)
     .single();
+
+  if (error) {
+    console.error("[fetchListDetail] error:", error.message, error.code, error.details, "listId:", listId);
+  }
 
   if (!data) return null;
 
@@ -200,7 +204,7 @@ export async function fetchListItems(
     // Get user's event tags
     const { data: userEvents } = await supabase
       .from("event_logs")
-      .select("event_id, events(event_tags)")
+      .select("event_id, events!event_logs_event_id_fkey(event_tags)")
       .eq("user_id", userId)
       .not("event_id", "is", null);
 
@@ -316,7 +320,7 @@ async function computeListProgress(
 
   const { data: userEventLogs } = await supabase
     .from("event_logs")
-    .select("event_id, events(event_tags)")
+    .select("event_id, events!event_logs_event_id_fkey(event_tags)")
     .eq("user_id", userId)
     .not("event_id", "is", null);
 

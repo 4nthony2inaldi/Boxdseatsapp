@@ -131,7 +131,7 @@ export async function searchEvents(
       `id, event_date, tournament_name,
        home_team:teams!events_home_team_id_fkey(short_name),
        away_team:teams!events_away_team_id_fkey(short_name),
-       venues(name)`
+       venues!events_venue_id_fkey(name)`
     )
     .or(`tournament_name.ilike.${pattern}`)
     .order("event_date", { ascending: false })
@@ -144,7 +144,7 @@ export async function searchEvents(
       `id, event_date, tournament_name,
        home_team:teams!events_home_team_id_fkey(short_name, name),
        away_team:teams!events_away_team_id_fkey(short_name, name),
-       venues(name)`
+       venues!events_venue_id_fkey(name)`
     )
     .limit(limit * 2);
 

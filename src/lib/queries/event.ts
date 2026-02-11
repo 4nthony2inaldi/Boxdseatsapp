@@ -90,7 +90,7 @@ export async function fetchEventDetail(
       home_team_id, away_team_id, home_score, away_score,
       tournament_name, venue_id,
       cover_photo_url, cover_photo_event_log_id,
-      venues(name),
+      venues!events_venue_id_fkey(name),
       leagues(name, slug, sport),
       home_team:teams!events_home_team_id_fkey(short_name, abbreviation),
       away_team:teams!events_away_team_id_fkey(short_name, abbreviation)

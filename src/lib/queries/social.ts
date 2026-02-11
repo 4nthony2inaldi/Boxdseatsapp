@@ -93,15 +93,20 @@ export async function fetchFeed(
   offset = 0
 ): Promise<FeedEntry[]> {
   // 1. Get IDs of users I follow (active only)
-  const { data: followRows } = await supabase
+  const { data: followRows, error: followError } = await supabase
     .from("follows")
     .select("following_id")
     .eq("follower_id", userId)
     .eq("status", "active");
 
+  if (followError) {
+    console.error("[fetchFeed] follows query error:", followError.message, followError.code);
+  }
+
   const followingIds = (followRows || []).map((r) => r.following_id);
   // Include own entries in the feed
   const feedUserIds = [userId, ...followingIds];
+  console.log("[fetchFeed] feedUserIds:", feedUserIds.length, "userId:", userId);
 
   if (feedUserIds.length === 0) return [];
 
@@ -118,7 +123,7 @@ export async function fetchFeed(
   }
 
   // 3. Fetch event logs from followed users + self
-  const { data: logs } = await supabase
+  const { data: logs, error: logsError } = await supabase
     .from("event_logs")
     .select(
       `
@@ -130,7 +135,7 @@ export async function fetchFeed(
       venue_id,
       venues(name),
       leagues(slug, name),
-      events(
+      events!event_logs_event_id_fkey(
         home_score, away_score,
         home_team:teams!events_home_team_id_fkey(short_name, abbreviation),
         away_team:teams!events_away_team_id_fkey(short_name, abbreviation),
@@ -142,6 +147,10 @@ export async function fetchFeed(
     .neq("privacy", "hide_all")
     .order("created_at", { ascending: false })
     .range(offset, offset + limit - 1);
+
+  if (logsError) {
+    console.error("[fetchFeed] event_logs query error:", logsError.message, logsError.code, logsError.details);
+  }
 
   if (!logs || logs.length === 0) return [];
 

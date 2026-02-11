@@ -200,7 +200,7 @@ export async function fetchBigFour(
     const { data } = await supabase
       .from("events")
       .select(
-        "event_date, home_team:teams!events_home_team_id_fkey(short_name, abbreviation), away_team:teams!events_away_team_id_fkey(short_name, abbreviation), tournament_name, venues(name)"
+        "event_date, home_team:teams!events_home_team_id_fkey(short_name, abbreviation), away_team:teams!events_away_team_id_fkey(short_name, abbreviation), tournament_name, venues!events_venue_id_fkey(name)"
       )
       .eq("id", profile.fav_event_id)
       .single();
@@ -322,7 +322,7 @@ export async function fetchPinnedLists(
         // Check user's event_logs for events with matching tags
         const { data: userEvents } = await supabase
           .from("event_logs")
-          .select("event_id, events!inner(event_tags)")
+          .select("event_id, events!event_logs_event_id_fkey!inner(event_tags)")
           .eq("user_id", userId)
           .not("event_id", "is", null);
 
@@ -443,7 +443,7 @@ export async function fetchTimeline(
       venue_id,
       venues(name),
       leagues(slug, name),
-      events(
+      events!event_logs_event_id_fkey(
         home_score, away_score,
         home_team:teams!events_home_team_id_fkey(short_name, abbreviation),
         away_team:teams!events_away_team_id_fkey(short_name, abbreviation),
