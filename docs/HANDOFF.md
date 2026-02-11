@@ -1709,3 +1709,100 @@ The list detail page (`/lists/[id]/page.tsx`) now includes:
 8. **Notifications** — No notifications are generated when a user follows, forks, or comments on a list. The notification infrastructure exists but is not wired to list actions.
 
 9. **item_count sync** — The `lists.item_count` field is manually updated in application code after add/remove. A database trigger would be more reliable but is not yet implemented.
+
+---
+
+## Session 8 — Sharing & Public URLs (OG Images, Share Buttons, Public Pages)
+
+### Overview
+
+Built the complete sharing system: public profile and event log pages accessible to logged-out visitors, Open Graph image generation for rich social media previews, and native share / clipboard copy functionality throughout the app.
+
+### Architecture
+
+**URL structure:**
+- Profiles: `boxdseats.com/@username` → middleware rewrites to `/u/[username]` (filesystem can't use `@` prefix since Next.js reserves it for parallel routes)
+- Event logs: `boxdseats.com/e/[event_log_id]` → public event log permalink
+- OG images: `/u/[username]/og` and `/e/[id]/og` — server-rendered image routes using `next/og` ImageResponse
+
+**Route groups:**
+- `(public)` — new route group for pages accessible without authentication
+- `(app)` — existing authenticated route group (unchanged)
+
+**Middleware changes:**
+- Added public route detection for `/@`, `/u/`, and `/e/` paths
+- Added rewrite rule: `/@username` → `/u/username` (preserves clean URL while using valid filesystem route)
+
+### New Files
+
+| File | Purpose |
+|------|---------|
+| `src/app/(public)/layout.tsx` | Minimal layout wrapper for public pages (no AppHeader/BottomNav) |
+| `src/app/(public)/u/[username]/page.tsx` | Public profile page — shows profile header, stats, Big Four, activity chart, pinned lists, timeline. Shows "Join BoxdSeats" CTA for logged-out visitors. Respects private profile gating. |
+| `src/app/(public)/u/[username]/og/route.tsx` | OG image generation for profiles — 1200×630px branded card with avatar, display name, username, bio, fan record (W-L-D), stats row, Big Four picks. Uses edge runtime. |
+| `src/app/(public)/e/[id]/page.tsx` | Public event log permalink — shows event scoreboard/title, date, venue, author info, outcome, rating, seat location, notes. Respects `hide_all` privacy. |
+| `src/app/(public)/e/[id]/og/route.tsx` | OG image generation for events — 1200×630px branded card with league gradient, scoreboard (for matches), venue, date, outcome badge, star rating, author info. Uses edge runtime. |
+| `src/lib/queries/sharing.ts` | `fetchPublicEventLog()` — fetches a single event log by ID with author profile, event details, venue, and league data. Filters out `hide_all` privacy entries. |
+| `src/components/sharing/ShareButton.tsx` | Client component — uses `navigator.share()` Web Share API with clipboard copy fallback. Two variants: `default` (full-width button) and `compact` (icon-only for inline use). Shows "Link Copied!" confirmation. |
+
+### Modified Files
+
+| File | Change |
+|------|--------|
+| `src/lib/supabase/middleware.ts` | Added `isPublicRoute` detection for `/@`, `/u/`, `/e/` paths. Added rewrite rule `/@username` → `/u/username`. Skips auth redirect for public routes. |
+| `src/app/layout.tsx` | Added `metadataBase` to metadata export for proper OG image URL resolution |
+| `src/app/(app)/profile/page.tsx` | Added ShareButton to own profile page |
+| `src/app/(app)/user/[username]/page.tsx` | Added ShareButton to other user's profile page |
+| `src/app/(app)/event/[id]/page.tsx` | Added ShareButton above comments section on event detail page |
+| `src/components/TimelineCard.tsx` | Replaced `onShare` prop/callback with embedded `ShareButton` (compact variant). Removed unused `onShare` from props type. |
+
+### OG Image Design
+
+Both profile and event OG images follow the dark brand aesthetic:
+- **Background:** `#0D0F14` (app background color)
+- **Cards:** `#161920` with `#23272F` border
+- **Accent:** `#D4872C` (brand orange) for stats, BOXDSEATS branding
+- **Text:** `#F0EBE0` (primary), `#9BA1B5` (secondary), `#5A5F72` (muted)
+- **Outcome colors:** `#3CB878` (win), `#C83C2C` (loss), `#9BA1B5` (draw)
+- **Layout:** 1200×630px, gradient top bar, "BOXDSEATS" logo in footer
+- Profile cards: avatar, name, bio, fan record, 4-stat row, Big Four section
+- Event cards: league gradient header, scoreboard (for matches), venue/date, outcome/rating, author
+
+### Privacy Handling
+
+- **`hide_all` entries:** `fetchPublicEventLog` filters these out — they don't appear on public pages
+- **`hide_personal` entries:** Visible but seat location and notes are hidden
+- **`show_all` entries:** Full details visible including seat and notes
+- **Private profiles:** Show header + stats + locked message. No timeline, Big Four, or activity chart. "Log in to follow" CTA for logged-out visitors.
+- **Block checking:** Not performed on public pages (blocked users can still view public profiles)
+
+### Share Button Behavior
+
+1. Checks `navigator.share` availability (iOS Safari, Android Chrome, etc.)
+2. If available: opens native share sheet with title, text, and URL
+3. If not available (or user cancels): copies URL to clipboard via `navigator.clipboard.writeText()`
+4. Final fallback: `prompt()` dialog for manual copy
+5. Shows "Link Copied!" confirmation with green checkmark for 2 seconds
+
+### Open Graph Meta Tags
+
+Generated via Next.js `generateMetadata()` in each public page:
+- **Profile:** `og:type=profile`, title with display name and @username, description with event/venue counts, 1200×630 OG image
+- **Event:** `og:type=article`, title with matchup/event name, description with author + venue + date, 1200×630 OG image
+- **Twitter:** `summary_large_image` card for both types
+
+### Environment Variables
+
+- `NEXT_PUBLIC_SITE_URL` — Used for OG image URLs and canonical URLs. Falls back to `https://boxdseats.com` in production.
+
+### Known Issues / Remaining Work
+
+1. **Custom fonts in OG images** — OG images use system fonts (no Bebas Neue / DM Sans) since `next/og` edge runtime can't load custom fonts without fetching font files. Could be improved by hosting font files and loading them in the ImageResponse.
+
+2. **Avatar images in OG** — Avatar URLs from Supabase Storage work in OG images as long as the storage bucket is publicly accessible. If avatars are behind auth, they won't render.
+
+3. **Block enforcement on public pages** — Public profile pages don't check block relationships. A blocked user could still view a public profile via `/@username`. This is intentional — public profiles are public.
+
+4. **Logged-in user on public pages** — When a logged-in user visits `/@username`, they see the public page layout (no BottomNav/AppHeader). They could be redirected to `/user/[username]` for the full authenticated experience, but this is not currently implemented.
+
+5. **OG image caching** — OG images are generated on every request. Adding `Cache-Control` headers or `revalidate` would improve performance for frequently shared profiles.

@@ -13,6 +13,7 @@ import BigFourSection from "@/components/profile/BigFourSection";
 import ActivityChart from "@/components/profile/ActivityChart";
 import PinnedLists from "@/components/profile/PinnedLists";
 import Timeline from "@/components/profile/Timeline";
+import ShareButton from "@/components/sharing/ShareButton";
 
 export default async function ProfilePage() {
   const supabase = await createClient();
@@ -58,6 +59,14 @@ export default async function ProfilePage() {
       <ActivityChart months={activityData.months} total={activityData.total} />
       <PinnedLists lists={pinnedLists} />
       <Timeline initialEntries={timelineEntries} userId={user.id} />
+      {/* Share your profile */}
+      <div className="px-4 mt-3">
+        <ShareButton
+          url={`https://boxdseats.com/@${profile.username}`}
+          title={`${profile.display_name || profile.username} on BoxdSeats`}
+          text={`Check out my profile on BoxdSeats`}
+        />
+      </div>
     </div>
   );
 }

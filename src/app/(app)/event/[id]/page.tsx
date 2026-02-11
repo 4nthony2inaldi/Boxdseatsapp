@@ -11,6 +11,7 @@ import OutcomeBadge from "@/components/profile/OutcomeBadge";
 import SectionLabel from "@/components/profile/SectionLabel";
 import CommentsSection from "@/components/event/CommentsSection";
 import SportIcon from "@/components/SportIcon";
+import ShareButton from "@/components/sharing/ShareButton";
 
 export default async function EventDetailPage({
   params,
@@ -247,6 +248,17 @@ export default async function EventDetailPage({
               </Link>
             ))}
           </div>
+        </div>
+      )}
+
+      {/* Share */}
+      {userLog && (
+        <div className="mb-6">
+          <ShareButton
+            url={`https://boxdseats.com/e/${userLog.id}`}
+            title={`${isMatch ? `${event.away_team_abbr || event.away_team_short} vs ${event.home_team_abbr || event.home_team_short}` : event.tournament_name || "Event"} — BoxdSeats`}
+            text={`Check out this event on BoxdSeats`}
+          />
         </div>
       )}
 

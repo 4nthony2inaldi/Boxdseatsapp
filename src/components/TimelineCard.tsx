@@ -5,6 +5,7 @@ import { LEAGUES } from "@/lib/constants";
 import SportIcon from "@/components/SportIcon";
 import StarRating from "./profile/StarRating";
 import OutcomeBadge from "./profile/OutcomeBadge";
+import ShareButton from "./sharing/ShareButton";
 
 export type TimelineAuthor = {
   id: string;
@@ -46,7 +47,6 @@ type TimelineCardProps = {
   liked?: boolean;
   onLike?: (entryId: string) => void;
   onComment?: (entryId: string) => void;
-  onShare?: (entryId: string) => void;
 };
 
 export default function TimelineCard({
@@ -56,7 +56,6 @@ export default function TimelineCard({
   liked = false,
   onLike,
   onComment,
-  onShare,
 }: TimelineCardProps) {
   const leagueKey = entry.league_slug as keyof typeof LEAGUES | null;
   const leagueData = leagueKey ? LEAGUES[leagueKey] : null;
@@ -264,27 +263,14 @@ export default function TimelineCard({
               {entry.comment_count}
             </span>
           </button>
-          <button
-            onClick={() => onShare?.(entry.id)}
-            className="ml-auto bg-transparent border-none cursor-pointer p-0"
-          >
-            <svg
-              width="15"
-              height="15"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="#5A5F72"
-              strokeWidth="2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            >
-              <circle cx="18" cy="5" r="3" />
-              <circle cx="6" cy="12" r="3" />
-              <circle cx="18" cy="19" r="3" />
-              <line x1="8.59" y1="13.51" x2="15.42" y2="17.49" />
-              <line x1="15.41" y1="6.51" x2="8.59" y2="10.49" />
-            </svg>
-          </button>
+          <div className="ml-auto">
+            <ShareButton
+              url={`https://boxdseats.com/e/${entry.id}`}
+              title={`${displayTitle || "Event"} — BoxdSeats`}
+              text={`Check out this event on BoxdSeats`}
+              variant="compact"
+            />
+          </div>
         </div>
       </div>
     </div>

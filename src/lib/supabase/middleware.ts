@@ -41,8 +41,22 @@ export async function updateSession(request: NextRequest) {
 
   const isOnboardingRoute = request.nextUrl.pathname.startsWith("/onboarding");
 
+  // Public sharing routes — accessible to logged-out visitors
+  const isPublicRoute =
+    request.nextUrl.pathname.startsWith("/@") ||
+    request.nextUrl.pathname.startsWith("/u/") ||
+    request.nextUrl.pathname.startsWith("/e/");
+
+  // Rewrite /@username → /u/username (filesystem can't use @ prefix)
+  if (request.nextUrl.pathname.startsWith("/@")) {
+    const rest = request.nextUrl.pathname.slice(2); // remove "/@"
+    const url = request.nextUrl.clone();
+    url.pathname = `/u/${rest}`;
+    return NextResponse.rewrite(url);
+  }
+
   // If not logged in and trying to access protected route, redirect to login
-  if (!user && !isAuthRoute) {
+  if (!user && !isAuthRoute && !isPublicRoute) {
     const url = request.nextUrl.clone();
     url.pathname = "/login";
     return NextResponse.redirect(url);

@@ -20,6 +20,7 @@ import PinnedLists from "@/components/profile/PinnedLists";
 import Timeline from "@/components/profile/Timeline";
 import FollowButton from "@/components/social/FollowButton";
 import UserProfileActions from "@/components/social/UserProfileActions";
+import ShareButton from "@/components/sharing/ShareButton";
 
 type Props = {
   params: Promise<{ username: string }>;
@@ -163,6 +164,14 @@ export default async function UserProfilePage({ params }: Props) {
       <ActivityChart months={activityData.months} total={activityData.total} />
       <PinnedLists lists={pinnedLists} />
       <Timeline initialEntries={timelineEntries} userId={profile.id} />
+      {/* Share profile */}
+      <div className="px-4 mt-3">
+        <ShareButton
+          url={`https://boxdseats.com/@${username}`}
+          title={`${profile.display_name || profile.username} on BoxdSeats`}
+          text={`Check out ${profile.display_name || profile.username}'s profile on BoxdSeats`}
+        />
+      </div>
     </div>
   );
 }
