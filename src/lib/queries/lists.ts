@@ -132,7 +132,7 @@ export async function fetchListDetail(
   const { data, error } = await supabase
     .from("lists")
     .select(
-      "id, name, description, list_type, sport, item_count, source, created_by, forked_from, profiles(username, display_name)"
+      "id, name, description, list_type, sport, item_count, source, created_by, forked_from, profiles!lists_created_by_fkey(username, display_name)"
     )
     .eq("id", listId)
     .single();
@@ -284,7 +284,7 @@ export async function fetchFollowedLists(
   const { data: lists } = await supabase
     .from("lists")
     .select(
-      "id, name, description, list_type, sport, item_count, source, created_by, profiles(username, display_name)"
+      "id, name, description, list_type, sport, item_count, source, created_by, profiles!lists_created_by_fkey(username, display_name)"
     )
     .in("id", listIds)
     .order("name");
