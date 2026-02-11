@@ -6,6 +6,7 @@ import {
   fetchActivityChart,
   fetchPinnedLists,
   fetchTimeline,
+  fetchProfileSummaryCounts,
 } from "@/lib/queries/profile";
 import {
   fetchUserProfileByUsername,
@@ -17,7 +18,8 @@ import StatsRow from "@/components/profile/StatsRow";
 import BigFourSection from "@/components/profile/BigFourSection";
 import ActivityChart from "@/components/profile/ActivityChart";
 import PinnedLists from "@/components/profile/PinnedLists";
-import Timeline from "@/components/profile/Timeline";
+import LatestEvent from "@/components/profile/LatestEvent";
+import SummaryRows from "@/components/profile/SummaryRows";
 import FollowButton from "@/components/social/FollowButton";
 import UserProfileActions from "@/components/social/UserProfileActions";
 import ShareButton from "@/components/sharing/ShareButton";
@@ -74,11 +76,6 @@ export default async function UserProfilePage({ params }: Props) {
   // Private profile gating: if private and not following, gate content
   const isGated = profile.is_private && !followRel.isFollowing;
 
-  // Stats row links point to this user's followers/following pages
-  const statsWithLinks = {
-    ...stats,
-  };
-
   if (isGated) {
     return (
       <div className="max-w-lg mx-auto pb-5">
@@ -97,7 +94,7 @@ export default async function UserProfilePage({ params }: Props) {
           />
         </div>
         <StatsRow
-          stats={statsWithLinks}
+          stats={stats}
           followersHref={`/user/${username}/followers`}
           followingHref={`/user/${username}/following`}
         />
@@ -128,7 +125,7 @@ export default async function UserProfilePage({ params }: Props) {
   }
 
   // Full profile — fetch remaining data
-  const [bigFour, activityData, pinnedLists, timelineEntries] =
+  const [bigFour, activityData, pinnedLists, timelineEntries, summaryCounts] =
     await Promise.all([
       fetchBigFour(supabase, profile),
       fetchActivityChart(supabase, profile.id),
@@ -137,7 +134,10 @@ export default async function UserProfilePage({ params }: Props) {
         profile.pinned_list_2_id,
       ]),
       fetchTimeline(supabase, profile.id),
+      fetchProfileSummaryCounts(supabase, profile.id),
     ]);
+
+  const latestEvent = timelineEntries.length > 0 ? timelineEntries[0] : null;
 
   return (
     <div className="max-w-lg mx-auto pb-5">
@@ -156,16 +156,20 @@ export default async function UserProfilePage({ params }: Props) {
         />
       </div>
       <StatsRow
-        stats={statsWithLinks}
+        stats={stats}
         followersHref={`/user/${username}/followers`}
         followingHref={`/user/${username}/following`}
       />
       <BigFourSection items={bigFour} linkable={false} />
       <ActivityChart months={activityData.months} total={activityData.total} />
       <PinnedLists lists={pinnedLists} />
-      <Timeline initialEntries={timelineEntries} userId={profile.id} />
+      <LatestEvent entry={latestEvent} timelineHref={`/user/${username}/timeline`} />
+      <SummaryRows
+        counts={summaryCounts}
+        basePath={`/user/${username}`}
+      />
       {/* Share profile */}
-      <div className="px-4 mt-3">
+      <div className="px-4 mt-4">
         <ShareButton
           url={`https://boxdseats.com/@${username}`}
           title={`${profile.display_name || profile.username} on BoxdSeats`}

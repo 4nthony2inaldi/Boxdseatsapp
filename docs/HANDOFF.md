@@ -1806,3 +1806,165 @@ Generated via Next.js `generateMetadata()` in each public page:
 4. **Logged-in user on public pages** — When a logged-in user visits `/@username`, they see the public page layout (no BottomNav/AppHeader). They could be redirected to `/user/[username]` for the full authenticated experience, but this is not currently implemented.
 
 5. **OG image caching** — OG images are generated on every request. Adding `Cache-Control` headers or `revalidate` would improve performance for frequently shared profiles.
+
+---
+
+## Session 9 — Profile Redesign (Compact Summary Layout)
+
+**Date:** February 10, 2026
+**Scope:** Redesigned profile page layout inspired by Letterboxd. Removed infinite timeline scroll from profile, replaced with a compact summary with drill-through links to dedicated pages.
+
+---
+
+### New Profile Layout (in order)
+
+The profile page no longer scrolls endlessly. It ends at the Share Profile button.
+
+1. **Avatar + sport badge + display name + @username + W-L-D** — unchanged (`ProfileHeader`)
+2. **Stats row: Events, Venues, Followers, Following** — unchanged (`StatsRow`)
+3. **Big Four cards** — unchanged (`BigFourSection`)
+4. **Activity chart — 12 month rolling** — unchanged (`ActivityChart`)
+5. **Pinned lists** — unchanged (`PinnedLists`)
+6. **Latest Event** — shows ONLY the single most recent event log as a `TimelineCard`. Includes a "See All" link to `/timeline`. (`LatestEvent` component)
+7. **Summary rows** — Letterboxd-style tappable rows in a bordered card, each with label on the left, counts on the right, and a chevron arrow:
+   - **Visited Venues** — `{total} / {X} this year` → links to `/venues`
+   - **Logged Events** — `{total} / {X} this year` → links to `/timeline`
+   - **Created Lists** — `{count}` → links to `/lists?filter=created`
+   - **Want to Visit** — `{count}` → links to `/lists/want-to-visit`
+8. **Share Profile button** — full-width button with share icon, accent border (`ShareButton`)
+
+Both own profile (`/profile`) and other users' profiles (`/user/[username]`) use the same layout.
+
+---
+
+### New Page Routes
+
+| Route | File | Type | Description |
+|-------|------|------|-------------|
+| `/timeline` | `src/app/(app)/timeline/page.tsx` | Server Component | Full reverse-chronological timeline with league filtering (moved from profile) |
+| `/venues` | `src/app/(app)/venues/page.tsx` | Server Component | List of all venues the user has visited, with event counts per venue |
+| `/user/[username]/timeline` | `src/app/(app)/user/[username]/timeline/page.tsx` | Server Component | Another user's full timeline |
+| `/user/[username]/venues` | `src/app/(app)/user/[username]/venues/page.tsx` | Server Component | Another user's visited venues |
+| `/user/[username]/lists` | `src/app/(app)/user/[username]/lists/page.tsx` | Server Component | Another user's created lists |
+
+---
+
+### New Components
+
+| Component | File | Type | Description |
+|-----------|------|------|-------------|
+| `LatestEvent` | `src/components/profile/LatestEvent.tsx` | Server Component | Shows single most recent TimelineCard with "See All" link |
+| `SummaryRow` | `src/components/profile/SummaryRow.tsx` | Server Component | Single tappable row: label, counts (total / this year), chevron |
+| `SummaryRows` | `src/components/profile/SummaryRows.tsx` | Server Component | Container for all 4 summary rows in a bordered card |
+
+---
+
+### New Query Function
+
+**File:** `src/lib/queries/profile.ts`
+
+| Function | Description | Tables Queried |
+|----------|-------------|----------------|
+| `fetchProfileSummaryCounts(supabase, userId)` | Returns all counts for the summary rows section | `venue_visits`, `event_logs`, `lists` |
+
+**Return type:** `ProfileSummaryCounts`
+
+```typescript
+type ProfileSummaryCounts = {
+  totalVenues: number;      // venue_visits where relationship = 'visited'
+  venuesThisYear: number;   // unique venue_ids from event_logs where event_date >= Jan 1 this year
+  totalEvents: number;      // event_logs count
+  eventsThisYear: number;   // event_logs where event_date >= Jan 1 this year
+  createdLists: number;     // lists where source = 'user' and created_by = userId
+  wantToVisit: number;      // venue_visits where relationship = 'want_to_visit'
+};
+```
+
+**How "venues this year" is calculated:**
+- Queries `event_logs` for the user where `event_date >= YYYY-01-01` of the current year
+- Deduplicates `venue_id` values using a `Set` to count unique venues visited this year
+- This counts venues where the user logged an event this year, not when the venue_visit record was created
+
+**How "events this year" is calculated:**
+- Simple count of `event_logs` where `event_date >= YYYY-01-01`
+
+**How "created lists" is calculated:**
+- Count of `lists` where `source = 'user'` and `created_by = userId`
+
+**How "want to visit" is calculated:**
+- Count of `venue_visits` where `relationship = 'want_to_visit'`
+
+All 6 queries run in parallel via `Promise.all()` for performance.
+
+---
+
+### How Summary Row Navigation Works
+
+**Own profile** (`/profile`):
+- Visited Venues → `/venues`
+- Logged Events → `/timeline`
+- Created Lists → `/lists?filter=created`
+- Want to Visit → `/lists/want-to-visit`
+
+**Other user** (`/user/[username]`):
+- Visited Venues → `/user/[username]/venues`
+- Logged Events → `/user/[username]/timeline`
+- Created Lists → `/user/[username]/lists`
+- Want to Visit → `/lists/want-to-visit` (shared page, shows own user's want-to-visit)
+
+The `SummaryRows` component accepts an optional `basePath` prop (empty string for own profile, `/user/[username]` for other users) and constructs links accordingly.
+
+---
+
+### Venues Page
+
+**Route:** `/venues` (own) and `/user/[username]/venues` (other users)
+
+Displays all venues the user has visited in a vertical list. Each venue card shows:
+- Map pin icon (accent orange)
+- Venue name
+- City, State
+- Event count (e.g., "3 events")
+- Chevron arrow → links to `/venue/[venueId]`
+
+Empty state shows a map pin icon, "No Venues Yet" heading, and a CTA to log an event.
+
+The venue data is fetched by joining `venue_visits` (where `relationship = 'visited'`) with `venues` for names, and `event_logs` for per-venue event counts.
+
+---
+
+### Timeline Page
+
+**Route:** `/timeline` (own) and `/user/[username]/timeline` (other users)
+
+This is the full reverse-chronological timeline that previously lived on the profile page. It reuses the existing `Timeline` component (`src/components/profile/Timeline.tsx`) with all its league filtering functionality:
+- League filter dropdown (All, NFL, NBA, MLB, NHL, MLS, PGA)
+- Client-side re-fetching when filter changes
+- Limit of 50 entries per query
+
+Back button links to `/profile` (own) or `/user/[username]` (other users).
+
+---
+
+### Modified Files
+
+| File | Change |
+|------|--------|
+| `src/app/(app)/profile/page.tsx` | Replaced `Timeline` component with `LatestEvent` + `SummaryRows` + `ShareButton`. Added `fetchProfileSummaryCounts` to `Promise.all`. Now fetches only first timeline entry for latest event display. |
+| `src/app/(app)/user/[username]/page.tsx` | Same layout changes as own profile. Added `LatestEvent` with `timelineHref` prop, `SummaryRows` with `basePath` prop. Removed full `Timeline` component. |
+| `src/lib/queries/profile.ts` | Added `ProfileSummaryCounts` type and `fetchProfileSummaryCounts()` function. |
+| `src/components/profile/LatestEvent.tsx` | Accepts optional `timelineHref` prop (defaults to `/timeline`). |
+
+---
+
+### Known Issues / Remaining Work
+
+1. **Timeline pagination on /timeline page** — Still limited to 50 entries with no infinite scroll or "load more" button. Same limitation as the old profile timeline.
+
+2. **Created Lists filter on /lists** — The "Created Lists" summary row links to `/lists?filter=created` but the lists page does not currently read this query param to auto-filter. Users land on the full lists page and see the "My Lists" section.
+
+3. **Want to Visit on other profiles** — The "Want to Visit" summary row always links to `/lists/want-to-visit` which shows the current user's want-to-visit list, not the other user's. A future enhancement could add a `/user/[username]/want-to-visit` route.
+
+4. **Venues page sorting** — Venues are ordered by `updated_at` descending (most recently updated venue_visit first). Could add sorting options (alphabetical, by event count, etc.).
+
+5. **User lists page progress** — The `/user/[username]/lists` page shows progress bars but only for venue-type lists since `fetchUserLists()` computes progress for the list creator, not the viewer. The progress bars show the other user's progress correctly since we pass `profile.id` to the function.

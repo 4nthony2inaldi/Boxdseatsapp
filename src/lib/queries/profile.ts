@@ -350,6 +350,82 @@ export async function fetchPinnedLists(
   return result;
 }
 
+export type ProfileSummaryCounts = {
+  totalVenues: number;
+  venuesThisYear: number;
+  totalEvents: number;
+  eventsThisYear: number;
+  createdLists: number;
+  wantToVisit: number;
+};
+
+export async function fetchProfileSummaryCounts(
+  supabase: SupabaseClient,
+  userId: string
+): Promise<ProfileSummaryCounts> {
+  const currentYear = new Date().getFullYear();
+  const yearStart = `${currentYear}-01-01`;
+
+  const [
+    totalVenuesRes,
+    venuesThisYearRes,
+    totalEventsRes,
+    eventsThisYearRes,
+    createdListsRes,
+    wantToVisitRes,
+  ] = await Promise.all([
+    // Total visited venues
+    supabase
+      .from("venue_visits")
+      .select("id", { count: "exact", head: true })
+      .eq("user_id", userId)
+      .eq("relationship", "visited"),
+    // Venues visited this year (venue_visits that have an event_log this year)
+    supabase
+      .from("event_logs")
+      .select("venue_id")
+      .eq("user_id", userId)
+      .gte("event_date", yearStart),
+    // Total event logs
+    supabase
+      .from("event_logs")
+      .select("id", { count: "exact", head: true })
+      .eq("user_id", userId),
+    // Events this year
+    supabase
+      .from("event_logs")
+      .select("id", { count: "exact", head: true })
+      .eq("user_id", userId)
+      .gte("event_date", yearStart),
+    // User-created lists
+    supabase
+      .from("lists")
+      .select("id", { count: "exact", head: true })
+      .eq("source", "user")
+      .eq("created_by", userId),
+    // Want to visit
+    supabase
+      .from("venue_visits")
+      .select("id", { count: "exact", head: true })
+      .eq("user_id", userId)
+      .eq("relationship", "want_to_visit"),
+  ]);
+
+  // Dedupe venues this year
+  const uniqueVenuesThisYear = new Set(
+    (venuesThisYearRes.data || []).map((e) => e.venue_id).filter(Boolean)
+  );
+
+  return {
+    totalVenues: totalVenuesRes.count || 0,
+    venuesThisYear: uniqueVenuesThisYear.size,
+    totalEvents: totalEventsRes.count || 0,
+    eventsThisYear: eventsThisYearRes.count || 0,
+    createdLists: createdListsRes.count || 0,
+    wantToVisit: wantToVisitRes.count || 0,
+  };
+}
+
 export async function fetchTimeline(
   supabase: SupabaseClient,
   userId: string,

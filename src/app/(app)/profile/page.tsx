@@ -6,13 +6,15 @@ import {
   fetchActivityChart,
   fetchPinnedLists,
   fetchTimeline,
+  fetchProfileSummaryCounts,
 } from "@/lib/queries/profile";
 import ProfileHeader from "@/components/profile/ProfileHeader";
 import StatsRow from "@/components/profile/StatsRow";
 import BigFourSection from "@/components/profile/BigFourSection";
 import ActivityChart from "@/components/profile/ActivityChart";
 import PinnedLists from "@/components/profile/PinnedLists";
-import Timeline from "@/components/profile/Timeline";
+import LatestEvent from "@/components/profile/LatestEvent";
+import SummaryRows from "@/components/profile/SummaryRows";
 import ShareButton from "@/components/sharing/ShareButton";
 
 export default async function ProfilePage() {
@@ -39,7 +41,7 @@ export default async function ProfilePage() {
     );
   }
 
-  const [stats, bigFour, activityData, pinnedLists, timelineEntries] =
+  const [stats, bigFour, activityData, pinnedLists, timelineEntries, summaryCounts] =
     await Promise.all([
       fetchProfileStats(supabase, user.id),
       fetchBigFour(supabase, profile),
@@ -48,8 +50,12 @@ export default async function ProfilePage() {
         profile.pinned_list_1_id,
         profile.pinned_list_2_id,
       ]),
-      fetchTimeline(supabase, user.id),
+      fetchTimeline(supabase, user.id, undefined),
+      fetchProfileSummaryCounts(supabase, user.id),
     ]);
+
+  // Latest event is the first (most recent) entry
+  const latestEvent = timelineEntries.length > 0 ? timelineEntries[0] : null;
 
   return (
     <div className="max-w-lg mx-auto pb-5">
@@ -58,9 +64,10 @@ export default async function ProfilePage() {
       <BigFourSection items={bigFour} />
       <ActivityChart months={activityData.months} total={activityData.total} />
       <PinnedLists lists={pinnedLists} />
-      <Timeline initialEntries={timelineEntries} userId={user.id} />
-      {/* Share your profile */}
-      <div className="px-4 mt-3">
+      <LatestEvent entry={latestEvent} />
+      <SummaryRows counts={summaryCounts} />
+      {/* Share Profile */}
+      <div className="px-4 mt-4">
         <ShareButton
           url={`https://boxdseats.com/@${profile.username}`}
           title={`${profile.display_name || profile.username} on BoxdSeats`}
