@@ -204,7 +204,7 @@ export default async function PublicProfilePage({ params }: Props) {
         <BigFourSection items={bigFour} linkable={false} />
         <ActivityChart months={activityData.months} total={activityData.total} />
         <PinnedLists lists={pinnedLists} />
-        <BadgeSection badges={badges} tracked={trackedIncomplete} userId={profile.id} />
+        <BadgeSection badges={badges} tracked={trackedIncomplete} userId={profile.id} showTracked={pinnedLists.length === 0} />
         <Timeline initialEntries={timelineEntries} userId={profile.id} />
 
         {/* CTA for logged-out visitors */}

@@ -10,12 +10,16 @@ type BadgeSectionProps = {
   badges: BadgeData[];
   tracked: TrackedListProgress[];
   userId: string;
+  /** When true, show tracked incomplete lists as locked badges. Hidden when user has pinned lists. */
+  showTracked?: boolean;
 };
 
-export default function BadgeSection({ badges, tracked, userId }: BadgeSectionProps) {
+export default function BadgeSection({ badges, tracked, userId, showTracked = false }: BadgeSectionProps) {
   const [selectedBadge, setSelectedBadge] = useState<BadgeData | null>(null);
 
-  if (badges.length === 0 && tracked.length === 0) return null;
+  const visibleTracked = showTracked ? tracked : [];
+
+  if (badges.length === 0 && visibleTracked.length === 0) return null;
 
   return (
     <div className="px-4 mb-5">
@@ -49,8 +53,8 @@ export default function BadgeSection({ badges, tracked, userId }: BadgeSectionPr
           </button>
         ))}
 
-        {/* Tracked incomplete — locked/muted */}
-        {tracked.map((list) => {
+        {/* Tracked incomplete — locked/muted (only when no pinned lists) */}
+        {visibleTracked.map((list) => {
           const pct = list.item_count > 0 ? Math.round((list.visited / list.item_count) * 100) : 0;
           return (
             <div

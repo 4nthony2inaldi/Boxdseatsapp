@@ -68,7 +68,7 @@ export default async function ProfilePage() {
       <BigFourSection items={bigFour} />
       <ActivityChart months={activityData.months} total={activityData.total} />
       <PinnedLists lists={pinnedLists} />
-      <BadgeSection badges={badges} tracked={trackedIncomplete} userId={user.id} />
+      <BadgeSection badges={badges} tracked={trackedIncomplete} userId={user.id} showTracked={pinnedLists.length === 0} />
       <LatestEvent entry={latestEvent} />
       <SummaryRows counts={summaryCounts} />
       {/* Share Profile */}
