@@ -127,7 +127,7 @@ export default async function UserProfilePage({ params }: Props) {
   }
 
   // Full profile — fetch remaining data
-  const [bigFour, activityData, pinnedLists, timelineEntries, summaryCounts, badges, trackedIncomplete] =
+  const [bigFour, activityData, pinnedLists, timelinePage, summaryCounts, badges, trackedIncomplete] =
     await Promise.all([
       fetchBigFour(supabase, profile),
       fetchActivityChart(supabase, profile.id),
@@ -135,13 +135,13 @@ export default async function UserProfilePage({ params }: Props) {
         profile.pinned_list_1_id,
         profile.pinned_list_2_id,
       ]),
-      fetchTimeline(supabase, profile.id),
+      fetchTimeline(supabase, profile.id, undefined, 1),
       fetchProfileSummaryCounts(supabase, profile.id),
       fetchUserBadges(supabase, profile.id),
       fetchTrackedIncomplete(supabase, profile.id),
     ]);
 
-  const latestEvent = timelineEntries.length > 0 ? timelineEntries[0] : null;
+  const latestEvent = timelinePage.entries.length > 0 ? timelinePage.entries[0] : null;
 
   return (
     <div className="max-w-lg mx-auto pb-5">

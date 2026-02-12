@@ -43,7 +43,7 @@ export default async function ProfilePage() {
     );
   }
 
-  const [stats, bigFour, activityData, pinnedLists, timelineEntries, summaryCounts, badges, trackedIncomplete] =
+  const [stats, bigFour, activityData, pinnedLists, timelinePage, summaryCounts, badges, trackedIncomplete] =
     await Promise.all([
       fetchProfileStats(supabase, user.id),
       fetchBigFour(supabase, profile),
@@ -52,14 +52,14 @@ export default async function ProfilePage() {
         profile.pinned_list_1_id,
         profile.pinned_list_2_id,
       ]),
-      fetchTimeline(supabase, user.id, undefined),
+      fetchTimeline(supabase, user.id, undefined, 1),
       fetchProfileSummaryCounts(supabase, user.id),
       fetchUserBadges(supabase, user.id),
       fetchTrackedIncomplete(supabase, user.id),
     ]);
 
   // Latest event is the first (most recent) entry
-  const latestEvent = timelineEntries.length > 0 ? timelineEntries[0] : null;
+  const latestEvent = timelinePage.entries.length > 0 ? timelinePage.entries[0] : null;
 
   return (
     <div className="max-w-lg mx-auto pb-5">

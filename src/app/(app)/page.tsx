@@ -16,7 +16,7 @@ export default async function FeedPage() {
     );
   }
 
-  const entries = await fetchFeed(supabase, user.id);
+  const { entries, hasMore } = await fetchFeed(supabase, user.id);
 
   return (
     <div className="max-w-lg mx-auto">
@@ -25,7 +25,7 @@ export default async function FeedPage() {
           Feed
         </h1>
       </div>
-      <FeedList initialEntries={entries} userId={user.id} />
+      <FeedList initialEntries={entries} initialHasMore={hasMore} userId={user.id} />
     </div>
   );
 }

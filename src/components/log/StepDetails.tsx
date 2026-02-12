@@ -22,6 +22,7 @@ type StepDetailsProps = {
   saving: boolean;
   isEditMode?: boolean;
   initialValues?: DetailsData;
+  multiDayCount?: number;
 };
 
 export type DetailsData = {
@@ -46,6 +47,7 @@ export default function StepDetails({
   saving,
   isEditMode,
   initialValues,
+  multiDayCount,
 }: StepDetailsProps) {
   const [rating, setRating] = useState<number | null>(initialValues?.rating ?? null);
   const [rootingTeamId, setRootingTeamId] = useState<string | null>(initialValues?.rooting_team_id ?? null);
@@ -143,6 +145,11 @@ export default function StepDetails({
     <div>
       <div className="text-[13px] text-text-secondary mb-5">
         {eventTitle} &middot; {venueName} &middot; {formattedDate}
+        {multiDayCount && multiDayCount > 1 && (
+          <span className="ml-1 text-accent">
+            ({multiDayCount} days)
+          </span>
+        )}
       </div>
 
       {/* Rooting interest */}
@@ -379,7 +386,13 @@ export default function StepDetails({
           boxShadow: "0 4px 20px rgba(212, 135, 44, 0.25)",
         }}
       >
-        {saving ? "SAVING..." : isEditMode ? "UPDATE EVENT" : "SAVE EVENT"}
+        {saving
+          ? "SAVING..."
+          : isEditMode
+            ? "UPDATE EVENT"
+            : multiDayCount && multiDayCount > 1
+              ? `SAVE ${multiDayCount} DAYS`
+              : "SAVE EVENT"}
       </button>
 
       {/* Back */}

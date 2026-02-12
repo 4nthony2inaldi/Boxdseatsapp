@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import { createClient } from "@/lib/supabase/client";
 import { togglePhotoLike, type GalleryPhoto } from "@/lib/queries/event";
 import VerifiedBadge from "@/components/VerifiedBadge";
@@ -71,9 +72,13 @@ export default function EventGallery({ photos: initialPhotos, currentUserId }: E
         >
           {/* Photo image */}
           <div className="relative">
-            <img
+            <Image
               src={photo.photo_url}
               alt={`Photo by ${photo.username}`}
+              width={600}
+              height={240}
+              sizes="(max-width: 512px) 100vw, 512px"
+              quality={75}
               className="w-full h-[240px] object-cover"
             />
             {photo.photo_is_verified && (
@@ -93,9 +98,11 @@ export default function EventGallery({ photos: initialPhotos, currentUserId }: E
               >
                 <div className="w-6 h-6 rounded-full shrink-0 overflow-hidden">
                   {photo.avatar_url ? (
-                    <img
+                    <Image
                       src={photo.avatar_url}
                       alt={photo.username}
+                      width={24}
+                      height={24}
                       className="w-full h-full object-cover"
                     />
                   ) : (

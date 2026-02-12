@@ -17,7 +17,7 @@ export default async function TimelinePage() {
     );
   }
 
-  const timelineEntries = await fetchTimeline(supabase, user.id);
+  const { entries: timelineEntries, hasMore } = await fetchTimeline(supabase, user.id);
 
   return (
     <div className="max-w-lg mx-auto pb-5">
@@ -44,7 +44,7 @@ export default async function TimelinePage() {
           Logged Events
         </h1>
       </div>
-      <Timeline initialEntries={timelineEntries} userId={user.id} />
+      <Timeline initialEntries={timelineEntries} initialHasMore={hasMore} userId={user.id} />
     </div>
   );
 }

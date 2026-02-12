@@ -3,7 +3,7 @@ import { fetchListDetail, fetchListItems, checkListFollow } from "@/lib/queries/
 import Link from "next/link";
 import SectionLabel from "@/components/profile/SectionLabel";
 import ListActions from "@/components/lists/ListActions";
-import ListItemCheckbox from "@/components/lists/ListItemCheckbox";
+import ListItemsSection from "@/components/lists/ListItemsSection";
 import SportIcon from "@/components/SportIcon";
 
 export default async function ListDetailPage({
@@ -46,10 +46,6 @@ export default async function ListDetailPage({
   const totalItems = list.item_count || items.length;
   const visitedCount = visitedItems.length;
   const pct = totalItems > 0 ? Math.round((visitedCount / totalItems) * 100) : 0;
-
-  // Show first 8 remaining, then "+ X more"
-  const remainingVisible = remainingItems.slice(0, 8);
-  const remainingHidden = remainingItems.length - remainingVisible.length;
 
   return (
     <div className="px-4 pb-8 max-w-lg mx-auto">
@@ -130,16 +126,12 @@ export default async function ListDetailPage({
       {visitedItems.length > 0 && (
         <div className="mb-6">
           <SectionLabel>Visited ({visitedItems.length})</SectionLabel>
-          <div className="space-y-2">
-            {visitedItems.map((item) => (
-              <ListItemCheckbox
-                key={item.id}
-                item={item}
-                initialVisited={true}
-                userId={user.id}
-              />
-            ))}
-          </div>
+          <ListItemsSection
+            items={visitedItems}
+            totalCount={visitedItems.length}
+            userId={user.id}
+            visited={true}
+          />
         </div>
       )}
 
@@ -147,26 +139,14 @@ export default async function ListDetailPage({
       {remainingItems.length > 0 && (
         <div className="mb-6">
           <SectionLabel>Remaining ({remainingItems.length})</SectionLabel>
-          <div className="space-y-2">
-            {remainingVisible.map((item) => (
-              <ListItemCheckbox
-                key={item.id}
-                item={item}
-                initialVisited={false}
-                userId={user.id}
-              />
-            ))}
-            {remainingHidden > 0 && (
-              <div className="text-center py-3">
-                <span className="text-xs text-text-muted font-display tracking-wider">
-                  + {remainingHidden} more
-                </span>
-              </div>
-            )}
-          </div>
+          <ListItemsSection
+            items={remainingItems}
+            totalCount={remainingItems.length}
+            userId={user.id}
+            visited={false}
+          />
         </div>
       )}
     </div>
   );
 }
-

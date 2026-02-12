@@ -2379,3 +2379,280 @@ Since exact event start/end times are not available in the schema, the function 
 8. **No photo deletion UI** — Users can remove a photo during the log flow (before saving), but there is no UI to remove a photo from an already-saved event log. The edit flow would need to be extended to support this.
 
 9. **Camera on desktop** — `getUserMedia` works on desktop browsers with webcams, but the experience is optimized for mobile. Desktop users may prefer the Upload mode.
+
+---
+
+## Session — Multi-Day Events & Manual Entry
+
+**Date:** February 11, 2026
+**Scope:** Multi-day tournament event logging (one event_log per day attended), enhanced manual entry form with league/sport, teams, and score, tournament attendance aggregation on event detail page.
+
+---
+
+### Feature 1: Multi-Day Events
+
+**Problem:** Tournaments and multi-day events (golf majors, tennis Grand Slams, racing weekends) span multiple days. Each day has its own `events` row linked via `tournament_id`. Previously, the app showed each day as a separate event but had no UI to recognize multi-day events or let users log multiple days at once.
+
+**How It Works:**
+
+1. **Detection:** When a user selects an event in Step 3 (StepEvent), the app checks if the event has a `tournament_id`. If it does, a "Multi-day" badge appears on the event card.
+
+2. **Day Selection:** Clicking a multi-day event loads all days via `fetchTournamentDays()` and presents a checkbox-style day picker with the prompt "Which day(s) did you attend?" Each day shows its label (Day 1, Day 2, etc.), date, and optional round/stage info. The day that matches the user's selected date is pre-selected.
+
+3. **Batch Save:** If the user selects multiple days and completes Step 4 (details), LogFlow creates one `event_log` per day in sequence. Each log gets the same rating, notes, seat location, companions, and privacy. The photo is attached only to the first day's entry. A progress bar shows "Logging Days: X of Y saved". Duplicate errors (if the user already logged a specific day) are silently skipped.
+
+4. **Timeline Display:** Each day appears as a separate entry on the timeline, grouped normally by date. They each link to their own event detail page.
+
+5. **Event Detail Aggregation:** The event detail page for any tournament day shows a "Tournament Attendance" section. It lists all days with green checkmarks for attended days and links to other days. A summary line reads "Attended X of Y days."
+
+**Files Changed:**
+
+| File | Changes |
+|------|---------|
+| `src/lib/queries/log.ts` | Added `tournament_id` and `day_number` to `EventMatch` type; added these fields to all `events` queries (`findEventsAtVenueOnDate`, `fetchEventLogForEdit`); added `fetchTournamentDays()` function; added `ManualTeamScore` type |
+| `src/components/log/StepEvent.tsx` | Complete rewrite: multi-day day picker with checkboxes, tournament detection, multi-day selection callback (`onSelectMultiDay`), enhanced manual entry form |
+| `src/components/log/LogFlow.tsx` | New `handleMultiDaySelect` handler; batch save loop for multi-day events; progress indicator UI; updated success message for multi-day ("3 DAYS LOGGED"); resolved league ID for manual entries |
+| `src/components/log/StepDetails.tsx` | Added `multiDayCount` prop; shows "(X days)" in header; button text changes to "SAVE X DAYS" |
+| `src/lib/queries/event.ts` | Added `tournament_id`, `day_number` to `EventDetail` type; added `TournamentDayAttendance` type; added `fetchTournamentAttendance()` function; updated `fetchEventDetail` query |
+| `src/app/(app)/event/[id]/page.tsx` | Fetches tournament attendance in parallel; renders "Tournament Attendance" section with day-by-day attendance status and cross-links |
+
+**Schema Support:**
+The `events` table already has the required columns:
+- `tournament_id uuid` — self-referential ID grouping multi-day events together
+- `day_number smallint` — which day of the tournament (1, 2, 3, 4...)
+- `tournament_name text` — display name (e.g., "2026 Masters")
+- Index: `idx_events_tournament` on `tournament_id` where not null
+
+**To populate tournament data:** Insert events with matching `tournament_id` and sequential `day_number` values. For example, the Masters would have 4 events sharing one `tournament_id`, with `day_number` 1–4 and `tournament_name` "2026 Masters" on each.
+
+---
+
+### Feature 2: Manual Entry
+
+**Problem:** Users attending events not in the database (college games, local events, international matches) could only enter a text title. They had no way to specify the sport/league, teams, or score.
+
+**How It Works:**
+
+1. **Entry Point:** In Step 3 (event selection), a "Can't find your event? Enter manually →" button appears below the event list. If no events are found, "Enter event manually" appears immediately. Both open the manual entry form.
+
+2. **Manual Entry Form:** The form includes:
+   - **Event Name** (required) — free text, e.g., "Yankees vs Red Sox"
+   - **League** (optional) — tap to select from NFL/NBA/MLB/NHL/MLS/PGA buttons. Sets `sport` and resolves `league_id` on the event_log.
+   - **Teams & Score** (optional) — two text inputs for away team @ home team. When either team is entered, score inputs appear below. Score is numeric-only (inputMode="numeric").
+
+3. **Data Storage:**
+   - `event_logs.is_manual = true`
+   - `event_logs.event_id = null` (no linked event row)
+   - `event_logs.manual_title` — the user-typed event name
+   - `event_logs.manual_description` — JSON string of teams/score data: `{"home_team":"Yankees","away_team":"Red Sox","home_score":5,"away_score":3}`. Null if no teams entered.
+   - `event_logs.league_id` — resolved from the selected league button, or null
+   - `event_logs.sport` — set from the selected league's sport, or null
+
+4. **Timeline Display:**
+   - Manual entries show the event name as the title
+   - If `manual_description` contains teams/score JSON, the timeline parses it and displays a formatted matchup line (e.g., "Yankees 5 — Red Sox 3")
+   - A small "Manual" badge appears next to the league slug
+   - Manual entries count toward all stats (events attended, venues visited, etc.)
+   - Manual entries appear in league-filtered views when league_id is set
+
+5. **Retroactive Enrichment:** Manual entries have `event_id = null` and can be retroactively linked to real events if data coverage expands. The `is_manual` flag makes them easy to identify for batch enrichment.
+
+**New Type:**
+
+```typescript
+// In StepEvent.tsx
+export type ManualEntryData = {
+  title: string;
+  league_id: string | null;  // Resolved in LogFlow
+  sport: string | null;
+  teams: ManualTeamScore | null;
+};
+
+// In log.ts
+export type ManualTeamScore = {
+  home_team: string;
+  away_team: string;
+  home_score: number | null;
+  away_score: number | null;
+};
+```
+
+**Files Changed:**
+
+| File | Changes |
+|------|---------|
+| `src/components/log/StepEvent.tsx` | Enhanced manual entry form with league selector, teams/score inputs; exports `ManualEntryData` type |
+| `src/components/log/LogFlow.tsx` | Handles `ManualEntryData`; resolves league_id from sport via Supabase query; serializes teams/score to `manual_description` JSON |
+| `src/lib/queries/log.ts` | Added `ManualTeamScore` type to `EventLogInsert` |
+| `src/lib/queries/profile.ts` | Added `is_manual`, `manual_title`, `manual_description` to `TimelineEntry` type and `fetchTimeline()` query; parses `manual_description` JSON to construct matchup display |
+| `src/components/profile/Timeline.tsx` | Client-side filter query includes `is_manual, manual_title, manual_description`; parses manual teams/score for display |
+| `src/components/TimelineCard.tsx` | Shows "Manual" badge on timeline cards for manual entries |
+
+---
+
+### How `manual_description` JSON Works
+
+When a user enters teams and optional scores in the manual entry form, the data is serialized to JSON and stored in `event_logs.manual_description`:
+
+```json
+{
+  "home_team": "Yankees",
+  "away_team": "Red Sox",
+  "home_score": 5,
+  "away_score": 3
+}
+```
+
+On read (timeline, profile, venue pages), the JSON is parsed to construct a formatted matchup display identical to database-backed events. If `manual_description` is null or not valid JSON, the `manual_title` is used as the display title instead.
+
+This JSON approach keeps the schema stable (no new columns needed) while providing structured data for future features (e.g., retroactive enrichment, manual entry search).
+
+---
+
+### Known Issues / Incomplete Items
+
+1. **No seed data for tournaments** — The existing seed data does not use `tournament_id` or `day_number`. To test multi-day events, insert events with matching `tournament_id` values. Example:
+   ```sql
+   -- Create a 4-day tournament
+   WITH tid AS (SELECT uuid_generate_v4() AS id)
+   INSERT INTO events (league_id, venue_id, event_date, event_template, tournament_name, tournament_id, day_number, season, round_or_stage)
+   SELECT
+     (SELECT id FROM leagues WHERE slug = 'pga-tour'),
+     (SELECT id FROM venues WHERE name ILIKE '%Augusta%'),
+     d.event_date, 'field', '2026 Masters', tid.id, d.day_num, 2026, d.round
+   FROM tid, (VALUES
+     ('2026-04-09'::date, 1, 'Round 1'),
+     ('2026-04-10'::date, 2, 'Round 2'),
+     ('2026-04-11'::date, 3, 'Round 3'),
+     ('2026-04-12'::date, 4, 'Final Round')
+   ) AS d(event_date, day_num, round);
+   ```
+
+2. **Multi-day: shared details** — When logging multiple days, all days share the same rating, notes, seat location, and companions. A future enhancement could allow per-day customization.
+
+3. **Manual entry: no venue creation** — Users must select an existing venue. If the venue isn't in the database, they cannot create one yet. A "create venue" option could be added to Step 1 in the future.
+
+4. **Manual entry: no rooting interest** — The StepDetails team selector only works for database-backed events with `home_team_id` and `away_team_id`. Manual entries with teams entered as text cannot use the rooting interest picker. This could be enhanced to allow free-text rooting selection.
+
+5. **Multi-day: photo on first day only** — When logging multiple days, the uploaded photo is attached to the first day's event_log only. Other days do not get photos. Per-day photo upload is a potential enhancement.
+
+6. **League resolution for manual entries** — The league is resolved by matching the sport string (e.g., "football" → "nfl") to find the league ID. This assumes one league per sport. If multiple leagues share a sport (e.g., college football), the resolution may pick the wrong league. A more precise league picker could replace the sport-based buttons.
+
+7. **Manual description backwards compatibility** — The `manual_description` field was previously always null. Existing manual entries will not have teams/score data displayed. Only newly created manual entries with teams will show the formatted matchup.
+
+---
+
+## Session 6 — Performance & Pagination (PRD §15.2)
+
+**Date:** February 11, 2026
+**Scope:** Infinite scroll pagination, loading skeletons, image optimization, Supabase query efficiency.
+
+---
+
+### Overview
+
+Implemented performance optimizations per PRD section 15.2 requirements:
+- Timeline and feed use infinite scroll loading 20 entries at a time
+- Loading skeleton placeholders for all async-loaded content
+- Next.js Image optimization for all user photos and avatars
+- Supabase query efficiency improvements (server-side counts instead of client-side filtering)
+- List detail pages show all items with progressive reveal
+
+---
+
+### New Files
+
+| File | Purpose |
+|------|---------|
+| `src/hooks/useInfiniteScroll.ts` | Reusable IntersectionObserver-based infinite scroll hook |
+| `src/app/api/feed/route.ts` | API route for paginated feed loading (used by client-side infinite scroll) |
+| `src/components/lists/ListItemsSection.tsx` | Client component for progressive list item reveal (show 10, then "Show all") |
+| `src/app/(app)/event/[id]/loading.tsx` | Loading skeleton for event detail page |
+| `src/app/(app)/lists/[id]/loading.tsx` | Loading skeleton for list detail page |
+| `src/app/(app)/timeline/loading.tsx` | Loading skeleton for timeline page |
+| `src/app/(app)/user/[username]/loading.tsx` | Loading skeleton for user profile page |
+
+### Modified Files
+
+#### Query Layer
+
+- **`src/lib/queries/profile.ts`**
+  - `fetchTimeline()` now returns `TimelinePage { entries, hasMore }` instead of `TimelineEntry[]`
+  - Added `limit` and `offset` parameters (default 20, 0)
+  - Uses `range(offset, offset + limit)` to fetch limit+1 rows for hasMore detection
+  - `fetchProfileStats()` now uses 3 separate `count` queries for wins/losses/draws instead of fetching all outcome rows and filtering client-side
+
+- **`src/lib/queries/social.ts`**
+  - `fetchFeed()` now returns `FeedPage { entries, hasMore }` instead of `FeedEntry[]`
+  - Default limit changed from 30 to 20 (per PRD)
+  - Uses range(offset, offset + limit) for hasMore detection pattern
+
+#### Components
+
+- **`src/components/profile/Timeline.tsx`** — Full rewrite for infinite scroll:
+  - Accepts `initialHasMore` prop
+  - Uses `useInfiniteScroll` hook with sentinel element
+  - Shows `SkeletonTimelineCard` placeholders during loading (filter changes and load-more)
+  - League filter resets pagination correctly
+
+- **`src/components/feed/FeedList.tsx`** — Added infinite scroll:
+  - Accepts `initialHasMore` prop
+  - Fetches next pages via `/api/feed?offset=N&limit=20`
+  - Shows `SkeletonFeedCard` placeholders during load-more
+
+- **`src/components/TimelineCard.tsx`** — Uses `next/image` for photos (quality=75, responsive sizes) and avatars
+
+- **`src/components/profile/ProfileHeader.tsx`** — Uses `next/image` for avatar (72x72)
+
+- **`src/components/event/EventGallery.tsx`** — Uses `next/image` for gallery photos and avatars
+
+- **`src/components/Skeleton.tsx`** — Added new skeleton components:
+  - `SkeletonTimelineCard` — matches timeline card layout
+  - `SkeletonFeedCard` — matches feed card with author row
+  - `SkeletonListItem` — matches list item row
+  - `SkeletonEventDetail` — full event detail page skeleton
+  - `SkeletonListDetail` — full list detail page skeleton
+
+#### Pages
+
+- **`src/app/(app)/page.tsx`** — Destructures `{ entries, hasMore }` from `fetchFeed`, passes `initialHasMore` to `FeedList`
+- **`src/app/(app)/timeline/page.tsx`** — Same pattern for timeline
+- **`src/app/(app)/profile/page.tsx`** — Uses `fetchTimeline(supabase, userId, undefined, 1)` to only fetch 1 entry for latest event
+- **`src/app/(app)/user/[username]/page.tsx`** — Same optimization for latest event
+- **`src/app/(app)/user/[username]/timeline/page.tsx`** — Passes `initialHasMore` to Timeline
+- **`src/app/(public)/u/[username]/page.tsx`** — Updated for new return type
+- **`src/app/(app)/lists/[id]/page.tsx`** — Uses `ListItemsSection` instead of manual slice/truncation; shows all items with progressive reveal
+- **`src/app/(app)/event/[id]/page.tsx`** — Uses `next/image` for cover photo, user log photo, and attendee avatars
+
+### Pagination Pattern
+
+All paginated queries use the "fetch limit+1" pattern:
+1. Request `range(offset, offset + limit)` which returns up to limit+1 rows
+2. If `data.length > limit`, set `hasMore = true` and slice to first `limit` rows
+3. Client component renders entries and places a sentinel `<div>` at the bottom
+4. `useInfiniteScroll` hook uses `IntersectionObserver` with `rootMargin: "200px"` to trigger `loadMore` before the user reaches the bottom
+5. Loading skeletons display during fetch
+
+### Image Optimization
+
+- `next.config.ts` already had Supabase Storage `remotePatterns` configured
+- All user-uploaded photos use `next/image` with:
+  - `quality={75}` for bandwidth savings
+  - `sizes="(max-width: 512px) 100vw, 512px"` for responsive sizing
+  - Explicit `width`/`height` props matching the design
+- Avatars use `next/image` with small explicit dimensions (24-72px)
+
+### Query Efficiency
+
+- **Profile stats**: Win/loss/draw counts now use `{ count: "exact", head: true }` server-side instead of fetching all rows and counting client-side. This reduces data transfer from O(n) to O(1) per outcome type.
+- **Feed pagination**: Reduced default page size from 30 to 20 per PRD spec.
+- **Timeline pagination**: Reduced from hardcoded 50 to paginated 20 per PRD spec.
+- **Profile page**: `fetchTimeline` with `limit=1` for the latest event card instead of fetching all 50 entries.
+
+### Known Limitations
+
+1. **Feed API route** — The `/api/feed` route re-executes the full feed query (follows lookup, blocks lookup) on each page. For very active users following many accounts, this could be slow. A future optimization could cache the followed user IDs.
+
+2. **Timeline client-side filtering** — When a league filter is applied on the Timeline component, pagination queries run from the client (browser Supabase client) rather than through an API route. This works because RLS policies allow reading own event_logs, but means the league ID lookup happens on every page load.
+
+3. **List items** — All list items are still fetched server-side in one query. The `ListItemsSection` just progressively reveals them client-side. For lists with hundreds of items, true server-side pagination could be added later.

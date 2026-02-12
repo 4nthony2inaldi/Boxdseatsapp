@@ -5,9 +5,11 @@ import {
   fetchEventAttendees,
   fetchEventComments,
   fetchEventGallery,
+  fetchTournamentAttendance,
 } from "@/lib/queries/event";
 import { fetchCoverPhotoCredit, ensureVotingWindow } from "@/lib/queries/coverPhotos";
 import Link from "next/link";
+import Image from "next/image";
 import StarRating from "@/components/profile/StarRating";
 import OutcomeBadge from "@/components/profile/OutcomeBadge";
 import SectionLabel from "@/components/profile/SectionLabel";
@@ -48,13 +50,16 @@ export default async function EventDetailPage({
   // Ensure voting window is set for this event
   await ensureVotingWindow(supabase, id, event.event_date);
 
-  const [userLog, attendees, gallery, coverCredit] = await Promise.all([
+  const [userLog, attendees, gallery, coverCredit, tournamentDays] = await Promise.all([
     fetchUserEventLog(supabase, user.id, id),
     fetchEventAttendees(supabase, id, user.id),
     fetchEventGallery(supabase, id, user.id),
     event.cover_photo_event_log_id
       ? fetchCoverPhotoCredit(supabase, event.cover_photo_event_log_id)
       : Promise.resolve(null),
+    event.tournament_id
+      ? fetchTournamentAttendance(supabase, event.tournament_id, user.id)
+      : Promise.resolve([]),
   ]);
 
   // Fetch comments for the user's log if they have one
@@ -78,9 +83,13 @@ export default async function EventDetailPage({
       <div className="relative -mx-4 mb-5">
         {coverCredit ? (
           <div className="relative">
-            <img
+            <Image
               src={coverCredit.photo_url}
               alt="Event cover photo"
+              width={600}
+              height={176}
+              sizes="(max-width: 512px) 100vw, 512px"
+              quality={75}
               className="w-full h-44 object-cover"
             />
             <div className="absolute inset-0 bg-gradient-to-t from-bg via-transparent to-transparent" />
@@ -173,6 +182,93 @@ export default async function EventDetailPage({
         </Link>
       </div>
 
+      {/* Tournament Days Attendance */}
+      {tournamentDays.length > 1 && (
+        <div className="mb-6">
+          <SectionLabel>
+            {event.tournament_name || "Tournament"} Attendance
+          </SectionLabel>
+          {(() => {
+            const attended = tournamentDays.filter((d) => d.user_attended).length;
+            return (
+              <div className="bg-bg-card rounded-xl border border-border p-4">
+                <div className="text-sm text-text-secondary mb-3">
+                  Attended{" "}
+                  <span className="text-accent font-medium">{attended}</span>{" "}
+                  of {tournamentDays.length} days
+                </div>
+                <div className="space-y-1.5">
+                  {tournamentDays.map((day) => {
+                    const dayDate = new Date(
+                      day.event_date + "T00:00:00"
+                    ).toLocaleDateString("en-US", {
+                      weekday: "short",
+                      month: "short",
+                      day: "numeric",
+                    });
+                    const dayLabel = day.day_number
+                      ? `Day ${day.day_number}`
+                      : day.round_or_stage || dayDate;
+                    const isCurrent = day.event_id === event.id;
+
+                    return (
+                      <div
+                        key={day.event_id}
+                        className={`flex items-center gap-2.5 py-1.5 px-2 rounded-lg ${
+                          isCurrent ? "bg-accent/5" : ""
+                        }`}
+                      >
+                        {/* Attendance indicator */}
+                        <div
+                          className={`w-4 h-4 rounded-full flex items-center justify-center shrink-0 ${
+                            day.user_attended
+                              ? "bg-win"
+                              : "bg-bg-input border border-border"
+                          }`}
+                        >
+                          {day.user_attended && (
+                            <svg
+                              width="10"
+                              height="10"
+                              viewBox="0 0 24 24"
+                              fill="none"
+                              stroke="white"
+                              strokeWidth="3"
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                            >
+                              <polyline points="20 6 9 17 4 12" />
+                            </svg>
+                          )}
+                        </div>
+
+                        {/* Day info */}
+                        {isCurrent ? (
+                          <span className="text-xs text-accent font-medium flex-1">
+                            {dayLabel}{" "}
+                            <span className="text-text-muted font-normal">
+                              · {dayDate}
+                            </span>
+                          </span>
+                        ) : (
+                          <Link
+                            href={`/event/${day.event_id}`}
+                            className="text-xs text-text-secondary hover:text-accent transition-colors flex-1"
+                          >
+                            {dayLabel}{" "}
+                            <span className="text-text-muted">· {dayDate}</span>
+                          </Link>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            );
+          })()}
+        </div>
+      )}
+
       {/* User's Log Entry */}
       {userLog && (
         <div className="mb-6">
@@ -189,9 +285,13 @@ export default async function EventDetailPage({
             {/* Photo */}
             {userLog.photo_url && (
               <div className="relative rounded-lg overflow-hidden mb-3 -mx-1">
-                <img
+                <Image
                   src={userLog.photo_url}
                   alt="Event photo"
+                  width={600}
+                  height={200}
+                  sizes="(max-width: 512px) 100vw, 512px"
+                  quality={75}
                   className="w-full h-[200px] object-cover"
                 />
                 {userLog.photo_is_verified && (
@@ -263,9 +363,11 @@ export default async function EventDetailPage({
                 {/* Avatar */}
                 <div className="w-8 h-8 rounded-full shrink-0 overflow-hidden">
                   {attendee.avatar_url ? (
-                    <img
+                    <Image
                       src={attendee.avatar_url}
                       alt={attendee.username}
+                      width={32}
+                      height={32}
                       className="w-full h-full object-cover"
                     />
                   ) : (

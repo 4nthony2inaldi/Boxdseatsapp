@@ -1,45 +1,59 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useCallback, useEffect } from "react";
 import type { TimelineEntry } from "@/lib/queries/profile";
 import { LEAGUES } from "@/lib/constants";
 import SectionLabel from "./SectionLabel";
 import TimelineCard from "../TimelineCard";
+import { SkeletonTimelineCard } from "../Skeleton";
+import { useInfiniteScroll } from "@/hooks/useInfiniteScroll";
 import { createClient } from "@/lib/supabase/client";
+
+const PAGE_SIZE = 20;
 
 type TimelineProps = {
   initialEntries: TimelineEntry[];
+  initialHasMore: boolean;
   userId: string;
 };
 
 const leagueOptions = ["All", ...Object.keys(LEAGUES)];
 
-export default function Timeline({ initialEntries, userId }: TimelineProps) {
+export default function Timeline({ initialEntries, initialHasMore, userId }: TimelineProps) {
   const [filter, setFilter] = useState("All");
   const [entries, setEntries] = useState(initialEntries);
+  const [hasMore, setHasMore] = useState(initialHasMore);
   const [isOpen, setIsOpen] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [loadingMore, setLoadingMore] = useState(false);
 
+  // Reset when filter changes
   useEffect(() => {
     if (filter === "All") {
       setEntries(initialEntries);
+      setHasMore(initialHasMore);
       return;
     }
 
+    let cancelled = false;
+
     async function fetchFiltered() {
       setLoading(true);
+      setEntries([]);
+      setHasMore(false);
       const supabase = createClient();
 
-      // Look up league id by slug
       const { data: league } = await supabase
         .from("leagues")
         .select("id")
         .eq("slug", filter.toLowerCase())
         .single();
 
-      if (!league) {
-        setEntries([]);
-        setLoading(false);
+      if (!league || cancelled) {
+        if (!cancelled) {
+          setEntries([]);
+          setLoading(false);
+        }
         return;
       }
 
@@ -49,6 +63,7 @@ export default function Timeline({ initialEntries, userId }: TimelineProps) {
           `
           id, event_date, rating, notes, outcome, privacy, like_count, comment_count, seat_location, sport,
           photo_url, photo_is_verified,
+          is_manual, manual_title, manual_description,
           event_id,
           venue_id,
           venues(name),
@@ -64,72 +79,86 @@ export default function Timeline({ initialEntries, userId }: TimelineProps) {
         .eq("user_id", userId)
         .eq("league_id", league.id)
         .order("event_date", { ascending: false })
-        .limit(50);
+        .range(0, PAGE_SIZE);
+
+      if (cancelled) return;
 
       if (data) {
-        const mapped: TimelineEntry[] = data.map((log) => {
-          const venue = log.venues as unknown as { name: string } | null;
-          const leagueData = log.leagues as unknown as {
-            slug: string;
-            name: string;
-          } | null;
-          const event = log.events as unknown as {
-            home_score: number | null;
-            away_score: number | null;
-            home_team: {
-              short_name: string;
-              abbreviation: string;
-            } | null;
-            away_team: {
-              short_name: string;
-              abbreviation: string;
-            } | null;
-            tournament_name: string | null;
-          } | null;
-
-          let matchup: string | null = null;
-          if (event?.home_team && event?.away_team) {
-            const hs = event.home_score ?? "";
-            const as_ = event.away_score ?? "";
-            matchup = `${event.home_team.short_name} ${hs} — ${event.away_team.short_name} ${as_}`;
-          } else if (event?.tournament_name) {
-            matchup = event.tournament_name;
-          }
-
-          return {
-            id: log.id,
-            event_date: log.event_date,
-            rating: log.rating,
-            notes: log.notes,
-            outcome: log.outcome,
-            privacy: log.privacy,
-            like_count: log.like_count,
-            comment_count: log.comment_count,
-            seat_location: log.seat_location,
-            league_slug: leagueData?.slug?.toUpperCase() || null,
-            league_name: leagueData?.name || null,
-            venue_name: venue?.name || null,
-            venue_id: log.venue_id,
-            event_id: log.event_id,
-            matchup,
-            home_team_short: event?.home_team?.short_name || null,
-            away_team_short: event?.away_team?.short_name || null,
-            home_score: event?.home_score ?? null,
-            away_score: event?.away_score ?? null,
-            sport: log.sport,
-            photo_url: log.photo_url || null,
-            photo_is_verified: log.photo_is_verified || false,
-          };
-        });
-        setEntries(mapped);
+        const moreAvailable = data.length > PAGE_SIZE;
+        const pageData = moreAvailable ? data.slice(0, PAGE_SIZE) : data;
+        setEntries(pageData.map(mapLogToEntry));
+        setHasMore(moreAvailable);
       } else {
         setEntries([]);
+        setHasMore(false);
       }
       setLoading(false);
     }
 
     fetchFiltered();
-  }, [filter, userId, initialEntries]);
+    return () => { cancelled = true; };
+  }, [filter, userId, initialEntries, initialHasMore]);
+
+  const loadMore = useCallback(async () => {
+    if (loadingMore || !hasMore) return;
+    setLoadingMore(true);
+
+    const supabase = createClient();
+    const offset = entries.length;
+
+    let leagueId: string | null = null;
+    if (filter !== "All") {
+      const { data: league } = await supabase
+        .from("leagues")
+        .select("id")
+        .eq("slug", filter.toLowerCase())
+        .single();
+      leagueId = league?.id ?? null;
+    }
+
+    let query = supabase
+      .from("event_logs")
+      .select(
+        `
+        id, event_date, rating, notes, outcome, privacy, like_count, comment_count, seat_location, sport,
+        photo_url, photo_is_verified,
+        is_manual, manual_title, manual_description,
+        event_id,
+        venue_id,
+        venues(name),
+        leagues(slug, name),
+        events!event_logs_event_id_fkey(
+          home_score, away_score,
+          home_team:teams!events_home_team_id_fkey(short_name, abbreviation),
+          away_team:teams!events_away_team_id_fkey(short_name, abbreviation),
+          tournament_name
+        )
+      `
+      )
+      .eq("user_id", userId)
+      .order("event_date", { ascending: false })
+      .range(offset, offset + PAGE_SIZE);
+
+    if (leagueId) {
+      query = query.eq("league_id", leagueId);
+    }
+
+    const { data } = await query;
+
+    if (data) {
+      const moreAvailable = data.length > PAGE_SIZE;
+      const pageData = moreAvailable ? data.slice(0, PAGE_SIZE) : data;
+      setEntries((prev) => [...prev, ...pageData.map(mapLogToEntry)]);
+      setHasMore(moreAvailable);
+    } else {
+      setHasMore(false);
+    }
+    setLoadingMore(false);
+  }, [entries.length, hasMore, loadingMore, filter, userId]);
+
+  const sentinelRef = useInfiniteScroll(loadMore, {
+    enabled: hasMore && !loadingMore && !loading,
+  });
 
   return (
     <div className="px-4">
@@ -178,9 +207,12 @@ export default function Timeline({ initialEntries, userId }: TimelineProps) {
         </div>
       </div>
 
+      {/* Loading skeleton for filter changes */}
       {loading && (
-        <div className="text-center text-text-muted text-sm py-8">
-          Loading...
+        <div>
+          {[1, 2, 3].map((i) => (
+            <SkeletonTimelineCard key={i} />
+          ))}
         </div>
       )}
 
@@ -206,7 +238,6 @@ export default function Timeline({ initialEntries, userId }: TimelineProps) {
       )}
 
       {!loading && entries.length > 0 && (() => {
-        // Group entries by month for visual breaks
         const groups: { label: string; entries: typeof entries }[] = [];
         let currentLabel = "";
 
@@ -238,6 +269,90 @@ export default function Timeline({ initialEntries, userId }: TimelineProps) {
           </div>
         ));
       })()}
+
+      {/* Loading more skeleton */}
+      {loadingMore && (
+        <div>
+          {[1, 2].map((i) => (
+            <SkeletonTimelineCard key={`loading-${i}`} />
+          ))}
+        </div>
+      )}
+
+      {/* Infinite scroll sentinel */}
+      <div ref={sentinelRef} className="h-1" />
     </div>
   );
+}
+
+// Helper to map a raw Supabase row to TimelineEntry
+function mapLogToEntry(log: Record<string, unknown>): TimelineEntry {
+  const venue = log.venues as { name: string } | null;
+  const leagueData = log.leagues as { slug: string; name: string } | null;
+  const event = log.events as {
+    home_score: number | null;
+    away_score: number | null;
+    home_team: { short_name: string; abbreviation: string } | null;
+    away_team: { short_name: string; abbreviation: string } | null;
+    tournament_name: string | null;
+  } | null;
+
+  let matchup: string | null = null;
+  let homeTeamShort: string | null = event?.home_team?.short_name || null;
+  let awayTeamShort: string | null = event?.away_team?.short_name || null;
+  let homeScore: number | null = event?.home_score ?? null;
+  let awayScore: number | null = event?.away_score ?? null;
+
+  if (event?.home_team && event?.away_team) {
+    const hs = event.home_score ?? "";
+    const as_ = event.away_score ?? "";
+    matchup = `${event.home_team.short_name} ${hs} — ${event.away_team.short_name} ${as_}`;
+  } else if (event?.tournament_name) {
+    matchup = event.tournament_name;
+  }
+
+  if (log.is_manual && log.manual_description) {
+    try {
+      const manualTeams = JSON.parse(log.manual_description as string);
+      if (manualTeams.home_team && manualTeams.away_team) {
+        homeTeamShort = manualTeams.home_team;
+        awayTeamShort = manualTeams.away_team;
+        homeScore = manualTeams.home_score ?? null;
+        awayScore = manualTeams.away_score ?? null;
+        const hs = manualTeams.home_score ?? "";
+        const as_ = manualTeams.away_score ?? "";
+        matchup = `${manualTeams.home_team} ${hs} — ${manualTeams.away_team} ${as_}`;
+      }
+    } catch {
+      // not JSON, ignore
+    }
+  }
+
+  return {
+    id: log.id as string,
+    event_date: log.event_date as string,
+    rating: log.rating as number | null,
+    notes: log.notes as string | null,
+    outcome: log.outcome as string | null,
+    privacy: log.privacy as string,
+    like_count: log.like_count as number,
+    comment_count: log.comment_count as number,
+    seat_location: log.seat_location as string | null,
+    league_slug: leagueData?.slug?.toUpperCase() || null,
+    league_name: leagueData?.name || null,
+    venue_name: venue?.name || null,
+    venue_id: log.venue_id as string | null,
+    event_id: log.event_id as string | null,
+    matchup,
+    home_team_short: homeTeamShort,
+    away_team_short: awayTeamShort,
+    home_score: homeScore,
+    away_score: awayScore,
+    sport: log.sport as string | null,
+    photo_url: (log.photo_url as string) || null,
+    photo_is_verified: (log.photo_is_verified as boolean) || false,
+    is_manual: (log.is_manual as boolean) || false,
+    manual_title: (log.manual_title as string) || null,
+    manual_description: (log.manual_description as string) || null,
+  };
 }

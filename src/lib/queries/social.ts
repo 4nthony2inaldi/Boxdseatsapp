@@ -84,14 +84,19 @@ export type SearchResults = {
   teams: SearchResultTeam[];
 };
 
+export type FeedPage = {
+  entries: FeedEntry[];
+  hasMore: boolean;
+};
+
 // ── Feed query ──
 
 export async function fetchFeed(
   supabase: SupabaseClient,
   userId: string,
-  limit = 30,
+  limit = 20,
   offset = 0
-): Promise<FeedEntry[]> {
+): Promise<FeedPage> {
   // 1. Get IDs of users I follow (active only)
   const { data: followRows, error: followError } = await supabase
     .from("follows")
@@ -108,7 +113,7 @@ export async function fetchFeed(
   const feedUserIds = [userId, ...followingIds];
   console.log("[fetchFeed] feedUserIds:", feedUserIds.length, "userId:", userId);
 
-  if (feedUserIds.length === 0) return [];
+  if (feedUserIds.length === 0) return { entries: [], hasMore: false };
 
   // 2. Get blocked user IDs (both directions)
   const { data: blockedRows } = await supabase
@@ -146,16 +151,20 @@ export async function fetchFeed(
     .in("user_id", feedUserIds)
     .neq("privacy", "hide_all")
     .order("created_at", { ascending: false })
-    .range(offset, offset + limit - 1);
+    .range(offset, offset + limit);
 
   if (logsError) {
     console.error("[fetchFeed] event_logs query error:", logsError.message, logsError.code, logsError.details);
   }
 
-  if (!logs || logs.length === 0) return [];
+  if (!logs || logs.length === 0) return { entries: [], hasMore: false };
+
+  // Detect if there are more pages
+  const hasMore = logs.length > limit;
+  const pageLogs = hasMore ? logs.slice(0, limit) : logs;
 
   // 4. Fetch profiles for all authors
-  const authorIds = [...new Set(logs.map((l) => l.user_id))];
+  const authorIds = [...new Set(pageLogs.map((l) => l.user_id))];
   const { data: profiles } = await supabase
     .from("profiles")
     .select("id, username, display_name, avatar_url")
@@ -166,7 +175,7 @@ export async function fetchFeed(
   );
 
   // 5. Fetch which entries the current user has liked
-  const logIds = logs.map((l) => l.id);
+  const logIds = pageLogs.map((l) => l.id);
   const { data: myLikes } = await supabase
     .from("likes")
     .select("event_log_id")
@@ -176,7 +185,7 @@ export async function fetchFeed(
   const likedSet = new Set((myLikes || []).map((l) => l.event_log_id));
 
   // 6. Map to feed entries, filtering out blocked users
-  return logs
+  const entries = pageLogs
     .filter((log) => !blockedIds.has(log.user_id))
     .map((log) => {
       const venue = log.venues as unknown as { name: string } | null;
@@ -238,6 +247,8 @@ export async function fetchFeed(
         liked_by_me: likedSet.has(log.id),
       };
     });
+
+  return { entries, hasMore };
 }
 
 // ── Follow relationship check ──

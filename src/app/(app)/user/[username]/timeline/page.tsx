@@ -42,7 +42,7 @@ export default async function UserTimelinePage({ params }: Props) {
     );
   }
 
-  const timelineEntries = await fetchTimeline(supabase, profile.id);
+  const { entries: timelineEntries, hasMore } = await fetchTimeline(supabase, profile.id);
 
   return (
     <div className="max-w-lg mx-auto pb-5">
@@ -69,7 +69,7 @@ export default async function UserTimelinePage({ params }: Props) {
           {profile.display_name || profile.username}&apos;s Events
         </h1>
       </div>
-      <Timeline initialEntries={timelineEntries} userId={profile.id} />
+      <Timeline initialEntries={timelineEntries} initialHasMore={hasMore} userId={profile.id} />
     </div>
   );
 }

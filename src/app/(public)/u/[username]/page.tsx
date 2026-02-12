@@ -170,7 +170,7 @@ export default async function PublicProfilePage({ params }: Props) {
   }
 
   // Full profile — fetch remaining data
-  const [bigFour, activityData, pinnedLists, timelineEntries, badges, trackedIncomplete] =
+  const [bigFour, activityData, pinnedLists, timelinePage, badges, trackedIncomplete] =
     await Promise.all([
       fetchBigFour(supabase, profile),
       fetchActivityChart(supabase, profile.id),
@@ -205,7 +205,7 @@ export default async function PublicProfilePage({ params }: Props) {
         <ActivityChart months={activityData.months} total={activityData.total} />
         <PinnedLists lists={pinnedLists} />
         <BadgeSection badges={badges} tracked={trackedIncomplete} userId={profile.id} showTracked={pinnedLists.length === 0} />
-        <Timeline initialEntries={timelineEntries} userId={profile.id} />
+        <Timeline initialEntries={timelinePage.entries} initialHasMore={timelinePage.hasMore} userId={profile.id} />
 
         {/* CTA for logged-out visitors */}
         {!user && (

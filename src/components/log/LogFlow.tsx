@@ -15,7 +15,7 @@ import { uploadEventPhoto, updateEventLogPhoto, isPhotoVerified } from "@/lib/ph
 import { ensureVotingWindow } from "@/lib/queries/coverPhotos";
 import StepVenue from "./StepVenue";
 import StepDate from "./StepDate";
-import StepEvent from "./StepEvent";
+import StepEvent, { type ManualEntryData } from "./StepEvent";
 import StepDetails, { type DetailsData } from "./StepDetails";
 
 type LogFlowProps = {
@@ -43,10 +43,16 @@ export default function LogFlow({ userId, prefillVenue, editLog }: LogFlowProps)
   const [manualTitle, setManualTitle] = useState<string | null>(
     editLog?.manual_title || null
   );
+  const [manualData, setManualData] = useState<ManualEntryData | null>(null);
+  const [multiDayEvents, setMultiDayEvents] = useState<EventMatch[] | null>(null);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
   const [earnedBadges, setEarnedBadges] = useState<BadgeData[]>([]);
+  const [multiDaySaveProgress, setMultiDaySaveProgress] = useState<{
+    saved: number;
+    total: number;
+  } | null>(null);
 
   // Step 1: Venue selected
   const handleVenueSelect = (venue: VenueResult) => {
@@ -61,10 +67,33 @@ export default function LogFlow({ userId, prefillVenue, editLog }: LogFlowProps)
   };
 
   // Step 3: Event selected (or manual)
-  const handleEventSelect = (event: EventMatch | null, title?: string) => {
+  const handleEventSelect = (event: EventMatch | null, title?: string, manual?: ManualEntryData) => {
     setSelectedEvent(event);
     setManualTitle(title || null);
+    setManualData(manual || null);
+    setMultiDayEvents(null);
     setStep(4);
+  };
+
+  // Step 3: Multi-day event selected
+  const handleMultiDaySelect = (events: EventMatch[]) => {
+    setMultiDayEvents(events);
+    // Use the first event as the "selected" event for the details step
+    setSelectedEvent(events[0]);
+    setManualTitle(null);
+    setManualData(null);
+    setStep(4);
+  };
+
+  // Resolve league ID from a league key (e.g., "NFL")
+  const resolveLeagueId = async (leagueKey: string): Promise<string | null> => {
+    const supabase = createClient();
+    const { data } = await supabase
+      .from("leagues")
+      .select("id")
+      .eq("slug", leagueKey.toLowerCase())
+      .single();
+    return data?.id || null;
   };
 
   // Step 4: Save
@@ -76,13 +105,125 @@ export default function LogFlow({ userId, prefillVenue, editLog }: LogFlowProps)
 
     const supabase = createClient();
 
+    // Resolve league for manual entries
+    let resolvedLeagueId = selectedEvent?.league_id || null;
+    let resolvedSport = selectedEvent?.sport || null;
+    if (!selectedEvent && manualData?.sport) {
+      resolvedSport = manualData.sport;
+      // Find league key matching sport
+      const leagueKey = Object.entries(
+        { NFL: "football", NBA: "basketball", MLB: "baseball", NHL: "hockey", MLS: "soccer", PGA: "golf" } as Record<string, string>
+      ).find(([, sport]) => sport === manualData.sport)?.[0];
+      if (leagueKey) {
+        resolvedLeagueId = await resolveLeagueId(leagueKey);
+      }
+    }
+
+    // Build manual_description from teams/score
+    let manualDescription: string | null = null;
+    if (manualData?.teams) {
+      const t = manualData.teams;
+      manualDescription = JSON.stringify({
+        home_team: t.home_team,
+        away_team: t.away_team,
+        home_score: t.home_score,
+        away_score: t.away_score,
+      });
+    }
+
+    // Multi-day: save one event_log per day
+    if (multiDayEvents && multiDayEvents.length > 1) {
+      const allBadges: BadgeData[] = [];
+      setMultiDaySaveProgress({ saved: 0, total: multiDayEvents.length });
+
+      for (let i = 0; i < multiDayEvents.length; i++) {
+        const dayEvent = multiDayEvents[i];
+        const logInput = {
+          user_id: userId,
+          event_id: dayEvent.id,
+          venue_id: selectedVenue.id,
+          event_date: dayEvent.event_date,
+          league_id: dayEvent.league_id,
+          sport: dayEvent.sport,
+          rating: details.rating,
+          notes: details.notes || null,
+          seat_location: details.seat_location || null,
+          privacy: details.privacy,
+          rooting_team_id: details.rooting_team_id,
+          is_neutral: details.is_neutral,
+          outcome: null as "win" | "loss" | "draw" | "neutral" | null,
+          is_manual: false,
+          manual_title: null,
+          manual_description: null,
+          companions: details.companions,
+        };
+
+        const result = await saveEventLog(supabase, logInput, dayEvent);
+
+        if ("error" in result) {
+          // Skip duplicate errors for multi-day (user may have logged a day already)
+          if (!result.error.includes("already logged")) {
+            setError(result.error);
+            setSaving(false);
+            setMultiDaySaveProgress(null);
+            return;
+          }
+        } else {
+          // Upload photo only for first day
+          if (i === 0 && details.photo) {
+            const photoResult = await uploadEventPhoto(
+              supabase,
+              userId,
+              result.id,
+              details.photo.file
+            );
+            if ("url" in photoResult) {
+              const verified = isPhotoVerified(
+                details.photo.captureMethod,
+                new Date(details.photo.capturedAt),
+                dayEvent.event_date
+              );
+              await updateEventLogPhoto(
+                supabase,
+                result.id,
+                userId,
+                photoResult.url,
+                details.photo.captureMethod,
+                details.photo.capturedAt,
+                verified
+              );
+              if (dayEvent.id) {
+                await ensureVotingWindow(supabase, dayEvent.id, dayEvent.event_date);
+              }
+            }
+          }
+
+          const newBadges = (result as { newBadges?: BadgeData[] }).newBadges;
+          if (newBadges) allBadges.push(...newBadges);
+        }
+
+        setMultiDaySaveProgress({ saved: i + 1, total: multiDayEvents.length });
+      }
+
+      setSaving(false);
+      setMultiDaySaveProgress(null);
+      if (allBadges.length > 0) setEarnedBadges(allBadges);
+      setSuccess(true);
+      setTimeout(() => {
+        router.push("/profile");
+        router.refresh();
+      }, allBadges.length > 0 ? 2500 : 1200);
+      return;
+    }
+
+    // Single event save (existing flow)
     const logInput = {
       user_id: userId,
       event_id: selectedEvent?.id || null,
       venue_id: selectedVenue.id,
       event_date: selectedDate,
-      league_id: selectedEvent?.league_id || null,
-      sport: selectedEvent?.sport || null,
+      league_id: resolvedLeagueId,
+      sport: resolvedSport,
       rating: details.rating,
       notes: details.notes || null,
       seat_location: details.seat_location || null,
@@ -92,7 +233,8 @@ export default function LogFlow({ userId, prefillVenue, editLog }: LogFlowProps)
       outcome: null as "win" | "loss" | "draw" | "neutral" | null,
       is_manual: !selectedEvent,
       manual_title: manualTitle,
-      manual_description: null,
+      manual_description: manualDescription,
+      manual_teams: manualData?.teams || null,
       companions: details.companions,
     };
 
@@ -160,11 +302,16 @@ export default function LogFlow({ userId, prefillVenue, editLog }: LogFlowProps)
 
   // Success state
   if (success) {
+    const daysLogged = multiDayEvents ? multiDayEvents.length : 1;
     return (
       <div className="px-4 py-16 max-w-lg mx-auto text-center">
         <div className="text-5xl mb-4">{isEditMode ? "✅" : "🎉"}</div>
         <div className="font-display text-2xl text-text-primary tracking-wider mb-2">
-          {isEditMode ? "EVENT UPDATED" : "EVENT LOGGED"}
+          {isEditMode
+            ? "EVENT UPDATED"
+            : daysLogged > 1
+              ? `${daysLogged} DAYS LOGGED`
+              : "EVENT LOGGED"}
         </div>
         {earnedBadges.length > 0 && (
           <div className="mt-4 mb-3">
@@ -195,6 +342,29 @@ export default function LogFlow({ userId, prefillVenue, editLog }: LogFlowProps)
         )}
         <div className="text-sm text-text-secondary">
           Redirecting...
+        </div>
+      </div>
+    );
+  }
+
+  // Multi-day save progress
+  if (multiDaySaveProgress) {
+    return (
+      <div className="px-4 py-16 max-w-lg mx-auto text-center">
+        <div className="font-display text-xl text-text-primary tracking-wider mb-4">
+          LOGGING DAYS
+        </div>
+        <div className="text-sm text-text-secondary mb-3">
+          {multiDaySaveProgress.saved} of {multiDaySaveProgress.total} days saved
+        </div>
+        <div className="w-full h-2 bg-bg-input rounded-full overflow-hidden">
+          <div
+            className="h-full rounded-full transition-all"
+            style={{
+              width: `${(multiDaySaveProgress.saved / multiDaySaveProgress.total) * 100}%`,
+              background: "linear-gradient(135deg, #D4872C, #7B5B3A)",
+            }}
+          />
         </div>
       </div>
     );
@@ -297,6 +467,7 @@ export default function LogFlow({ userId, prefillVenue, editLog }: LogFlowProps)
           venueName={selectedVenue.name}
           date={selectedDate}
           onSelect={handleEventSelect}
+          onSelectMultiDay={handleMultiDaySelect}
           onBack={() => setStep(2)}
         />
       )}
@@ -325,6 +496,7 @@ export default function LogFlow({ userId, prefillVenue, editLog }: LogFlowProps)
                 }
               : undefined
           }
+          multiDayCount={multiDayEvents ? multiDayEvents.length : undefined}
         />
       )}
     </div>

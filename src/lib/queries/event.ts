@@ -15,6 +15,8 @@ export type EventDetail = {
   home_score: number | null;
   away_score: number | null;
   tournament_name: string | null;
+  tournament_id: string | null;
+  day_number: number | null;
   round_or_stage: string | null;
   season: number;
   venue_id: string;
@@ -26,6 +28,14 @@ export type EventDetail = {
   sport: string | null;
   cover_photo_url: string | null;
   cover_photo_event_log_id: string | null;
+};
+
+export type TournamentDayAttendance = {
+  event_id: string;
+  event_date: string;
+  day_number: number | null;
+  round_or_stage: string | null;
+  user_attended: boolean;
 };
 
 export type UserEventLog = {
@@ -88,7 +98,7 @@ export async function fetchEventDetail(
     .select(`
       id, event_date, event_template, season, round_or_stage,
       home_team_id, away_team_id, home_score, away_score,
-      tournament_name, venue_id,
+      tournament_name, tournament_id, day_number, venue_id,
       cover_photo_url, cover_photo_event_log_id,
       venues!events_venue_id_fkey(name),
       leagues(name, slug, sport),
@@ -121,6 +131,8 @@ export async function fetchEventDetail(
     home_score: data.home_score,
     away_score: data.away_score,
     tournament_name: data.tournament_name,
+    tournament_id: data.tournament_id || null,
+    day_number: data.day_number || null,
     round_or_stage: data.round_or_stage,
     season: data.season,
     venue_id: data.venue_id,
@@ -380,6 +392,46 @@ export async function fetchEventGallery(
       const bTime = b.photo_captured_at ? new Date(b.photo_captured_at).getTime() : Infinity;
       return aTime - bTime;
     });
+}
+
+// ── Fetch tournament day attendance for a user ──
+
+/**
+ * Given a tournament_id, fetch all days and mark which ones the user attended.
+ * Used on the event detail page to show "Attended 3 of 4 days" summary.
+ */
+export async function fetchTournamentAttendance(
+  supabase: SupabaseClient,
+  tournamentId: string,
+  userId: string
+): Promise<TournamentDayAttendance[]> {
+  // Fetch all events in this tournament
+  const { data: events } = await supabase
+    .from("events")
+    .select("id, event_date, day_number, round_or_stage")
+    .eq("tournament_id", tournamentId)
+    .order("day_number", { ascending: true })
+    .order("event_date", { ascending: true });
+
+  if (!events || events.length === 0) return [];
+
+  // Fetch user's event_logs for these event IDs
+  const eventIds = events.map((e) => e.id);
+  const { data: logs } = await supabase
+    .from("event_logs")
+    .select("event_id")
+    .eq("user_id", userId)
+    .in("event_id", eventIds);
+
+  const attendedSet = new Set((logs || []).map((l) => l.event_id));
+
+  return events.map((e) => ({
+    event_id: e.id,
+    event_date: e.event_date,
+    day_number: e.day_number,
+    round_or_stage: e.round_or_stage,
+    user_attended: attendedSet.has(e.id),
+  }));
 }
 
 // ── Toggle photo like ──

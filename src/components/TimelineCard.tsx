@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import { LEAGUES } from "@/lib/constants";
 import SportIcon from "@/components/SportIcon";
 import StarRating from "./profile/StarRating";
@@ -88,9 +89,11 @@ export default function TimelineCard({
             {/* Avatar */}
             <div className="w-8 h-8 rounded-full shrink-0 overflow-hidden">
               {author.avatar_url ? (
-                <img
+                <Image
                   src={author.avatar_url}
                   alt={author.display_name || author.username}
+                  width={32}
+                  height={32}
                   className="w-full h-full object-cover"
                 />
               ) : (
@@ -129,6 +132,11 @@ export default function TimelineCard({
               {entry.league_slug || ""}
             </span>
             <OutcomeBadge outcome={entry.outcome} />
+            {entry.is_manual && (
+              <span className="text-[9px] text-text-muted bg-bg-input px-1.5 py-0.5 rounded-full tracking-wide uppercase">
+                Manual
+              </span>
+            )}
           </div>
           {entry.rating && <StarRating rating={entry.rating} />}
         </div>
@@ -179,9 +187,13 @@ export default function TimelineCard({
         {/* Photo */}
         {entry.photo_url && (
           <div className="relative rounded-lg overflow-hidden mb-2.5 -mx-1">
-            <img
+            <Image
               src={entry.photo_url}
               alt="Event photo"
+              width={600}
+              height={180}
+              sizes="(max-width: 512px) 100vw, 512px"
+              quality={75}
               className="w-full h-[180px] object-cover"
             />
             {entry.photo_is_verified && (

@@ -70,6 +70,9 @@ export type TimelineEntry = {
   sport: string | null;
   photo_url: string | null;
   photo_is_verified: boolean;
+  is_manual?: boolean;
+  manual_title?: string | null;
+  manual_description?: string | null;
 };
 
 export async function fetchProfile(
@@ -90,7 +93,7 @@ export async function fetchProfileStats(
   supabase: SupabaseClient,
   userId: string
 ): Promise<ProfileStats> {
-  const [eventsRes, venuesRes, followersRes, followingRes, outcomesRes] =
+  const [eventsRes, venuesRes, followersRes, followingRes, winsRes, lossesRes, drawsRes] =
     await Promise.all([
       supabase
         .from("event_logs")
@@ -113,24 +116,29 @@ export async function fetchProfileStats(
         .eq("status", "active"),
       supabase
         .from("event_logs")
-        .select("outcome")
+        .select("id", { count: "exact", head: true })
         .eq("user_id", userId)
-        .not("outcome", "is", null),
+        .eq("outcome", "win"),
+      supabase
+        .from("event_logs")
+        .select("id", { count: "exact", head: true })
+        .eq("user_id", userId)
+        .eq("outcome", "loss"),
+      supabase
+        .from("event_logs")
+        .select("id", { count: "exact", head: true })
+        .eq("user_id", userId)
+        .eq("outcome", "draw"),
     ]);
-
-  const outcomes = outcomesRes.data || [];
-  const wins = outcomes.filter((o) => o.outcome === "win").length;
-  const losses = outcomes.filter((o) => o.outcome === "loss").length;
-  const draws = outcomes.filter((o) => o.outcome === "draw").length;
 
   return {
     totalEvents: eventsRes.count || 0,
     totalVenues: venuesRes.count || 0,
     followers: followersRes.count || 0,
     following: followingRes.count || 0,
-    wins,
-    losses,
-    draws,
+    wins: winsRes.count || 0,
+    losses: lossesRes.count || 0,
+    draws: drawsRes.count || 0,
   };
 }
 
@@ -428,17 +436,25 @@ export async function fetchProfileSummaryCounts(
   };
 }
 
+export type TimelinePage = {
+  entries: TimelineEntry[];
+  hasMore: boolean;
+};
+
 export async function fetchTimeline(
   supabase: SupabaseClient,
   userId: string,
-  leagueFilter?: string
-): Promise<TimelineEntry[]> {
+  leagueFilter?: string,
+  limit = 20,
+  offset = 0
+): Promise<TimelinePage> {
   let query = supabase
     .from("event_logs")
     .select(
       `
       id, event_date, rating, notes, outcome, privacy, like_count, comment_count, seat_location, sport,
       photo_url, photo_is_verified,
+      is_manual, manual_title, manual_description,
       event_id,
       venue_id,
       venues(name),
@@ -453,7 +469,7 @@ export async function fetchTimeline(
     )
     .eq("user_id", userId)
     .order("event_date", { ascending: false })
-    .limit(50);
+    .range(offset, offset + limit);
 
   if (leagueFilter && leagueFilter !== "All") {
     // Look up league id by slug
@@ -469,9 +485,13 @@ export async function fetchTimeline(
 
   const { data } = await query;
 
-  if (!data) return [];
+  if (!data) return { entries: [], hasMore: false };
 
-  return data.map((log) => {
+  // If we got limit+1 rows, there are more pages
+  const hasMore = data.length > limit;
+  const pageData = hasMore ? data.slice(0, limit) : data;
+
+  const entries = pageData.map((log) => {
     const venue = log.venues as unknown as { name: string } | null;
     const league = log.leagues as unknown as { slug: string; name: string } | null;
     const event = log.events as unknown as {
@@ -483,12 +503,35 @@ export async function fetchTimeline(
     } | null;
 
     let matchup: string | null = null;
+    let homeTeamShort: string | null = event?.home_team?.short_name || null;
+    let awayTeamShort: string | null = event?.away_team?.short_name || null;
+    let homeScore: number | null = event?.home_score ?? null;
+    let awayScore: number | null = event?.away_score ?? null;
+
     if (event?.home_team && event?.away_team) {
       const hs = event.home_score ?? "";
       const as_ = event.away_score ?? "";
       matchup = `${event.home_team.short_name} ${hs} — ${event.away_team.short_name} ${as_}`;
     } else if (event?.tournament_name) {
       matchup = event.tournament_name;
+    }
+
+    // For manual entries, try to construct matchup from manual_description
+    if (log.is_manual && log.manual_description) {
+      try {
+        const manualTeams = JSON.parse(log.manual_description);
+        if (manualTeams.home_team && manualTeams.away_team) {
+          homeTeamShort = manualTeams.home_team;
+          awayTeamShort = manualTeams.away_team;
+          homeScore = manualTeams.home_score ?? null;
+          awayScore = manualTeams.away_score ?? null;
+          const hs = manualTeams.home_score ?? "";
+          const as_ = manualTeams.away_score ?? "";
+          matchup = `${manualTeams.home_team} ${hs} — ${manualTeams.away_team} ${as_}`;
+        }
+      } catch {
+        // manual_description isn't JSON, ignore
+      }
     }
 
     return {
@@ -507,13 +550,18 @@ export async function fetchTimeline(
       venue_id: log.venue_id,
       event_id: log.event_id,
       matchup,
-      home_team_short: event?.home_team?.short_name || null,
-      away_team_short: event?.away_team?.short_name || null,
-      home_score: event?.home_score ?? null,
-      away_score: event?.away_score ?? null,
+      home_team_short: homeTeamShort,
+      away_team_short: awayTeamShort,
+      home_score: homeScore,
+      away_score: awayScore,
       sport: log.sport,
       photo_url: log.photo_url || null,
       photo_is_verified: log.photo_is_verified || false,
+      is_manual: log.is_manual || false,
+      manual_title: log.manual_title || null,
+      manual_description: log.manual_description || null,
     };
   });
+
+  return { entries, hasMore };
 }

@@ -28,6 +28,8 @@ export type EventMatch = {
   home_score: number | null;
   away_score: number | null;
   tournament_name: string | null;
+  tournament_id: string | null;
+  day_number: number | null;
   round_or_stage: string | null;
   event_template: string;
   start_time: string | null;
@@ -36,6 +38,13 @@ export type EventMatch = {
 export type CompanionInput = {
   tagged_user_id: string | null;
   display_name: string;
+};
+
+export type ManualTeamScore = {
+  home_team: string;
+  away_team: string;
+  home_score: number | null;
+  away_score: number | null;
 };
 
 export type EventLogInsert = {
@@ -55,6 +64,7 @@ export type EventLogInsert = {
   is_manual: boolean;
   manual_title: string | null;
   manual_description: string | null;
+  manual_teams?: ManualTeamScore | null;
   companions: CompanionInput[];
 };
 
@@ -147,13 +157,32 @@ export async function searchVenues(
     }
   }
 
+  // Look up sport for each venue via venue_teams → teams → leagues
+  const { data: venueTeams } = await supabase
+    .from("venue_teams")
+    .select("venue_id, teams(leagues(sport))")
+    .in("venue_id", venueIds)
+    .eq("is_primary", true);
+
+  const venueSport: Record<string, string | null> = {};
+  if (venueTeams) {
+    for (const vt of venueTeams) {
+      if (!venueSport[vt.venue_id]) {
+        const team = vt.teams as unknown as {
+          leagues: { sport: string } | null;
+        } | null;
+        venueSport[vt.venue_id] = team?.leagues?.sport || null;
+      }
+    }
+  }
+
   return venues.map((v) => ({
     id: v.id,
     name: v.name,
     city: v.city,
     state: v.state,
     visit_count: venueCounts[v.id] || 0,
-    sport_icon: null,
+    sport_icon: sportIcon(venueSport[v.id] || null),
   }));
 }
 
@@ -196,7 +225,7 @@ export async function findEventsAtVenueOnDate(
       `
       id, event_date, league_id, event_template, round_or_stage,
       home_team_id, away_team_id, home_score, away_score,
-      tournament_name,
+      tournament_name, tournament_id, day_number,
       leagues(name, slug, sport),
       home_team:teams!events_home_team_id_fkey(short_name),
       away_team:teams!events_away_team_id_fkey(short_name)
@@ -223,7 +252,7 @@ export async function findEventsAtVenueOnDate(
         `
         id, event_date, league_id, event_template, round_or_stage,
         home_team_id, away_team_id, home_score, away_score,
-        tournament_name,
+        tournament_name, tournament_id, day_number,
         leagues(name, slug, sport),
         home_team:teams!events_home_team_id_fkey(short_name),
         away_team:teams!events_away_team_id_fkey(short_name)
@@ -263,6 +292,70 @@ export async function findEventsAtVenueOnDate(
       home_score: e.home_score,
       away_score: e.away_score,
       tournament_name: e.tournament_name,
+      tournament_id: e.tournament_id || null,
+      day_number: e.day_number || null,
+      round_or_stage: e.round_or_stage,
+      event_template: e.event_template,
+      start_time: null,
+    };
+  });
+}
+
+// ── Fetch all days of a multi-day tournament ──
+
+/**
+ * Given a tournament_id, fetch all event rows that share this tournament.
+ * Returns them ordered by day_number (or event_date if day_number is null).
+ * Used in Step 3 to let users pick which day(s) they attended.
+ */
+export async function fetchTournamentDays(
+  supabase: SupabaseClient,
+  tournamentId: string
+): Promise<EventMatch[]> {
+  const { data } = await supabase
+    .from("events")
+    .select(
+      `
+      id, event_date, league_id, event_template, round_or_stage,
+      home_team_id, away_team_id, home_score, away_score,
+      tournament_name, tournament_id, day_number,
+      leagues(name, slug, sport),
+      home_team:teams!events_home_team_id_fkey(short_name),
+      away_team:teams!events_away_team_id_fkey(short_name)
+    `
+    )
+    .eq("tournament_id", tournamentId)
+    .order("day_number", { ascending: true })
+    .order("event_date", { ascending: true });
+
+  if (!data) return [];
+
+  return data.map((e) => {
+    const league = e.leagues as unknown as {
+      name: string;
+      slug: string;
+      sport: string;
+    } | null;
+    const homeTeam = e.home_team as unknown as { short_name: string } | null;
+    const awayTeam = e.away_team as unknown as { short_name: string } | null;
+
+    return {
+      id: e.id,
+      event_date: e.event_date,
+      league_id: e.league_id,
+      league_name: league?.name || "",
+      league_slug: league?.slug || "",
+      sport: league?.sport || "",
+      sport_icon: sportIcon(league?.sport),
+      home_team_id: e.home_team_id,
+      away_team_id: e.away_team_id,
+      home_team_short: homeTeam?.short_name || null,
+      away_team_short: awayTeam?.short_name || null,
+      home_score: e.home_score,
+      away_score: e.away_score,
+      tournament_name: e.tournament_name,
+      tournament_id: e.tournament_id || null,
+      day_number: e.day_number || null,
       round_or_stage: e.round_or_stage,
       event_template: e.event_template,
       start_time: null,
@@ -447,7 +540,7 @@ export async function fetchEventLogForEdit(
         `
         id, event_date, league_id, event_template, round_or_stage,
         home_team_id, away_team_id, home_score, away_score,
-        tournament_name,
+        tournament_name, tournament_id, day_number,
         leagues(name, slug, sport),
         home_team:teams!events_home_team_id_fkey(short_name),
         away_team:teams!events_away_team_id_fkey(short_name)
@@ -484,6 +577,8 @@ export async function fetchEventLogForEdit(
         home_score: eventData.home_score,
         away_score: eventData.away_score,
         tournament_name: eventData.tournament_name,
+        tournament_id: eventData.tournament_id || null,
+        day_number: eventData.day_number || null,
         round_or_stage: eventData.round_or_stage,
         event_template: eventData.event_template,
         start_time: null,

@@ -1,18 +1,25 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import TimelineCard from "@/components/TimelineCard";
+import { SkeletonFeedCard } from "@/components/Skeleton";
 import { createClient } from "@/lib/supabase/client";
 import { toggleLike, type FeedEntry } from "@/lib/queries/social";
+import { useInfiniteScroll } from "@/hooks/useInfiniteScroll";
+
+const PAGE_SIZE = 20;
 
 type Props = {
   initialEntries: FeedEntry[];
+  initialHasMore: boolean;
   userId: string;
 };
 
-export default function FeedList({ initialEntries, userId }: Props) {
+export default function FeedList({ initialEntries, initialHasMore, userId }: Props) {
   const [entries, setEntries] = useState(initialEntries);
+  const [hasMore, setHasMore] = useState(initialHasMore);
+  const [loadingMore, setLoadingMore] = useState(false);
   const router = useRouter();
 
   const handleLike = async (entryId: string) => {
@@ -60,6 +67,29 @@ export default function FeedList({ initialEntries, userId }: Props) {
     }
   };
 
+  const loadMore = useCallback(async () => {
+    if (loadingMore || !hasMore) return;
+    setLoadingMore(true);
+
+    const offset = entries.length;
+    const res = await fetch(
+      `/api/feed?offset=${offset}&limit=${PAGE_SIZE}`
+    );
+
+    if (res.ok) {
+      const data = await res.json();
+      setEntries((prev) => [...prev, ...data.entries]);
+      setHasMore(data.hasMore);
+    } else {
+      setHasMore(false);
+    }
+    setLoadingMore(false);
+  }, [entries.length, hasMore, loadingMore]);
+
+  const sentinelRef = useInfiniteScroll(loadMore, {
+    enabled: hasMore && !loadingMore,
+  });
+
   if (entries.length === 0) {
     return (
       <div className="px-4">
@@ -98,6 +128,18 @@ export default function FeedList({ initialEntries, userId }: Props) {
           onComment={handleComment}
         />
       ))}
+
+      {/* Loading more skeleton */}
+      {loadingMore && (
+        <div>
+          {[1, 2].map((i) => (
+            <SkeletonFeedCard key={`loading-${i}`} />
+          ))}
+        </div>
+      )}
+
+      {/* Infinite scroll sentinel */}
+      <div ref={sentinelRef} className="h-1" />
     </div>
   );
 }
