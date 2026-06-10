@@ -136,9 +136,9 @@ export default async function TeamDetailPage({
                     <span className="text-sm text-text-primary font-medium truncate">
                       {venue.name}
                     </span>
-                    {!venue.is_primary && (
+                    {!venue.is_primary && venue.is_spring_home && (
                       <span className="shrink-0 text-[10px] font-display tracking-wider uppercase text-accent border border-accent/30 bg-accent/10 rounded-full px-2 py-0.5">
-                        {team.sport === "baseball" ? "Spring Training" : "Secondary"}
+                        {team.sport === "baseball" ? "Spring Training" : "Preseason Home"}
                       </span>
                     )}
                   </div>
