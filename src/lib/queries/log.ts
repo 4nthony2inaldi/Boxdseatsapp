@@ -199,6 +199,27 @@ export async function searchVenues(
     }
   }
 
+  // Venues without a primary team (race tracks, golf courses, tennis sites,
+  // spring parks): derive the sport from the events held there
+  const unresolved = venueIds.filter((id) => !venueSport[id]);
+  if (unresolved.length > 0) {
+    const { data: venueEvents } = await supabase
+      .from("events")
+      .select("venue_id, leagues(sport)")
+      .in("venue_id", unresolved)
+      .limit(400);
+    const tally: Record<string, Record<string, number>> = {};
+    for (const ev of venueEvents || []) {
+      const sport = (ev.leagues as unknown as { sport: string } | null)?.sport;
+      if (!sport) continue;
+      (tally[ev.venue_id] ??= {})[sport] =
+        (tally[ev.venue_id][sport] || 0) + 1;
+    }
+    for (const [vid, sports] of Object.entries(tally)) {
+      venueSport[vid] = Object.entries(sports).sort((a, b) => b[1] - a[1])[0][0];
+    }
+  }
+
   return venues.map((v) => ({
     id: v.id,
     name: v.name,
