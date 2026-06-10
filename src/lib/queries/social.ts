@@ -695,3 +695,36 @@ export async function fetchUserProfileByUsername(
 
   return data;
 }
+
+// ── Decline (or cancel) a pending follow request ──
+
+export async function declineFollowRequest(
+  supabase: SupabaseClient,
+  currentUserId: string,
+  requesterId: string
+): Promise<{ success: boolean } | { error: string }> {
+  const { error } = await supabase
+    .from("follows")
+    .delete()
+    .eq("follower_id", requesterId)
+    .eq("following_id", currentUserId)
+    .eq("status", "pending");
+
+  if (error) return { error: "Failed to decline request." };
+  return { success: true };
+}
+
+// ── IDs of users with a pending follow request to the current user ──
+
+export async function fetchPendingRequesterIds(
+  supabase: SupabaseClient,
+  userId: string
+): Promise<string[]> {
+  const { data } = await supabase
+    .from("follows")
+    .select("follower_id")
+    .eq("following_id", userId)
+    .eq("status", "pending");
+
+  return (data || []).map((row) => row.follower_id as string);
+}

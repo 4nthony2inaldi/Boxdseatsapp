@@ -1,17 +1,26 @@
 "use client";
 
+import { useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import type { Notification } from "@/lib/queries/notifications";
+import { createClient } from "@/lib/supabase/client";
+import {
+  acceptFollowRequest,
+  declineFollowRequest,
+} from "@/lib/queries/social";
 
 type Props = {
   notifications: Notification[];
+  currentUserId?: string;
+  pendingRequesterIds?: string[];
 };
 
 const TYPE_ICONS: Record<string, string> = {
   like: "❤️",
   comment: "💬",
   follow: "👤",
+  follow_request: "👤",
   follow_request_approved: "✅",
   companion_tag: "🏟️",
   badge_earned: "🏆",
@@ -24,6 +33,7 @@ const TYPE_LABELS: Record<string, string> = {
   like: "liked your event log",
   comment: "commented on your event log",
   follow: "started following you",
+  follow_request: "requested to follow you",
   follow_request_approved: "accepted your follow request",
   companion_tag: "tagged you as a companion",
   badge_earned: "You earned a badge!",
@@ -50,7 +60,11 @@ function formatTimeAgo(dateStr: string): string {
 }
 
 function getNotificationLink(n: Notification): string | null {
-  if (n.type === "follow" || n.type === "follow_request_approved") {
+  if (
+    n.type === "follow" ||
+    n.type === "follow_request" ||
+    n.type === "follow_request_approved"
+  ) {
     return n.actor ? `/user/${n.actor.username}` : null;
   }
   if (n.type === "like" || n.type === "comment" || n.type === "companion_tag") {
@@ -59,7 +73,34 @@ function getNotificationLink(n: Notification): string | null {
   return null;
 }
 
-export default function NotificationList({ notifications }: Props) {
+export default function NotificationList({
+  notifications,
+  currentUserId,
+  pendingRequesterIds = [],
+}: Props) {
+  // requesterId -> 'accepted' | 'declined' once handled in this session
+  const [handledRequests, setHandledRequests] = useState<
+    Record<string, "accepted" | "declined">
+  >({});
+  const [processingId, setProcessingId] = useState<string | null>(null);
+
+  async function handleRequest(
+    requesterId: string,
+    action: "accepted" | "declined"
+  ) {
+    if (!currentUserId || processingId) return;
+    setProcessingId(requesterId);
+    const supabase = createClient();
+    const result =
+      action === "accepted"
+        ? await acceptFollowRequest(supabase, currentUserId, requesterId)
+        : await declineFollowRequest(supabase, currentUserId, requesterId);
+    if (!("error" in result)) {
+      setHandledRequests((prev) => ({ ...prev, [requesterId]: action }));
+    }
+    setProcessingId(null);
+  }
+
   if (notifications.length === 0) {
     return (
       <div className="px-4 py-16 text-center">
@@ -79,6 +120,13 @@ export default function NotificationList({ notifications }: Props) {
       {notifications.map((n) => {
         const icon = TYPE_ICONS[n.type] || "🔔";
         const link = getNotificationLink(n);
+        const requesterId = n.actor?.id ?? null;
+        const handled = requesterId ? handledRequests[requesterId] : undefined;
+        const isActionableRequest =
+          n.type === "follow_request" &&
+          !!requesterId &&
+          !!currentUserId &&
+          (pendingRequesterIds.includes(requesterId) || !!handled);
 
         const content = (
           <div
@@ -128,6 +176,46 @@ export default function NotificationList({ notifications }: Props) {
               <p className="text-xs text-text-muted mt-0.5">
                 {formatTimeAgo(n.created_at)}
               </p>
+
+              {isActionableRequest && !handled && (
+                <div className="flex gap-2 mt-2">
+                  <button
+                    onClick={(e) => {
+                      e.preventDefault();
+                      handleRequest(requesterId!, "accepted");
+                    }}
+                    disabled={processingId === requesterId}
+                    className="px-4 py-1.5 rounded-lg text-xs font-semibold text-white disabled:opacity-50 transition-opacity"
+                    style={{
+                      background:
+                        "linear-gradient(135deg, var(--color-accent), var(--color-accent-brown))",
+                    }}
+                  >
+                    Accept
+                  </button>
+                  <button
+                    onClick={(e) => {
+                      e.preventDefault();
+                      handleRequest(requesterId!, "declined");
+                    }}
+                    disabled={processingId === requesterId}
+                    className="px-4 py-1.5 rounded-lg text-xs font-semibold text-text-secondary bg-bg-input border border-border disabled:opacity-50 hover:text-loss transition-colors"
+                  >
+                    Decline
+                  </button>
+                </div>
+              )}
+              {isActionableRequest && handled && (
+                <p
+                  className={`text-xs mt-2 ${
+                    handled === "accepted" ? "text-win" : "text-text-muted"
+                  }`}
+                >
+                  {handled === "accepted"
+                    ? "Request accepted"
+                    : "Request declined"}
+                </p>
+              )}
             </div>
 
             {!n.is_read && (
