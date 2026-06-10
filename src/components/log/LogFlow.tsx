@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import {
+  deleteEventLog,
   saveEventLog,
   updateEventLog,
   type VenueResult,
@@ -48,6 +49,8 @@ export default function LogFlow({ userId, prefillVenue, editLog }: LogFlowProps)
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
+  const [deleted, setDeleted] = useState(false);
+  const [deleting, setDeleting] = useState(false);
   const [earnedBadges, setEarnedBadges] = useState<BadgeData[]>([]);
   const [multiDaySaveProgress, setMultiDaySaveProgress] = useState<{
     saved: number;
@@ -94,6 +97,25 @@ export default function LogFlow({ userId, prefillVenue, editLog }: LogFlowProps)
       .eq("slug", slug)
       .single();
     return data?.id || null;
+  };
+
+  // Delete (edit mode)
+  const handleDelete = async () => {
+    if (!editLog || deleting) return;
+    setDeleting(true);
+    setError(null);
+    const supabase = createClient();
+    const result = await deleteEventLog(supabase, editLog.id, userId);
+    setDeleting(false);
+    if ("error" in result) {
+      setError(result.error);
+      return;
+    }
+    setDeleted(true);
+    setTimeout(() => {
+      router.push("/timeline");
+      router.refresh();
+    }, 1200);
   };
 
   // Step 4: Save
@@ -301,6 +323,21 @@ export default function LogFlow({ userId, prefillVenue, editLog }: LogFlowProps)
     }
   };
 
+  // Deleted state
+  if (deleted) {
+    return (
+      <div className="px-4 py-16 max-w-lg mx-auto text-center">
+        <div className="text-5xl mb-4">🗑️</div>
+        <div className="font-display text-2xl text-text-primary tracking-wider mb-2">
+          LOG DELETED
+        </div>
+        <p className="text-text-secondary text-sm">
+          Taking you back to your timeline...
+        </p>
+      </div>
+    );
+  }
+
   // Success state
   if (success) {
     const daysLogged = multiDayEvents ? multiDayEvents.length : 1;
@@ -484,6 +521,8 @@ export default function LogFlow({ userId, prefillVenue, editLog }: LogFlowProps)
           onBack={() => setStep(3)}
           saving={saving}
           isEditMode={isEditMode}
+          onDelete={isEditMode ? handleDelete : undefined}
+          deleting={deleting}
           existingPhotoUrl={editLog?.photo_url ?? null}
           initialValues={
             editLog
