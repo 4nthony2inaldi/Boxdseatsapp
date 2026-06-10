@@ -292,7 +292,7 @@ export default async function EventDetailPage({
                   height={200}
                   sizes="(max-width: 512px) 100vw, 512px"
                   quality={75}
-                  className="w-full h-[200px] object-cover"
+                  className="w-full aspect-video object-cover"
                 />
                 {userLog.photo_is_verified && (
                   <div className="absolute top-2 left-2">

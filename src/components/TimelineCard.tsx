@@ -219,7 +219,7 @@ export default function TimelineCard({
               height={180}
               sizes="(max-width: 512px) 100vw, 512px"
               quality={75}
-              className="w-full h-[180px] object-cover"
+              className="w-full aspect-video object-cover"
             />
             {entry.photo_is_verified && (
               <div className="absolute top-2 left-2">
