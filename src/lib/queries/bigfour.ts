@@ -178,3 +178,100 @@ export async function deleteLeagueFavorite(
   if (error) return { error: "Failed to remove favorite." };
   return { success: true };
 }
+
+// ── Favorite-event choices come from the user's logged events ──
+
+export type LoggedEventChoice = {
+  id: string; // events.id
+  label: string;
+  subtitle: string;
+};
+
+/**
+ * The user's logged events (optionally for one league), newest first,
+ * filtered by a free-text query against matchup/tournament/venue.
+ * Favorite events are memories — they're picked from what you attended.
+ */
+export async function fetchLoggedEventChoices(
+  supabase: SupabaseClient,
+  userId: string,
+  leagueSlug: string | null,
+  query: string,
+  limit = 25
+): Promise<LoggedEventChoice[]> {
+  let leagueId: string | null = null;
+  if (leagueSlug) {
+    const { data: league } = await supabase
+      .from("leagues")
+      .select("id")
+      .eq("slug", leagueSlug)
+      .maybeSingle();
+    if (!league) return [];
+    leagueId = league.id;
+  }
+
+  let q = supabase
+    .from("event_logs")
+    .select(
+      `event_id, event_date,
+       events!event_logs_event_id_fkey(
+         id, event_date, tournament_name, day_number,
+         home_team:teams!events_home_team_id_fkey(short_name),
+         away_team:teams!events_away_team_id_fkey(short_name),
+         venues!events_venue_id_fkey(name)
+       )`
+    )
+    .eq("user_id", userId)
+    .not("event_id", "is", null)
+    .order("event_date", { ascending: false })
+    .limit(100);
+
+  if (leagueId) q = q.eq("league_id", leagueId);
+
+  const { data } = await q;
+  if (!data) return [];
+
+  const needle = query.trim().toLowerCase();
+  const seen = new Set<string>();
+  const choices: LoggedEventChoice[] = [];
+
+  for (const log of data) {
+    const event = log.events as unknown as {
+      id: string;
+      event_date: string;
+      tournament_name: string | null;
+      day_number: number | null;
+      home_team: { short_name: string } | null;
+      away_team: { short_name: string } | null;
+      venues: { name: string } | null;
+    } | null;
+    if (!event || seen.has(event.id)) continue;
+    seen.add(event.id);
+
+    const matchup =
+      event.home_team && event.away_team
+        ? `${event.away_team.short_name} @ ${event.home_team.short_name}`
+        : event.tournament_name || "Event";
+    const label = event.day_number
+      ? `${matchup} — Day ${event.day_number}`
+      : matchup;
+    const dateStr = new Date(event.event_date + "T00:00:00").toLocaleDateString(
+      "en-US",
+      { month: "short", day: "numeric", year: "numeric" }
+    );
+    const venueName = event.venues?.name || "";
+    const subtitle = venueName ? `${dateStr} · ${venueName}` : dateStr;
+
+    if (
+      needle &&
+      !`${label} ${subtitle}`.toLowerCase().includes(needle)
+    ) {
+      continue;
+    }
+
+    choices.push({ id: event.id, label: `${label} (${dateStr})`, subtitle });
+    if (choices.length >= limit) break;
+  }
+
+  return choices;
+}
