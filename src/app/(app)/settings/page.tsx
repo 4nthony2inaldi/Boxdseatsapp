@@ -2,6 +2,8 @@ import { createClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import { fetchSettingsProfile, fetchAvailableLists } from "@/lib/queries/settings";
+import { fetchBlockedUsers } from "@/lib/queries/social";
+import BlockedUsers from "@/components/settings/BlockedUsers";
 import SettingsForm from "@/components/settings/SettingsForm";
 
 export default async function SettingsPage() {
@@ -12,9 +14,10 @@ export default async function SettingsPage() {
 
   if (!user) redirect("/login");
 
-  const [profile, availableLists] = await Promise.all([
+  const [profile, availableLists, blockedUsers] = await Promise.all([
     fetchSettingsProfile(supabase, user.id),
     fetchAvailableLists(supabase),
+    fetchBlockedUsers(supabase, user.id),
   ]);
 
   if (!profile) redirect("/login");
@@ -36,6 +39,7 @@ export default async function SettingsPage() {
         userEmail={user.email || ""}
         availableLists={availableLists}
       />
+      <BlockedUsers currentUserId={user.id} blockedUsers={blockedUsers} />
     </div>
   );
 }

@@ -728,3 +728,32 @@ export async function fetchPendingRequesterIds(
 
   return (data || []).map((row) => row.follower_id as string);
 }
+
+// ── Users the current user has blocked ──
+
+export type BlockedUser = {
+  id: string;
+  username: string;
+  display_name: string | null;
+  avatar_url: string | null;
+};
+
+export async function fetchBlockedUsers(
+  supabase: SupabaseClient,
+  userId: string
+): Promise<BlockedUser[]> {
+  const { data: blocks } = await supabase
+    .from("blocks")
+    .select("blocked_id")
+    .eq("blocker_id", userId);
+
+  const blockedIds = (blocks || []).map((b) => b.blocked_id as string);
+  if (blockedIds.length === 0) return [];
+
+  const { data: profiles } = await supabase
+    .from("profiles")
+    .select("id, username, display_name, avatar_url")
+    .in("id", blockedIds);
+
+  return (profiles || []) as BlockedUser[];
+}
