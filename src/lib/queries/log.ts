@@ -720,3 +720,49 @@ export async function searchUsers(
 
   return (data as UserSearchResult[]) || [];
 }
+
+// ── Delete Event Log ──
+
+/**
+ * Permanently deletes an event log. Likes, comments, photo likes, and
+ * companion tags cascade via FK. The stored photo file is removed
+ * best-effort. If this log had won an event's cover photo, the cached
+ * cover URL is cleared (the FK reference is SET NULL automatically).
+ */
+export async function deleteEventLog(
+  supabase: SupabaseClient,
+  logId: string,
+  userId: string
+): Promise<{ success: true } | { error: string }> {
+  // Clear cached cover-photo URL if this log was the winner
+  const { data: coverEvents } = await supabase
+    .from("events")
+    .select("id")
+    .eq("cover_photo_event_log_id", logId);
+  if (coverEvents && coverEvents.length > 0) {
+    await supabase
+      .from("events")
+      .update({ cover_photo_event_log_id: null, cover_photo_url: null })
+      .in(
+        "id",
+        coverEvents.map((e) => e.id)
+      );
+  }
+
+  const { error } = await supabase
+    .from("event_logs")
+    .delete()
+    .eq("id", logId)
+    .eq("user_id", userId);
+
+  if (error) {
+    return { error: "Failed to delete this log. Please try again." };
+  }
+
+  // Best-effort photo cleanup
+  await supabase.storage
+    .from("event-photos")
+    .remove([`${userId}/${logId}.jpg`]);
+
+  return { success: true };
+}

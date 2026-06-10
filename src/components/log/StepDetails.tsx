@@ -23,6 +23,8 @@ type StepDetailsProps = {
   isEditMode?: boolean;
   initialValues?: DetailsData;
   existingPhotoUrl?: string | null;
+  onDelete?: () => void;
+  deleting?: boolean;
   multiDayCount?: number;
 };
 
@@ -50,6 +52,8 @@ export default function StepDetails({
   isEditMode,
   initialValues,
   existingPhotoUrl,
+  onDelete,
+  deleting,
   multiDayCount,
 }: StepDetailsProps) {
   const [rating, setRating] = useState<number | null>(initialValues?.rating ?? null);
@@ -63,6 +67,7 @@ export default function StepDetails({
   const [companions, setCompanions] = useState<CompanionInput[]>(initialValues?.companions ?? []);
   const [photo, setPhoto] = useState<PhotoData | null>(null);
   const [removeExistingPhoto, setRemoveExistingPhoto] = useState(false);
+  const [confirmingDelete, setConfirmingDelete] = useState(false);
   const [companionSearch, setCompanionSearch] = useState("");
   const [companionResults, setCompanionResults] = useState<UserSearchResult[]>(
     []
@@ -456,6 +461,40 @@ export default function StepDetails({
       >
         ← Back
       </button>
+
+      {/* Delete (edit mode only) */}
+      {isEditMode && onDelete && !confirmingDelete && (
+        <button
+          onClick={() => setConfirmingDelete(true)}
+          className="block mx-auto mt-6 text-[13px] text-loss bg-transparent border-none cursor-pointer hover:opacity-80"
+        >
+          Delete This Log
+        </button>
+      )}
+      {isEditMode && onDelete && confirmingDelete && (
+        <div className="mt-6 rounded-xl border border-loss/30 bg-loss/5 p-4">
+          <p className="text-sm text-text-secondary mb-3 text-center">
+            Delete this log? Likes, comments, and your photo go with it.
+            This cannot be undone.
+          </p>
+          <div className="flex gap-2">
+            <button
+              onClick={() => setConfirmingDelete(false)}
+              disabled={deleting}
+              className="flex-1 py-2.5 rounded-lg bg-bg-card border border-border text-text-secondary text-sm"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={onDelete}
+              disabled={deleting}
+              className="flex-1 py-2.5 rounded-lg bg-loss text-white text-sm font-medium disabled:opacity-50"
+            >
+              {deleting ? "Deleting..." : "Delete Forever"}
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

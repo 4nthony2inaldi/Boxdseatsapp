@@ -52,6 +52,8 @@ type TimelineCardProps = {
   liked?: boolean;
   onLike?: (entryId: string) => void;
   onComment?: (entryId: string) => void;
+  /** When set (own timeline), shows a pencil link to the edit flow. */
+  editHref?: string | null;
 };
 
 export default function TimelineCard({
@@ -61,6 +63,7 @@ export default function TimelineCard({
   liked = false,
   onLike,
   onComment,
+  editHref,
 }: TimelineCardProps) {
   const leagueData = leagueFromSlug(entry.league_slug);
   const leagueColor = leagueData?.color || "#D4872C";
@@ -137,7 +140,30 @@ export default function TimelineCard({
               </span>
             )}
           </div>
-          {entry.rating && <StarRating rating={entry.rating} />}
+          <div className="flex items-center gap-2">
+            {entry.rating && <StarRating rating={entry.rating} />}
+            {editHref && (
+              <Link
+                href={editHref}
+                aria-label="Edit this log"
+                className="p-1 -m-1 text-text-muted hover:text-accent transition-colors"
+                onClick={(e) => e.stopPropagation()}
+              >
+                <svg
+                  width="13"
+                  height="13"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                >
+                  <path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z" />
+                </svg>
+              </Link>
+            )}
+          </div>
         </div>
 
         {/* Matchup line */}

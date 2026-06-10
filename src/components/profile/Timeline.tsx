@@ -15,11 +15,13 @@ type TimelineProps = {
   initialEntries: TimelineEntry[];
   initialHasMore: boolean;
   userId: string;
+  /** True on the user's own timeline — shows edit affordances. */
+  canEdit?: boolean;
 };
 
 const leagueOptions = ["All", ...Object.keys(LEAGUES)];
 
-export default function Timeline({ initialEntries, initialHasMore, userId }: TimelineProps) {
+export default function Timeline({ initialEntries, initialHasMore, userId, canEdit = false }: TimelineProps) {
   const [filter, setFilter] = useState("All");
   const [entries, setEntries] = useState(initialEntries);
   const [hasMore, setHasMore] = useState(initialHasMore);
@@ -263,7 +265,11 @@ export default function Timeline({ initialEntries, initialHasMore, userId }: Tim
               <div className="h-px flex-1 bg-border" />
             </div>
             {group.entries.map((entry) => (
-              <TimelineCard key={entry.id} entry={entry} />
+              <TimelineCard
+                key={entry.id}
+                entry={entry}
+                editHref={canEdit ? `/log?edit=${entry.id}` : null}
+              />
             ))}
           </div>
         ));

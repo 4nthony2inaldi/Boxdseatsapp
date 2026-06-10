@@ -6,11 +6,13 @@ import TimelineCard from "../TimelineCard";
 type LatestEventProps = {
   entry: TimelineEntry | null;
   timelineHref?: string;
+  canEdit?: boolean;
 };
 
 export default function LatestEvent({
   entry,
   timelineHref = "/timeline",
+  canEdit = false,
 }: LatestEventProps) {
   if (!entry) return null;
 
@@ -25,7 +27,7 @@ export default function LatestEvent({
           See All
         </Link>
       </div>
-      <TimelineCard entry={entry} />
+      <TimelineCard entry={entry} editHref={canEdit ? `/log?edit=${entry.id}` : null} />
     </div>
   );
 }
