@@ -23,6 +23,9 @@ export default function StepDate({
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
   const [eventDates, setEventDates] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(true);
+  // Quick time-travel picker: closed | choosing year | choosing month of year
+  const [jumpYear, setJumpYear] = useState<number | null>(null);
+  const [jumpOpen, setJumpOpen] = useState(false);
 
   // Load all event dates for this venue on mount
   useEffect(() => {
@@ -74,6 +77,28 @@ export default function StepDate({
     const [y, m] = d.split("-").map(Number);
     return y === viewYear && m === viewMonth + 1;
   }).length;
+
+  // Event counts per year and per month (for the quick-jump picker)
+  const yearCounts = new Map<number, number>();
+  const monthCounts = new Map<string, number>();
+  for (const d of eventDates) {
+    const [y, m] = d.split("-").map(Number);
+    yearCounts.set(y, (yearCounts.get(y) || 0) + 1);
+    monthCounts.set(`${y}-${m}`, (monthCounts.get(`${y}-${m}`) || 0) + 1);
+  }
+  const earliestYear = Math.min(
+    2002,
+    ...(yearCounts.size > 0 ? [Math.min(...yearCounts.keys())] : [])
+  );
+  const jumpYears: number[] = [];
+  for (let y = today.getFullYear(); y >= earliestYear; y--) jumpYears.push(y);
+
+  const handleJumpToMonth = (year: number, monthIdx: number) => {
+    setViewYear(year);
+    setViewMonth(monthIdx);
+    setJumpOpen(false);
+    setJumpYear(null);
+  };
 
   const handleDayClick = (day: number) => {
     if (isFuture(day)) return;
@@ -176,16 +201,39 @@ export default function StepDate({
                 <polyline points="15 18 9 12 15 6" />
               </svg>
             </button>
-            <div className="text-center">
-              <span className="font-display text-base text-text-primary tracking-[1px]">
+            <button
+              onClick={() => {
+                setJumpOpen(!jumpOpen);
+                setJumpYear(null);
+              }}
+              className="text-center cursor-pointer bg-transparent border-none"
+              aria-label="Jump to a different month or year"
+            >
+              <span className="font-display text-base text-text-primary tracking-[1px] inline-flex items-center gap-1.5">
                 {monthName}
+                <svg
+                  width="11"
+                  height="11"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="var(--color-text-muted)"
+                  strokeWidth="2.5"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  style={{
+                    transform: jumpOpen ? "rotate(180deg)" : undefined,
+                    transition: "transform 0.15s",
+                  }}
+                >
+                  <polyline points="6 9 12 15 18 9" />
+                </svg>
               </span>
               {eventsThisMonth > 0 && (
                 <div className="text-[10px] text-accent mt-0.5">
                   {eventsThisMonth} event{eventsThisMonth !== 1 ? "s" : ""}
                 </div>
               )}
-            </div>
+            </button>
             <button
               onClick={goToNextMonth}
               className={`p-1 cursor-pointer ${canGoNext ? "text-text-secondary hover:text-text-primary" : "text-text-muted/30 cursor-default"}`}
@@ -205,6 +253,81 @@ export default function StepDate({
               </svg>
             </button>
           </div>
+
+          {/* Quick jump: year grid, then months of the chosen year */}
+          {jumpOpen && (
+            <div className="mb-4 rounded-xl border border-border bg-bg-elevated p-3">
+              {jumpYear === null ? (
+                <>
+                  <div className="font-display text-[10px] text-text-muted tracking-[1.5px] uppercase mb-2 text-center">
+                    Jump to year
+                  </div>
+                  <div className="grid grid-cols-5 gap-1.5 max-h-44 overflow-y-auto">
+                    {jumpYears.map((y) => {
+                      const n = yearCounts.get(y) || 0;
+                      return (
+                        <button
+                          key={y}
+                          onClick={() => setJumpYear(y)}
+                          className={`py-2 rounded-lg text-[12px] cursor-pointer transition-colors ${
+                            y === viewYear
+                              ? "bg-accent text-white font-semibold"
+                              : n > 0
+                                ? "bg-bg-input text-text-primary hover:bg-accent/15"
+                                : "bg-transparent text-text-muted/50 hover:bg-bg-input"
+                          }`}
+                        >
+                          {y}
+                          {n > 0 && y !== viewYear && (
+                            <div className="w-1 h-1 rounded-full bg-accent mx-auto mt-0.5" />
+                          )}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </>
+              ) : (
+                <>
+                  <button
+                    onClick={() => setJumpYear(null)}
+                    className="font-display text-[10px] text-text-secondary tracking-[1.5px] uppercase mb-2 block mx-auto cursor-pointer bg-transparent border-none hover:text-text-primary"
+                  >
+                    ← {jumpYear}
+                  </button>
+                  <div className="grid grid-cols-4 gap-1.5">
+                    {Array.from({ length: 12 }, (_, m) => {
+                      const isFutureMonth =
+                        jumpYear > today.getFullYear() ||
+                        (jumpYear === today.getFullYear() && m > today.getMonth());
+                      const n = monthCounts.get(`${jumpYear}-${m + 1}`) || 0;
+                      const label = new Date(jumpYear, m, 1).toLocaleString("en-US", {
+                        month: "short",
+                      });
+                      return (
+                        <button
+                          key={m}
+                          onClick={() => handleJumpToMonth(jumpYear, m)}
+                          disabled={isFutureMonth}
+                          className={`py-2 rounded-lg text-[12px] transition-colors ${
+                            isFutureMonth
+                              ? "text-text-muted/25 cursor-default"
+                              : n > 0
+                                ? "bg-bg-input text-text-primary cursor-pointer hover:bg-accent/15"
+                                : "bg-transparent text-text-muted/50 cursor-pointer hover:bg-bg-input"
+                          }`}
+                        >
+                          {label}
+                          {n > 0 && !isFutureMonth && (
+                            <div className="w-1 h-1 rounded-full bg-accent mx-auto mt-0.5" />
+                          )}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </>
+              )}
+            </div>
+          )}
 
           {/* Day headers */}
           <div className="grid grid-cols-7 gap-1 text-center mb-1">
