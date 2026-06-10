@@ -19,6 +19,7 @@ export type TeamVenue = {
   city: string;
   state: string | null;
   is_primary: boolean;
+  is_spring_home: boolean;
 };
 
 export type TeamEventRow = {
@@ -71,12 +72,26 @@ export async function fetchTeamVenues(
   supabase: SupabaseClient,
   teamId: string
 ): Promise<TeamVenue[]> {
-  const { data } = await supabase
-    .from("venue_teams")
-    .select("is_primary, venues(id, name, city, state, status)")
-    .eq("team_id", teamId);
+  const [{ data }, { data: springEvents }] = await Promise.all([
+    supabase
+      .from("venue_teams")
+      .select("is_primary, venues(id, name, city, state, status)")
+      .eq("team_id", teamId),
+    // Venues where this team regularly hosts preseason games (spring home);
+    // a handful-of-games floor excludes one-off neutral-site exhibitions.
+    supabase
+      .from("events")
+      .select("venue_id")
+      .eq("home_team_id", teamId)
+      .eq("is_preseason", true),
+  ]);
 
   if (!data) return [];
+
+  const springCounts = new Map<string, number>();
+  for (const e of springEvents || []) {
+    springCounts.set(e.venue_id, (springCounts.get(e.venue_id) || 0) + 1);
+  }
 
   return data
     .map((row) => {
@@ -88,15 +103,19 @@ export async function fetchTeamVenues(
         status: string;
       } | null;
       if (!venue || venue.status !== "active") return null;
+      const isSpringHome = (springCounts.get(venue.id) || 0) >= 5;
       return {
         id: venue.id,
         name: venue.name,
         city: venue.city,
         state: venue.state,
         is_primary: row.is_primary as boolean,
+        is_spring_home: isSpringHome,
       };
     })
     .filter((v): v is TeamVenue => v !== null)
+    // Show primary homes and real spring homes; hide one-off relocation sites
+    .filter((v) => v.is_primary || v.is_spring_home)
     .sort((a, b) => Number(b.is_primary) - Number(a.is_primary));
 }
 

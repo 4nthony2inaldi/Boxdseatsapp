@@ -167,6 +167,16 @@ async function handleSync(request: Request) {
         continue;
       }
 
+      // Season typing: 1 = preseason (kept, labeled), 2 = regular,
+      // 3 = postseason, 4 = offseason (skipped). MLS rarely reports
+      // preseason here; unmatched friendly opponents are skipped above.
+      const seasonType = ev.season?.type;
+      if (seasonType === 4) {
+        stats.skipped++;
+        continue;
+      }
+      const isPreseason = seasonType === 1;
+
       const completed =
         comp.status?.type?.completed === true ||
         ev.status?.type?.completed === true;
@@ -246,7 +256,13 @@ async function handleSync(request: Request) {
           away_score: awayScore,
           is_draw: completed && homeScore !== null && homeScore === awayScore,
           season: ev.season?.year ?? new Date(eventDate).getFullYear(),
-          is_postseason: ev.season?.type === 3,
+          is_postseason: seasonType === 3,
+          is_preseason: isPreseason,
+          round_or_stage: isPreseason
+            ? slug === "mlb"
+              ? "Spring Training"
+              : "Preseason"
+            : null,
           external_ids: { espn: String(ev.id) },
         });
         if (error) {

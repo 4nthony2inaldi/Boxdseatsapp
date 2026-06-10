@@ -8,9 +8,14 @@
  * Hard failures (exit 1):
  *   - events whose home/away team belongs to a different league than the event
  *   - completed (scored-template) ESPN-sourced events with NULL scores
- *   - duplicate external ESPN ids (teams per league, venues, events per league)
+ *   - duplicate external ESPN ids (teams per league, venues, events per league,
+ *     athletes per sport)
  *   - duplicate natural keys (league + date + home + away + same espn id absent twice)
  *   - event dates outside 2000-01-01 .. today
+ *   - field-template events missing tournament_name
+ *   - golf/tennis ESPN-sourced day rows missing tournament_id/day_number
+ *   - tournament day rows with inconsistent venues or duplicate day numbers
+ *   - golf majors / tennis slams missing their required event_tags
  * Informational:
  *   - per-league event counts by season
  *   - teams/venues still missing external ids
@@ -113,7 +118,73 @@ await check(
    having count(*) > 1 and count(*) filter (where not e.external_ids ? 'espn') > 0`,
 );
 
-// 5. Date sanity
+// 5. Field events (golf / tennis tournaments, races)
+await check(
+  'field-template events have a tournament_name',
+  `select e.id, e.event_date, l.slug
+     from events e join leagues l on l.id = e.league_id
+    where e.event_template = 'field' and (e.tournament_name is null or e.tournament_name = '')`,
+);
+await check(
+  'golf/tennis ESPN day rows carry tournament_id + day_number',
+  `select e.id, e.event_date, l.slug, e.tournament_name
+     from events e join leagues l on l.id = e.league_id
+    where e.event_template = 'field' and l.sport in ('golf','tennis')
+      and e.external_ids ? 'espn'
+      and (e.tournament_id is null or e.day_number is null)`,
+);
+await check(
+  'tournament day rows share a single venue',
+  `select e.tournament_id, count(distinct e.venue_id) as venues, min(e.tournament_name) as name
+     from events e
+    where e.tournament_id is not null
+    group by e.tournament_id having count(distinct e.venue_id) > 1`,
+);
+await check(
+  'no duplicate day_number within a tournament',
+  `select e.tournament_id, e.day_number, count(*), min(e.tournament_name) as name
+     from events e
+    where e.tournament_id is not null
+    group by e.tournament_id, e.day_number having count(*) > 1`,
+);
+await check(
+  'golf majors carry the required event_tags',
+  `select e.id, e.season, e.tournament_name, e.event_tags
+     from events e join leagues l on l.id = e.league_id
+    where l.sport = 'golf' and e.event_template = 'field' and (
+          (e.tournament_name ilike '%masters tournament%'
+             and not coalesce(e.event_tags, '{}') @> array['masters','pga_major'])
+       or (e.tournament_name ilike '%pga championship%'
+             and not coalesce(e.event_tags, '{}') @> array['pga_championship','pga_major'])
+       or (e.tournament_name in ('U.S. Open')
+             and not coalesce(e.event_tags, '{}') @> array['us_open','pga_major'])
+       or (e.tournament_name in ('The Open', 'The Open Championship', 'Open Championship')
+             and not coalesce(e.event_tags, '{}') @> array['open_championship','pga_major']))`,
+);
+await check(
+  'tennis slams carry the required event_tags',
+  `select e.id, e.season, l.slug, e.tournament_name, e.event_tags
+     from events e join leagues l on l.id = e.league_id
+    where l.sport = 'tennis' and e.event_template = 'field' and (
+          (e.tournament_name in ('Australian Open')
+             and not coalesce(e.event_tags, '{}') @> array['grand_slam_australian_open','grand_slam'])
+       or (e.tournament_name in ('Roland Garros', 'French Open')
+             and not coalesce(e.event_tags, '{}') @> array['grand_slam_french_open','grand_slam'])
+       or (e.tournament_name in ('Wimbledon')
+             and not coalesce(e.event_tags, '{}') @> array['grand_slam_wimbledon','grand_slam'])
+       or (e.tournament_name in ('US Open')
+             and not coalesce(e.event_tags, '{}') @> array['grand_slam_us_open','grand_slam']))`,
+);
+
+// 6. Athletes
+await check(
+  'no duplicate ESPN athlete ids within a sport',
+  `select sport, external_ids->>'espn' as espn, count(*)
+     from athletes where external_ids ? 'espn'
+    group by 1, 2 having count(*) > 1`,
+);
+
+// 7. Date sanity
 await check(
   'event dates within 2000-01-01 .. today',
   `select e.id, e.event_date, l.slug
@@ -121,12 +192,13 @@ await check(
     where e.event_date < '2000-01-01' or e.event_date > current_date`,
 );
 
-// 6. Venue sanity (informational)
+// 8. Venue sanity (informational)
 await check(
-  'venues missing external ESPN id (info)',
+  'venues hosting ESPN match events but missing external ESPN id (info)',
   `select v.id, v.name from venues v
     where not v.external_ids ? 'espn'
-      and exists (select 1 from events e where e.venue_id = v.id and e.external_ids ? 'espn')`,
+      and exists (select 1 from events e where e.venue_id = v.id
+                    and e.external_ids ? 'espn' and e.event_template = 'match')`,
   { hard: false },
 );
 await check(
@@ -136,7 +208,7 @@ await check(
   { hard: false },
 );
 
-// 7. Per-league counts by season (informational report)
+// 9. Per-league counts by season (informational report)
 console.log('\n--- events per league/season ---');
 {
   const { rows } = await db.query(
