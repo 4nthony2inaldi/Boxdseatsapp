@@ -47,10 +47,11 @@ export default function Timeline({ initialEntries, initialHasMore, userId }: Tim
     setHasMore(false);
     const supabase = createClient();
 
+    const slug = LEAGUES[option as keyof typeof LEAGUES]?.slug || option.toLowerCase();
     const { data: league } = await supabase
       .from("leagues")
       .select("id")
-      .eq("slug", option.toLowerCase())
+      .eq("slug", slug)
       .single();
 
     if (requestId !== filterRequestRef.current) return;
@@ -108,10 +109,11 @@ export default function Timeline({ initialEntries, initialHasMore, userId }: Tim
 
     let leagueId: string | null = null;
     if (filter !== "All") {
+      const slug = LEAGUES[filter as keyof typeof LEAGUES]?.slug || filter.toLowerCase();
       const { data: league } = await supabase
         .from("leagues")
         .select("id")
-        .eq("slug", filter.toLowerCase())
+        .eq("slug", slug)
         .single();
       leagueId = league?.id ?? null;
     }

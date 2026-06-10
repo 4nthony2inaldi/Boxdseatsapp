@@ -23,6 +23,11 @@ const LEAGUE_SPORT_MAP: Record<string, string> = {
   mls: "soccer",
   "pga-tour": "golf",
   pga: "golf",
+  atp: "tennis",
+  wta: "tennis",
+  "nascar-cup": "motorsports",
+  indycar: "motorsports",
+  f1: "motorsports",
 };
 
 /**
@@ -65,4 +70,9 @@ export const LEAGUES_LIST = [
   { slug: "nhl", name: "NHL", icon: "/hockey.svg" },
   { slug: "mls", name: "MLS", icon: "/soccer.svg" },
   { slug: "pga-tour", name: "PGA Tour", icon: "/golf.svg" },
+  { slug: "atp", name: "ATP Tour", icon: "/tennis.svg" },
+  { slug: "wta", name: "WTA Tour", icon: "/tennis.svg" },
+  { slug: "nascar-cup", name: "NASCAR Cup Series", icon: "/motorsports.svg" },
+  { slug: "indycar", name: "IndyCar Series", icon: "/motorsports.svg" },
+  { slug: "f1", name: "Formula 1", icon: "/motorsports.svg" },
 ] as const;

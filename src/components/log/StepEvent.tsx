@@ -8,10 +8,11 @@ import {
   type EventMatch,
   type ManualTeamScore,
 } from "@/lib/queries/log";
-import { LEAGUES } from "@/lib/constants";
+import { LEAGUES, leagueFromSlug } from "@/lib/constants";
 import SportIcon from "@/components/SportIcon";
 
 export type ManualEntryData = {
+  league_slug: string | null;
   title: string;
   league_id: string | null;
   sport: string | null;
@@ -132,6 +133,7 @@ export default function StepEvent({
     const manualData: ManualEntryData = {
       title: manualTitle.trim(),
       league_id: null, // Will be resolved in LogFlow
+      league_slug: leagueEntry ? leagueEntry[1].slug : null,
       sport: leagueEntry ? leagueEntry[1].sport : null,
       teams,
     };
@@ -258,10 +260,7 @@ export default function StepEvent({
       {/* Event list */}
       {!loading &&
         events.map((event) => {
-          const leagueKey = event.league_slug?.toUpperCase() as
-            | keyof typeof LEAGUES
-            | undefined;
-          const leagueData = leagueKey ? LEAGUES[leagueKey] : null;
+          const leagueData = leagueFromSlug(event.league_slug);
           const displayTitle =
             event.home_team_short && event.away_team_short
               ? `${event.away_team_short} @ ${event.home_team_short}`

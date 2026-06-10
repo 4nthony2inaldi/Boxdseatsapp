@@ -85,13 +85,13 @@ export default function LogFlow({ userId, prefillVenue, editLog }: LogFlowProps)
     setStep(4);
   };
 
-  // Resolve league ID from a league key (e.g., "NFL")
-  const resolveLeagueId = async (leagueKey: string): Promise<string | null> => {
+  // Resolve league ID from a database slug (e.g., "pga-tour")
+  const resolveLeagueId = async (slug: string): Promise<string | null> => {
     const supabase = createClient();
     const { data } = await supabase
       .from("leagues")
       .select("id")
-      .eq("slug", leagueKey.toLowerCase())
+      .eq("slug", slug)
       .single();
     return data?.id || null;
   };
@@ -110,12 +110,8 @@ export default function LogFlow({ userId, prefillVenue, editLog }: LogFlowProps)
     let resolvedSport = selectedEvent?.sport || null;
     if (!selectedEvent && manualData?.sport) {
       resolvedSport = manualData.sport;
-      // Find league key matching sport
-      const leagueKey = Object.entries(
-        { NFL: "football", NBA: "basketball", MLB: "baseball", NHL: "hockey", MLS: "soccer", PGA: "golf" } as Record<string, string>
-      ).find(([, sport]) => sport === manualData.sport)?.[0];
-      if (leagueKey) {
-        resolvedLeagueId = await resolveLeagueId(leagueKey);
+      if (manualData.league_slug) {
+        resolvedLeagueId = await resolveLeagueId(manualData.league_slug);
       }
     }
 

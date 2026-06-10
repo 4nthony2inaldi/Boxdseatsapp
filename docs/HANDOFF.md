@@ -2681,12 +2681,23 @@ API (SQL over HTTPS; direct Postgres ports are blocked from the dev sandbox):
   search at venue+date, alias search, like → notification visible to owner
   via RLS, RLS isolation between users, unlike cleanup, team queries
 
-**Still required (no Vercel access from the session):**
-- Set `CRON_SECRET` in Vercel env vars (any random string) so the hourly
-  cover-photo cron in vercel.json authenticates
-- Merge this branch to main so the app-side features (follow request UI,
-  team pages, settings, etc.) actually deploy — the database side is live
-- Rotate the Supabase access token / database password shared during setup
+**Completed via Vercel API + GitHub (June 10, 2026):**
+- `CRON_SECRET` set in Vercel (production + preview); hourly cron registered
+  and verified: unauthenticated → 401, with secret → 200
+- Branch merged to main (PRs #1-#3) and deployed; live site smoke-tested
+- Post-deploy fixes found by smoke testing:
+  - Middleware was redirecting `/api/*` to /login, blocking Vercel Cron —
+    API routes (which authenticate themselves) are now excluded (PR #2)
+  - OG images returned empty: Satori under Next 16 rejects numeric JSX
+    children and mixed text+expression children, and star glyphs triggered
+    a failing dynamic font fetch — all fixed (PR #3); both OG routes verified
+    serving real 1200×630 PNGs in production
+
+**Still on the owner:**
+- Rotate the credentials shared during setup: delete the `claude-finish-line`
+  tokens (Supabase: dashboard/account/tokens; Vercel: account settings →
+  tokens), reset the database password, and consider rotating the legacy
+  service-role JWT (update Vercel env if so)
 
 Original checklist (for reference):
 
