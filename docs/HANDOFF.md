@@ -2656,3 +2656,105 @@ All paginated queries use the "fetch limit+1" pattern:
 2. **Timeline client-side filtering** — When a league filter is applied on the Timeline component, pagination queries run from the client (browser Supabase client) rather than through an API route. This works because RLS policies allow reading own event_logs, but means the league ID lookup happens on every page load.
 
 3. **List items** — All list items are still fetched server-side in one query. The `ListItemsSection` just progressively reveals them client-side. For lists with hundreds of items, true server-side pagination could be added later.
+
+---
+
+## Session 11 — Finish Line: Code Health, Notifications, Account, Real Data
+
+**Date:** June 10, 2026
+**Scope:** Full punch-list pass: lint/React fixes, generated DB types, notification generation with follow-request management, real-time badge, settings account features (password change, account deletion, blocked users), team detail pages, list discovery, photo removal in edit flow, Vercel cron, OG caching, and a tested real-data seeding pipeline (20K+ real events from ESPN).
+
+---
+
+### ⚠️ PRODUCTION DEPLOYMENT CHECKLIST (action required)
+
+This session was developed and tested against a local Postgres replica of the schema. To activate everything in production:
+
+1. **Run `scripts/notifications-migration.sql`** in Supabase Dashboard → SQL Editor. This creates all notification triggers, adds the `follow_request` enum value, and adds `notifications` to the realtime publication. (If the editor wraps the script in one transaction and the `ALTER TYPE ... ADD VALUE` line complains, run that single line by itself first, then the rest.)
+2. **Run `scripts/data/001-external-ids-migration.sql`** (same way, or via psql).
+3. **Seed real data** from any machine with Node 20+ (~30–90 min against Supabase):
+   ```sh
+   DATABASE_URL="postgresql://postgres:[PASSWORD]@db.<ref>.supabase.co:5432/postgres" \
+     node scripts/data/seed-real-data.mjs
+   DATABASE_URL="..." node scripts/data/validate-data.mjs
+   ```
+   See `scripts/data/README.md` for connection-string guidance (use direct connection or session pooler, NOT the transaction pooler). `--dry-run` rehearses safely.
+4. **Vercel env var:** ensure `CRON_SECRET` is set (the new `vercel.json` cron calls `/api/cover-photos` hourly; Vercel sends it automatically as the Authorization bearer).
+5. **Supabase Realtime:** confirm Realtime is enabled for the project (Settings → API). The migration adds the `notifications` table to the publication.
+6. `SUPABASE_SERVICE_ROLE_KEY` must be set in Vercel (already required by cover photos; now also used by `/api/account/delete`).
+
+---
+
+### 1. Code Health
+
+- **ESLint: 49 problems → 0.** `docs/**` (design mockups) excluded from linting; real fixes below.
+- **`useInfiniteScroll`** wrote a ref during render → moved into an effect.
+- **`StepAccount`** called setState synchronously in an effect → username validation status is now derived during render; the effect only runs the debounced availability check (`lastCheck` state holds the most recent result).
+- **`Timeline`** filter useEffect (setState-in-effect cascade) → replaced with a `handleFilterChange` event handler using a request-counter ref to discard stale responses.
+- **Remote avatars/covers** converted to `next/image`; file-level eslint disables only where `next/image` cannot work (blob: URLs in camera/upload previews, OG ImageResponse markup).
+- **Fonts** migrated from Google Fonts CSS `@import` to self-hosted `next/font/google` (Bebas Neue + DM Sans exposed as `--font-display-next` / `--font-body-next`, wired into the existing `@theme` tokens).
+- **Generated Supabase types:** `src/lib/database.types.ts` (generated via `supabase gen types` against a local replica including the photos + external_ids migrations). Browser/server/middleware clients are now `createClient<Database>` — new queries get autocomplete and compile-time checking. Existing query-layer casts still work; migrating them to generated row types is optional future cleanup.
+
+### 2. Notification Generation (`scripts/notifications-migration.sql`)
+
+SECURITY DEFINER trigger functions insert into `notifications` on:
+
+| Source | Type | Notes |
+|---|---|---|
+| `likes` insert | `like` | target_id = the log's `event_id` (UI links to `/event/[id]`); deduped per actor/day; unread notification deleted on unlike |
+| `photo_likes` insert | `like` | message "liked your photo" |
+| `comments` insert | `comment` | |
+| `follows` insert (active) | `follow` | |
+| `follows` insert (pending) | `follow_request` | **new enum value** |
+| `follows` update pending→active | `follow_request_approved` to requester + `follow` to approver; pending-request notification cleaned up |
+| `follows` delete | cleans up stale request/unread follow notifications |
+| `companion_tags` insert | `companion_tag` | only for tagged registered users |
+| `badges` insert | `badge_earned` | message includes list name |
+
+Self-actions never notify. All 9 paths tested with SQL fixtures locally.
+
+**Follow request UI:** the notifications page now fetches pending requester ids; `follow_request` entries render Accept/Decline buttons (`acceptFollowRequest` / new `declineFollowRequest` in `social.ts`). Handled requests show inline confirmation.
+
+**Real-time badge:** `AppHeader` subscribes to `postgres_changes` on the user's notifications rows and refreshes the unread count instantly; the old 30s poll is now a 2-minute fallback.
+
+### 3. Settings & Account
+
+- **Change Password** (`AccountSecurity.tsx`): inline form using `supabase.auth.updateUser({ password })`.
+- **Delete Account**: type-DELETE-to-confirm flow → `POST /api/account/delete` verifies the session, best-effort deletes the user's storage files (avatars + event-photos), then `auth.admin.deleteUser` via service role (cascades to all user data).
+- **Blocked Users** (`BlockedUsers.tsx` + `fetchBlockedUsers`): section at the bottom of settings listing blocked profiles with Unblock buttons (previously unblock was DB-only).
+- Email change remains "contact support" (needs confirmation-email flow).
+
+### 4. Team Pages & Discovery
+
+- **`/team/[id]`** (`src/lib/queries/team.ts` + page): header with league/city, "Your History" stats (games seen, team W-L at games you attended), home venues (via `venue_teams`), recent completed games with "Attended" badges, all cross-linked.
+- **Explore search**: teams now link to team pages; **lists** are searchable (system + public user lists, with creator attribution); **venue aliases** match historical names ("Staples Center" → Crypto.com Arena) in both explore and the log-flow venue search.
+- **`/lists?filter=created`** now filters to your created lists (profile summary row finally works).
+- **`/user/[username]/want-to-visit`**: other users' bucket lists; the profile summary row is basePath-aware.
+- **Fork attribution**: list detail shows "Forked from [original]" linking to the source list.
+- **Badges**: your own created lists now count toward badge earning (previously only system + followed).
+
+### 5. Photos / Sharing / Ops
+
+- **Photo removal in edit flow**: edit mode shows the current photo with Remove (undoable until save); `removeEventLogPhoto` clears metadata and deletes the stored file. New uploads still replace.
+- **OG images**: Cache-Control `public, max-age=3600, stale-while-revalidate=86400`.
+- **`vercel.json`**: hourly cron for `/api/cover-photos`; route gained a GET handler (Vercel Cron uses GET).
+
+### 6. Real-Data Pipeline (`scripts/data/`)
+
+Tested end-to-end against the local replica:
+
+- **20,989 events** (2023 → present), NFL/NBA/MLB/NHL/MLS, completed games only, with scores and postseason flags. 155 teams (+San Diego FC, +Arizona Coyotes), 179 venues (+38 international/one-off), 20 venue aliases.
+- Existing hand-seeded rows were **matched and enriched** (ESPN ids added in place), never duplicated; MLB doubleheaders insert as distinct events.
+- Handles sponsor renames, ESPN double-ids for renamed buildings, relocations, all-star exhibition filtering, international venues.
+- Idempotent: full re-run inserts 0 rows. `validate-data.mjs` passes all checks.
+- PGA Tour not included (field-template events, different API shape) — documented in the README as future work.
+
+### Known Issues / Remaining Work
+
+1. **Production migrations not yet applied** — see the checklist at the top of this entry.
+2. **Email change** — still "contact support".
+3. **OAuth (Google/Apple)** — not configured; email/password only.
+4. **PGA Tour real data** — needs a field-event fetcher (leaderboard API) and tournament_id/day_number population.
+5. **Query layer typing** — `database.types.ts` exists and clients are typed, but query functions still use `as unknown as` casts internally.
+6. **Feed real-time** — notifications are real-time now; the feed still requires refresh.
+7. **`pg` dependency** — used only by `scripts/data/`; it's in `dependencies` (was already present) though it's a script-time dependency.
