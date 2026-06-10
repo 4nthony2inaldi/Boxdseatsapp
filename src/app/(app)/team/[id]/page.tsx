@@ -7,6 +7,7 @@ import {
   fetchTeamRecentEvents,
   fetchTeamUserStats,
 } from "@/lib/queries/team";
+import Image from "next/image";
 import SportIcon from "@/components/SportIcon";
 import SectionLabel from "@/components/profile/SectionLabel";
 
@@ -50,8 +51,18 @@ export default async function TeamDetailPage({
     <div className="px-4 pb-8 max-w-lg mx-auto">
       {/* Header */}
       <div className="flex items-center gap-4 mt-5 mb-5">
-        <div className="w-16 h-16 rounded-2xl bg-bg-elevated border border-border flex items-center justify-center shrink-0">
-          <SportIcon league={team.league_slug} size={36} />
+        <div className="w-16 h-16 rounded-2xl bg-bg-elevated border border-border flex items-center justify-center shrink-0 p-2">
+          {team.logo_url ? (
+            <Image
+              src={team.logo_url}
+              alt={team.name}
+              width={48}
+              height={48}
+              className="w-full h-full object-contain"
+            />
+          ) : (
+            <SportIcon league={team.league_slug} size={36} />
+          )}
         </div>
         <div className="flex-1 min-w-0">
           <h1 className="font-display text-2xl text-text-primary tracking-wide leading-tight">

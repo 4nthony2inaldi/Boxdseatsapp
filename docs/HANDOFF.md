@@ -2789,3 +2789,51 @@ Tested end-to-end against the local replica:
 5. **Query layer typing** — `database.types.ts` exists and clients are typed, but query functions still use `as unknown as` casts internally.
 6. **Feed real-time** — notifications are real-time now; the feed still requires refresh.
 7. **`pg` dependency** — used only by `scripts/data/`; it's in `dependencies` (was already present) though it's a script-time dependency.
+
+
+---
+
+## Session 12 — Full Data Expansion: History, Preseason, Field Sports, Continuous Sync
+
+**Date:** June 10, 2026
+**Scope:** 2002-2022 team-sport backfill, preseason/spring training, golf/tennis/racing leagues, athletes, hourly auto-sync, event deletion, and a round of UX additions. Production grew from 20,991 to 156,262 events across 11 leagues.
+
+### Production data state
+| | |
+|---|---|
+| Events | 156,262 (2002 → present; scheduled games a few days ahead) |
+| Leagues | 11: NFL, NBA, MLB, NHL, MLS, PGA Tour, ATP, WTA, NASCAR Cup, IndyCar, F1 |
+| Field events | 6,473 (tournaments as per-day rows sharing tournament_id) |
+| Preseason | 15,506 (incl. 10.8K spring training, labeled via round_or_stage) |
+| Venues | 778 (incl. spring parks, golf courses, slam sites, race tracks, historical stadiums) |
+| Athletes | 6,940 (rosters, tennis rankings, golf fields, race starters) |
+| Badge tags | Majors (masters/us_open/pga_championship/open_championship) and slams (grand_slam_*) on every tournament day row |
+
+### Continuous ingestion
+`/api/sync-events` on an hourly Vercel cron: ingests scheduled team-sport games ~2 days ahead (loggable from the venue), attaches final scores after completion, corrects postponed dates, includes preseason. Field sports (weekly cadence): re-run `scripts/data/seed-field-events.mjs` periodically or extend the sync route (future work).
+
+### Pipelines (scripts/data/)
+- `seed-real-data.mjs` — team sports incl. preseason (season type 1) with Spring Training/Preseason labels
+- `seed-field-events.mjs` — golf/tennis/racing; per-day tournament rows, winners, curated slam venues, NASCAR exhibitions excluded
+- `seed-athletes.mjs` — athletes with per-sport ESPN id uniqueness
+- `002-preseason-migration.sql` — events.is_preseason
+- All idempotent; validate-data.mjs covers field events and athletes
+
+### Data-quality work done during execution
+- 145 pseudo-teams (colleges/national teams appearing as spring opponents) purged with their 131 games
+- 14 venue-resolution collisions repaired (2,128 events repointed), incl. two that corrupted the regular-season backfill: Busch Stadium I games on "Monster Park" and renamed-Metrodome NFL games on "Wrigley Field"
+- 12 hand-seeded PGA events corrected in place (wrong venues fixed, ESPN ids attached); manual Masters day rows twin-merged, not duplicated
+- 3 Pro Bowl pseudo-team games removed
+- MLB spring homes derived and associated (venue_teams non-primary); team pages label them, one-off relocation venues hidden
+
+### App changes
+- LEAGUES config carries DB slugs + 5 new leagues; fixed never-working PGA timeline filter and league color lookups; manual entry resolves league by slug
+- Event log deletion (edit flow, two-step confirm) + edit pencil on own timeline (makes manual logs editable/deletable)
+- Remove follower; likes on profile timelines; duplicate-log "Logged" badge in the event picker
+- Team pages: spring training homes labeled
+
+### Known gaps / future work
+- Field-sport ingestion is batch (re-run script) — no hourly sync yet for golf/tennis/racing
+- ~1,500 games (1.4%, mostly 2002-2006 NFL) skipped where ESPN lacks venue data
+- All-Star games / pseudo-team exhibitions excluded by design (would need field-event modeling)
+- ESPN historical preseason coverage thins before ~2006 for some leagues

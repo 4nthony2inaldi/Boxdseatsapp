@@ -211,8 +211,18 @@ export default function ExploreSearch() {
                     href={`/team/${t.id}`}
                     className="flex items-center gap-3 py-2.5 px-2 hover:bg-bg-card/50 rounded-lg transition-colors"
                   >
-                    <div className="w-9 h-9 rounded-lg bg-bg-elevated flex items-center justify-center shrink-0">
-                      <SportIcon src={t.league_icon} size={22} />
+                    <div className="w-9 h-9 rounded-lg bg-bg-elevated flex items-center justify-center shrink-0 p-1">
+                      {t.logo_url ? (
+                        <Image
+                          src={t.logo_url}
+                          alt={t.name}
+                          width={28}
+                          height={28}
+                          className="w-full h-full object-contain"
+                        />
+                      ) : (
+                        <SportIcon src={t.league_icon} size={22} />
+                      )}
                     </div>
                     <div className="flex-1 min-w-0">
                       <div className="text-sm text-text-primary font-medium truncate">
