@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import Image from "next/image";
-import { LEAGUES } from "@/lib/constants";
+import { leagueFromSlug, leagueLabelFromSlug } from "@/lib/constants";
 import SportIcon from "@/components/SportIcon";
 import StarRating from "./profile/StarRating";
 import OutcomeBadge from "./profile/OutcomeBadge";
@@ -62,8 +62,7 @@ export default function TimelineCard({
   onLike,
   onComment,
 }: TimelineCardProps) {
-  const leagueKey = entry.league_slug as keyof typeof LEAGUES | null;
-  const leagueData = leagueKey ? LEAGUES[leagueKey] : null;
+  const leagueData = leagueFromSlug(entry.league_slug);
   const leagueColor = leagueData?.color || "#D4872C";
 
   const formattedDate = new Date(entry.event_date + "T00:00:00").toLocaleDateString(
@@ -129,7 +128,7 @@ export default function TimelineCard({
               className="font-display text-xs tracking-[1.5px] uppercase opacity-90"
               style={{ color: leagueColor }}
             >
-              {entry.league_slug || ""}
+              {leagueLabelFromSlug(entry.league_slug) || ""}
             </span>
             <OutcomeBadge outcome={entry.outcome} />
             {entry.is_manual && (

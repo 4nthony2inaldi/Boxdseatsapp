@@ -35,10 +35,41 @@ export const colors = {
 } as const;
 
 export const LEAGUES = {
-  NFL: { color: "#013369", icon: "/football.svg", sport: "football" },
-  NBA: { color: "#1D428A", icon: "/basketball.svg", sport: "basketball" },
-  MLB: { color: "#002D72", icon: "/baseball.svg", sport: "baseball" },
-  NHL: { color: "#000000", icon: "/hockey.svg", sport: "hockey" },
-  MLS: { color: "#5B2C82", icon: "/soccer.svg", sport: "soccer" },
-  PGA: { color: "#003B2F", icon: "/golf.svg", sport: "golf" },
+  NFL: { slug: "nfl", color: "#013369", icon: "/football.svg", sport: "football" },
+  NBA: { slug: "nba", color: "#1D428A", icon: "/basketball.svg", sport: "basketball" },
+  MLB: { slug: "mlb", color: "#002D72", icon: "/baseball.svg", sport: "baseball" },
+  NHL: { slug: "nhl", color: "#000000", icon: "/hockey.svg", sport: "hockey" },
+  MLS: { slug: "mls", color: "#5B2C82", icon: "/soccer.svg", sport: "soccer" },
+  PGA: { slug: "pga-tour", color: "#003B2F", icon: "/golf.svg", sport: "golf" },
+  ATP: { slug: "atp", color: "#1565C0", icon: "/tennis.svg", sport: "tennis" },
+  WTA: { slug: "wta", color: "#5C2D91", icon: "/tennis.svg", sport: "tennis" },
+  NASCAR: { slug: "nascar-cup", color: "#E4A11B", icon: "/motorsports.svg", sport: "motorsports" },
+  INDYCAR: { slug: "indycar", color: "#C8102E", icon: "/motorsports.svg", sport: "motorsports" },
+  F1: { slug: "f1", color: "#E10600", icon: "/motorsports.svg", sport: "motorsports" },
 } as const;
+
+export type LeagueKey = keyof typeof LEAGUES;
+
+/** Display label (e.g. "NASCAR") for a database slug (e.g. "nascar-cup"). */
+export function leagueLabelFromSlug(
+  slug: string | null | undefined
+): string | null {
+  if (!slug) return null;
+  const lower = slug.toLowerCase();
+  for (const [label, entry] of Object.entries(LEAGUES)) {
+    if (entry.slug === lower) return label;
+  }
+  return slug;
+}
+
+/** Look up league display config by its database slug (e.g. "pga-tour"). */
+export function leagueFromSlug(
+  slug: string | null | undefined
+): (typeof LEAGUES)[LeagueKey] | null {
+  if (!slug) return null;
+  const lower = slug.toLowerCase();
+  for (const entry of Object.values(LEAGUES)) {
+    if (entry.slug === lower) return entry;
+  }
+  return null;
+}
