@@ -3,6 +3,7 @@
 /* eslint-disable @next/next/no-img-element -- next/image cannot optimize blob: URLs / OG ImageResponse markup */
 import { useState, useRef } from "react";
 import CameraCapture from "./CameraCapture";
+import PhotoCropper from "./PhotoCropper";
 
 export type PhotoData = {
   file: File | Blob;
@@ -24,17 +25,26 @@ export default function PhotoSection({
 }: PhotoSectionProps) {
   const [showCamera, setShowCamera] = useState(false);
   const [showModeSelector, setShowModeSelector] = useState(false);
+  // Uncropped source kept around so the crop can be re-adjusted
+  const [original, setOriginal] = useState<{
+    file: File | Blob;
+    previewUrl: string;
+    captureMethod: "camera" | "upload";
+    capturedAt: string;
+  } | null>(null);
+  const [cropping, setCropping] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleCameraCapture = (blob: Blob) => {
     const previewUrl = URL.createObjectURL(blob);
-    onPhotoChange({
+    setOriginal({
       file: blob,
       previewUrl,
       captureMethod: "camera",
       capturedAt: new Date().toISOString(),
     });
     setShowCamera(false);
+    setCropping(true);
   };
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -42,19 +52,58 @@ export default function PhotoSection({
     if (!file) return;
 
     const previewUrl = URL.createObjectURL(file);
-    onPhotoChange({
+    setOriginal({
       file,
       previewUrl,
       captureMethod: "upload",
       capturedAt: new Date().toISOString(),
     });
     setShowModeSelector(false);
+    setCropping(true);
+    // allow re-selecting the same file later
+    e.target.value = "";
+  };
+
+  const handleCropApply = (cropped: Blob) => {
+    if (!original) return;
+    if (photo?.previewUrl && photo.previewUrl !== original.previewUrl) {
+      URL.revokeObjectURL(photo.previewUrl);
+    }
+    onPhotoChange({
+      file: cropped,
+      previewUrl: URL.createObjectURL(cropped),
+      captureMethod: original.captureMethod,
+      capturedAt: original.capturedAt,
+    });
+    setCropping(false);
+  };
+
+  const handleCropSkip = () => {
+    if (!original) return;
+    if (photo?.previewUrl && photo.previewUrl !== original.previewUrl) {
+      URL.revokeObjectURL(photo.previewUrl);
+    }
+    onPhotoChange({ ...original });
+    setCropping(false);
+  };
+
+  const handleCropCancel = () => {
+    // First-time crop cancelled and no photo yet: discard the selection
+    if (!photo && original) {
+      URL.revokeObjectURL(original.previewUrl);
+      setOriginal(null);
+    }
+    setCropping(false);
   };
 
   const handleRemovePhoto = () => {
     if (photo?.previewUrl) {
       URL.revokeObjectURL(photo.previewUrl);
     }
+    if (original && original.previewUrl !== photo?.previewUrl) {
+      URL.revokeObjectURL(original.previewUrl);
+    }
+    setOriginal(null);
     onPhotoChange(null);
   };
 
@@ -72,6 +121,17 @@ export default function PhotoSection({
       <CameraCapture
         onCapture={handleCameraCapture}
         onClose={() => setShowCamera(false)}
+      />
+    );
+  }
+
+  if (cropping && original) {
+    return (
+      <PhotoCropper
+        imageUrl={original.previewUrl}
+        onApply={handleCropApply}
+        onSkip={handleCropSkip}
+        onCancel={handleCropCancel}
       />
     );
   }
@@ -98,8 +158,21 @@ export default function PhotoSection({
             <img
               src={photo.previewUrl}
               alt="Event photo"
-              className="w-full h-[200px] object-cover"
+              className="w-full aspect-video object-cover"
             />
+            {/* Adjust crop */}
+            {original && (
+              <button
+                onClick={() => setCropping(true)}
+                className="absolute bottom-2 right-2 inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-black/60 text-white text-[10px] font-semibold backdrop-blur-sm cursor-pointer border-none hover:bg-black/75"
+              >
+                <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M6 2v14a2 2 0 0 0 2 2h14" />
+                  <path d="M18 22V8a2 2 0 0 0-2-2H2" />
+                </svg>
+                Adjust crop
+              </button>
+            )}
             {/* Capture method badge */}
             <div className="absolute top-2 left-2">
               {photo.captureMethod === "camera" ? (
