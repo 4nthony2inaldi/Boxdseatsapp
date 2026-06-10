@@ -132,8 +132,15 @@ export default async function TeamDetailPage({
                   <circle cx="12" cy="10" r="3" />
                 </svg>
                 <div className="flex-1 min-w-0">
-                  <div className="text-sm text-text-primary font-medium truncate">
-                    {venue.name}
+                  <div className="flex items-center gap-2 min-w-0">
+                    <span className="text-sm text-text-primary font-medium truncate">
+                      {venue.name}
+                    </span>
+                    {!venue.is_primary && (
+                      <span className="shrink-0 text-[10px] font-display tracking-wider uppercase text-accent border border-accent/30 bg-accent/10 rounded-full px-2 py-0.5">
+                        {team.sport === "baseball" ? "Spring Training" : "Secondary"}
+                      </span>
+                    )}
                   </div>
                   <div className="text-xs text-text-muted">
                     {venue.city}

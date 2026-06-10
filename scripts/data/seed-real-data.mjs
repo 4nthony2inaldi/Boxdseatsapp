@@ -539,13 +539,15 @@ async function resolveCompetitorTeam(leagueSlug, leagueId, index, team, stats) {
 function classifySeason(season, soccer) {
   if (!soccer) {
     const t = season?.type;
+    if (t === 1) return { include: true, isPostseason: false, isPreseason: true, roundFromSlug: null };
     if (t !== 2 && t !== 3) return { include: false };
-    return { include: true, isPostseason: t === 3, roundFromSlug: null };
+    return { include: true, isPostseason: t === 3, isPreseason: false, roundFromSlug: null };
   }
   const slug = season?.slug ?? '';
-  if (/preseason|all-star|friendly/.test(slug)) return { include: false };
-  if (slug === 'regular-season' || slug === '') return { include: true, isPostseason: false, roundFromSlug: null };
-  return { include: true, isPostseason: true, roundFromSlug: humanizeSlug(slug) };
+  if (/all-star|friendly/.test(slug)) return { include: false };
+  if (/preseason/.test(slug)) return { include: true, isPostseason: false, isPreseason: true, roundFromSlug: null };
+  if (slug === 'regular-season' || slug === '') return { include: true, isPostseason: false, isPreseason: false, roundFromSlug: null };
+  return { include: true, isPostseason: true, isPreseason: false, roundFromSlug: humanizeSlug(slug) };
 }
 
 // --- event phase ----------------------------------------------------------------
@@ -713,18 +715,20 @@ async function processEvent(ev, leagueSlug, leagueId, cfg, teamIndex, existingBy
 
   const roundOrStage = cls.isPostseason
     ? (cfg.soccer ? cls.roundFromSlug : (ev.notes?.find((n) => n.headline)?.headline ?? null))
-    : null;
+    : cls.isPreseason
+      ? (leagueSlug === 'mlb' ? 'Spring Training' : 'Preseason')
+      : null;
 
   await db.query(
     `insert into events (
        league_id, venue_id, event_date, event_template,
        home_team_id, away_team_id, home_score, away_score, is_draw,
-       season, is_postseason, round_or_stage, venue_name_at_time, external_ids
-     ) values ($1,$2,$3,'match',$4,$5,$6,$7,$8,$9,$10,$11,$12, jsonb_build_object('espn', $13::text))`,
+       season, is_postseason, is_preseason, round_or_stage, venue_name_at_time, external_ids
+     ) values ($1,$2,$3,'match',$4,$5,$6,$7,$8,$9,$10,$11,$12,$13, jsonb_build_object('espn', $14::text))`,
     [
       leagueId, venueId, eventDate,
       homeTeam.id, awayTeam.id, homeScore, awayScore, homeScore === awayScore,
-      season, cls.isPostseason, roundOrStage, venueNameAtTime, ev.id,
+      season, cls.isPostseason, cls.isPreseason === true, roundOrStage, venueNameAtTime, ev.id,
     ],
   );
   existingByEspn.add(ev.id);
