@@ -1,16 +1,25 @@
 # BoxdSeats real-data seeding pipeline
 
-Populates real historical event data (NFL, NBA, MLB, NHL, MLS) from ESPN's
-public site APIs into the BoxdSeats database, so users can log real games they
-attended. Everything is idempotent and safe to re-run.
+Populates real historical event data from ESPN's public site APIs into the
+BoxdSeats database, so users can log real games they attended:
+
+- **Match leagues** (NFL, NBA, MLB, NHL, MLS) via `seed-real-data.mjs`
+- **Field leagues** (PGA Tour, ATP, WTA, NASCAR Cup, IndyCar, F1) via
+  `seed-field-events.mjs`
+- **Athletes** (rosters + notable golf/tennis/racing names) via
+  `seed-athletes.mjs`
+
+Everything is idempotent and safe to re-run.
 
 ## Files
 
 | File | Purpose |
 | --- | --- |
 | `001-external-ids-migration.sql` | Adds `external_ids jsonb` (+ GIN and uniqueness indexes) to `teams`, `venues`, `events`, `athletes`. Idempotent. |
-| `seed-real-data.mjs` | Fetches teams + completed events from ESPN and upserts teams, venues, venue_teams, venue_aliases, events. |
-| `validate-data.mjs` | Post-seed data-quality checks. Exit code 1 on hard failures. |
+| `seed-real-data.mjs` | Fetches teams + completed events for the five match leagues and upserts teams, venues, venue_teams, venue_aliases, events. |
+| `seed-field-events.mjs` | Creates the field leagues (atp, wta, nascar-cup, indycar, f1) and seeds golf/tennis tournament day-rows and races; also repairs the original hand-seeded PGA events. |
+| `seed-athletes.mjs` | Populates the athletes table from team rosters, tennis rankings, golf major fields and racing grids (adds the `uq_athletes_espn_id` unique index if missing). |
+| `validate-data.mjs` | Post-seed data-quality checks (match + field events + athletes). Exit code 1 on hard failures. |
 
 ## Running against production (Supabase)
 
@@ -34,18 +43,38 @@ attended. Everything is idempotent and safe to re-run.
    ```sh
    DATABASE_URL="postgresql://..." node scripts/data/seed-real-data.mjs
    ```
-5. Validate:
+5. Seed field leagues + athletes:
+   ```sh
+   DATABASE_URL="postgresql://..." node scripts/data/seed-field-events.mjs
+   DATABASE_URL="postgresql://..." node scripts/data/seed-athletes.mjs
+   ```
+6. Validate:
    ```sh
    DATABASE_URL="postgresql://..." node scripts/data/validate-data.mjs
    ```
 
 ### CLI flags
 
+`seed-real-data.mjs`:
 ```
 --leagues=nfl,nba,mlb,nhl,mls   subset of leagues (default: all five)
 --from=YYYY-MM-DD               start date (default 2023-01-01)
 --to=YYYY-MM-DD                 end date (default: yesterday)
 --dry-run                       run everything, then ROLLBACK
+```
+
+`seed-field-events.mjs`:
+```
+--leagues=pga,atp,wta,nascar,indycar,f1   subset (default: all six)
+--from=YYYY-MM-DD                         start date (default 2023-01-01)
+--to=YYYY-MM-DD                           end date (default: yesterday)
+--dry-run                                 run everything, then ROLLBACK
+```
+
+`seed-athletes.mjs`:
+```
+--sports=teams,golf,tennis,racing   subset of sources (default: all)
+--dry-run                           run everything, then ROLLBACK
 ```
 
 ## Runtime expectations
@@ -96,6 +125,85 @@ attended. Everything is idempotent and safe to re-run.
   (Jan-2024 playoff games ⇒ season 2023); NBA/NHL use the ending year
   (Nov-2023 games ⇒ season 2024); MLB/MLS use the calendar year.
 
+## Field events (seed-field-events.mjs)
+
+Creates any missing field leagues (`atp`, `wta`, `nascar-cup`, `indycar`,
+`f1`; `pga-tour` already exists) and seeds completed events only:
+
+- **Golf (PGA)** — scoreboard tournaments are expanded into **one events row
+  per day** (`date` → `endDate`, usually 4 days; >8-day oddities skipped).
+  Day rows share a generated `tournament_id`, get `day_number` 1..N and
+  `round_or_stage` "Round N"/"Final Round", and all carry `winner_name`.
+  Venue + winner come from the per-event leaderboard endpoint
+  (`golf/leaderboard?league=pga&event=<id>`); the scoreboard has neither.
+  FedEx playoff events (St. Jude/BMW/TOUR Championship) ⇒ `is_postseason`.
+- **Tennis (ATP/WTA)** — one row per day, capped at the **last 15 days** of
+  the span (ESPN spans include qualifying; capping from the end keeps the
+  final on the real final day). `round_or_stage` "Day N", last day "Final".
+  `winner_name` = singles champion from the last completed singles match.
+  ESPN only exposes "City, Country" for tennis, so the four majors map to
+  curated real venues (Melbourne Park, Stade Roland Garros, All England Lawn
+  Tennis Club, USTA BJK National Tennis Center; the 2024 Olympics event also
+  maps to Roland Garros) and other tournaments get a "<Tournament> Site"
+  venue in the host city.
+- **Racing (NASCAR Cup/IndyCar/F1)** — single-day rows, `winner_name` = race
+  winner, no tournament_id/day_number. F1 uses the weekend's "Race"
+  competition for date/winner and the scoreboard `circuit` for the venue
+  (with curated address fixes; ESPN retro-reports 2023-25 Spanish GPs at
+  "Madring", corrected to Circuit de Catalunya). NASCAR venues come from the
+  core API per event (stale names like "Lowe's Motor Speedway" are renamed,
+  and Iowa/Mexico City/North Wilkesboro — which have no core venue — are
+  curated). IndyCar has **no venue data anywhere in ESPN's API**, so circuits
+  come from a curated race-name map. NASCAR exhibitions (Clash/Duels/All-Star)
+  are excluded ⇒ exactly 36 points races per season.
+- **event_tags** (exact strings, they power badge lists): golf majors get
+  `['masters'|'pga_championship'|'us_open'|'open_championship', 'pga_major']`
+  on every day row; slams get
+  `['grand_slam_<australian_open|french_open|wimbledon|us_open>', 'grand_slam']`.
+- **external_ids**: `{"espn": "<eventId>-d<dayNumber>"}` per day row, plain
+  event id for races. Re-runs skip existing ids; partially-seeded tournaments
+  are topped up reusing the existing `tournament_id`. Venue external ids for
+  golf courses / circuits are **namespaced** (`golf:21`, `nascar:21`,
+  `f1:4243`) because ESPN's per-sport venue id spaces collide with the
+  stadium ids stored by `seed-real-data.mjs`.
+- **PGA hand-seed repair**: pre-existing `pga-tour` rows without an ESPN id
+  are matched by year-stripped tournament-name + season and **updated in
+  place** to become the final-day row (fixing the wrong hand-seeded venues —
+  e.g. 2025 U.S. Open Pebble Beach → Oakmont, Open Championship Pinehurst →
+  Royal Portrush, PGA Championship Valhalla → Quail Hollow, TOUR Championship
+  TPC Sawgrass → East Lake — plus dates/winners/tags) so existing event_logs
+  keep pointing at the right row. Unmatched hand rows inside the seeded window
+  are deleted when nothing references them, otherwise left and reported.
+- ESPN's scoreboard range filter can drop events sitting exactly on a window
+  boundary, so fetch windows overlap by a day on each side (id-dedupe absorbs
+  the overlap).
+
+Expected volumes per full year: PGA ~48-51 tournaments (~190-200 day rows),
+ATP ~60-70 tournaments (~600-700 day rows), WTA ~95-105 (~880-990 day rows,
+includes WTA 125s), NASCAR exactly 36 races, IndyCar 17-18, F1 22-24.
+
+## Athletes (seed-athletes.mjs)
+
+- **Team sports**: every roster of every team carrying `external_ids.espn`
+  (NFL ~2,900, NHL ~960, MLS ~930, MLB ~780, NBA ~540). Handles both grouped
+  (NFL/NHL/MLB) and flat (NBA/MLS) roster payload shapes.
+- **Tennis**: ATP + WTA top-150 from the rankings endpoint.
+- **Golf**: union of the fields of recent marquee tournaments (majors,
+  PLAYERS, TOUR Championship over the last ~18 months — ESPN's golf rankings
+  endpoint 500s) ⇒ ~370 players incl. LIV players who entered majors.
+- **Racing**: every driver who started a NASCAR Cup/IndyCar/F1 race in the
+  last ~18 months ⇒ ~140 drivers.
+- Existing athletes are matched by sport + normalized name and enriched with
+  `external_ids.espn` + headshot; re-runs skip on (sport, espn id). The
+  script creates `uq_athletes_espn_id` — a partial unique index on
+  `(sport, external_ids->>'espn')` — if missing (athlete ids are only unique
+  per ESPN sport namespace, and racing shares one namespace across its three
+  leagues). Tennis/racing headshots use the canonical CDN URL pattern after a
+  HEAD existence check.
+- Known gaps: Aaron Judge (not on ESPN's 26-man Yankees roster payload at
+  seed time) and Christian Pulisic (not in MLS) keep their hand-seeded rows
+  without ESPN ids.
+
 ## Extending
 
 - **More seasons**: just widen the range, e.g.
@@ -110,8 +218,9 @@ attended. Everything is idempotent and safe to re-run.
   `leagues` table (the script looks the league up by its BoxdSeats slug, which
   must equal the `LEAGUES` key). Soccer-style competitions need
   `soccer: true` so slug-based season types are classified correctly.
-  PGA Tour is **not** covered: it uses the `field` event template
-  (tournaments, not home/away matches) and a different ESPN API shape.
+  Field-template sports (golf/tennis/racing) belong in
+  `seed-field-events.mjs` instead — add an entry to its `LEAGUES` map with
+  the ESPN path and a `kind` of `golf`/`tennis`/`racing`.
 - **Other providers**: `external_ids` is a jsonb map — add keys alongside
   `espn` (e.g. `{"espn": "401581097", "statsapi": "748266"}`) without schema
   changes.
@@ -141,9 +250,13 @@ attended. Everything is idempotent and safe to re-run.
 ## Validation
 
 `validate-data.mjs` hard-fails (exit 1) on: cross-league team references,
-ESPN-sourced events missing scores, duplicate ESPN ids, un-deduped natural-key
-duplicates, and event dates outside 2000-01-01..today. It also prints
-per-league/per-season counts and totals for plausibility checks:
+ESPN-sourced match events missing scores, duplicate ESPN ids (teams/venues/
+events/athletes), un-deduped natural-key duplicates, event dates outside
+2000-01-01..today, field events missing `tournament_name`, golf/tennis day
+rows missing `tournament_id`/`day_number`, tournaments whose day rows point
+at different venues or repeat a day_number, and golf majors / tennis slams
+missing their required `event_tags`. It also prints per-league/per-season
+counts and totals for plausibility checks:
 
 ```sql
 SELECT l.slug, e.season, count(*)

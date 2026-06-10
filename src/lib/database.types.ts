@@ -514,6 +514,7 @@ export type Database = {
           id: string
           is_draw: boolean | null
           is_postseason: boolean
+          is_preseason: boolean
           league_id: string
           round_or_stage: string | null
           season: number
@@ -542,6 +543,7 @@ export type Database = {
           id?: string
           is_draw?: boolean | null
           is_postseason?: boolean
+          is_preseason?: boolean
           league_id: string
           round_or_stage?: string | null
           season: number
@@ -570,6 +572,7 @@ export type Database = {
           id?: string
           is_draw?: boolean | null
           is_postseason?: boolean
+          is_preseason?: boolean
           league_id?: string
           round_or_stage?: string | null
           season?: number
