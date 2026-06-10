@@ -12,6 +12,7 @@ import { LEAGUES, leagueFromSlug } from "@/lib/constants";
 import SportIcon from "@/components/SportIcon";
 
 export type ManualEntryData = {
+  league_slug: string | null;
   title: string;
   league_id: string | null;
   sport: string | null;
@@ -132,6 +133,7 @@ export default function StepEvent({
     const manualData: ManualEntryData = {
       title: manualTitle.trim(),
       league_id: null, // Will be resolved in LogFlow
+      league_slug: leagueEntry ? leagueEntry[1].slug : null,
       sport: leagueEntry ? leagueEntry[1].sport : null,
       teams,
     };
