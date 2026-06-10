@@ -46,7 +46,10 @@ export async function updateSession(request: NextRequest) {
   const isPublicRoute =
     request.nextUrl.pathname.startsWith("/@") ||
     request.nextUrl.pathname.startsWith("/u/") ||
-    request.nextUrl.pathname.startsWith("/e/");
+    request.nextUrl.pathname.startsWith("/e/") ||
+    // API routes authenticate themselves (session check or bearer secret);
+    // redirecting them to /login breaks Vercel Cron and JSON clients.
+    request.nextUrl.pathname.startsWith("/api/");
 
   // Rewrite /@username → /u/username (filesystem can't use @ prefix)
   if (request.nextUrl.pathname.startsWith("/@")) {
