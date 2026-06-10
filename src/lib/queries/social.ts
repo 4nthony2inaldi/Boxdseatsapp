@@ -76,6 +76,7 @@ export type SearchResultTeam = {
   short_name: string;
   league_name: string | null;
   league_icon: string | null;
+  logo_url: string | null;
 };
 
 export type SearchResultList = {
@@ -541,7 +542,7 @@ export async function searchAll(
     // Search teams by name or short_name
     supabase
       .from("teams")
-      .select("id, name, short_name, leagues(name, slug)")
+      .select("id, name, short_name, logo_url, leagues(name, slug)")
       .or(`name.ilike.${pattern},short_name.ilike.${pattern}`)
       .limit(limit),
 
@@ -612,6 +613,7 @@ export async function searchAll(
         short_name: t.short_name,
         league_name: league?.name || null,
         league_icon: league?.slug ? LEAGUE_ICONS[league.slug] || null : null,
+        logo_url: t.logo_url ?? null,
       };
     }),
     lists: (listsRes.data || []).map((l) => {

@@ -30,6 +30,7 @@ export type BigFourItem = {
   category: "team" | "venue" | "athlete" | "event";
   name: string;
   subtitle: string;
+  image_url?: string | null;
 };
 
 export type ActivityMonth = {
@@ -152,7 +153,7 @@ export async function fetchBigFour(
   if (profile.fav_team_id) {
     const { data } = await supabase
       .from("teams")
-      .select("name, short_name, leagues(name)")
+      .select("name, short_name, logo_url, leagues(name)")
       .eq("id", profile.fav_team_id)
       .single();
     if (data) {
@@ -161,6 +162,7 @@ export async function fetchBigFour(
         category: "team",
         name: data.short_name || data.name,
         subtitle: league,
+        image_url: data.logo_url,
       });
     }
   } else {
@@ -171,7 +173,7 @@ export async function fetchBigFour(
   if (profile.fav_venue_id) {
     const { data } = await supabase
       .from("venues")
-      .select("name, city, state")
+      .select("name, city, state, photo_url")
       .eq("id", profile.fav_venue_id)
       .single();
     if (data) {
@@ -179,6 +181,7 @@ export async function fetchBigFour(
         category: "venue",
         name: data.name,
         subtitle: `${data.city}${data.state ? `, ${data.state}` : ""}`,
+        image_url: data.photo_url,
       });
     }
   } else {
@@ -189,7 +192,7 @@ export async function fetchBigFour(
   if (profile.fav_athlete_id) {
     const { data } = await supabase
       .from("athletes")
-      .select("name, sport")
+      .select("name, sport, headshot_url")
       .eq("id", profile.fav_athlete_id)
       .single();
     if (data) {
@@ -197,6 +200,7 @@ export async function fetchBigFour(
         category: "athlete",
         name: data.name,
         subtitle: data.sport || "",
+        image_url: data.headshot_url,
       });
     }
   } else {
@@ -208,14 +212,15 @@ export async function fetchBigFour(
     const { data } = await supabase
       .from("events")
       .select(
-        "event_date, home_team:teams!events_home_team_id_fkey(short_name, abbreviation), away_team:teams!events_away_team_id_fkey(short_name, abbreviation), tournament_name, venues!events_venue_id_fkey(name)"
+        "event_date, home_team:teams!events_home_team_id_fkey(short_name, abbreviation), away_team:teams!events_away_team_id_fkey(short_name, abbreviation), tournament_name, venues!events_venue_id_fkey(name, photo_url)"
       )
       .eq("id", profile.fav_event_id)
       .single();
     if (data) {
       const home = (data.home_team as unknown as { short_name: string; abbreviation: string } | null);
       const away = (data.away_team as unknown as { short_name: string; abbreviation: string } | null);
-      const venue = (data.venues as unknown as { name: string } | null)?.name || "";
+      const venueData = data.venues as unknown as { name: string; photo_url: string | null } | null;
+      const venue = venueData?.name || "";
       const d = new Date(data.event_date + "T00:00:00");
       const dateStr = `${d.getMonth() + 1}/${d.getDate()}/${String(d.getFullYear()).slice(2)}`;
       const homeAbbr = home?.abbreviation || home?.short_name;
@@ -228,6 +233,7 @@ export async function fetchBigFour(
         category: "event",
         name,
         subtitle: venue,
+        image_url: venueData?.photo_url ?? null,
       });
     }
   } else {

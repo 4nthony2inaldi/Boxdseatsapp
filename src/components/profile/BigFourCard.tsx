@@ -1,3 +1,4 @@
+import Image from "next/image";
 import type { BigFourItem } from "@/lib/queries/profile";
 
 type BigFourCardProps = {
@@ -16,7 +17,7 @@ export default function BigFourCard({ item }: BigFourCardProps) {
 
   return (
     <div className="flex-1 min-w-0 rounded-xl overflow-hidden bg-bg-card border border-border flex flex-col">
-      {/* Image placeholder area */}
+      {/* Image area */}
       <div className="h-[110px] relative overflow-hidden">
         <div
           className="w-full h-full"
@@ -24,6 +25,27 @@ export default function BigFourCard({ item }: BigFourCardProps) {
             background: `linear-gradient(160deg, ${color}55, var(--color-bg-elevated))`,
           }}
         />
+        {item.image_url &&
+          (item.category === "team" ? (
+            // Logos sit on the gradient with padding rather than cropping
+            <div className="absolute inset-0 flex items-center justify-center p-4">
+              <Image
+                src={item.image_url}
+                alt={item.name}
+                width={80}
+                height={80}
+                className="max-h-full w-auto object-contain drop-shadow-lg"
+              />
+            </div>
+          ) : (
+            <Image
+              src={item.image_url}
+              alt={item.name}
+              fill
+              sizes="120px"
+              className="object-cover"
+            />
+          ))}
         {/* Gradient fade to card bg */}
         <div
           className="absolute bottom-0 left-0 right-0 h-10"

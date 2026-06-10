@@ -92,6 +92,19 @@ export default async function VenueDetailPage({
               </span>
             </div>
           </div>
+        ) : venue.photo_url ? (
+          <div className="relative">
+            <Image
+              src={venue.photo_url}
+              alt={`${venue.name}`}
+              width={800}
+              height={176}
+              quality={75}
+              sizes="(max-width: 640px) 100vw, 640px"
+              className="w-full h-44 object-cover"
+            />
+            <div className="absolute inset-0 bg-gradient-to-t from-bg via-transparent to-transparent" />
+          </div>
         ) : (
           <div className="h-36 bg-gradient-to-b from-accent/20 via-accent/5 to-bg" />
         )}
