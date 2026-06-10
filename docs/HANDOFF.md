@@ -2666,9 +2666,29 @@ All paginated queries use the "fetch limit+1" pattern:
 
 ---
 
-### ⚠️ PRODUCTION DEPLOYMENT CHECKLIST (action required)
+### ✅ PRODUCTION DEPLOYMENT — COMPLETED June 10, 2026
 
-This session was developed and tested against a local Postgres replica of the schema. To activate everything in production:
+Items 1-3, 5 below were executed against production via the Supabase Management
+API (SQL over HTTPS; direct Postgres ports are blocked from the dev sandbox):
+
+- Full backup of all 24 tables taken before any changes
+- Both migrations applied; all 9 notification triggers verified live
+- Real data transplanted from the validated local replica in 91 batches:
+  production now has **20,991 events** (20,829 ESPN-sourced), 155 teams,
+  179 venues, 21 venue aliases — zero orphans, zero duplicate ESPN ids
+- `notifications` added to the realtime publication
+- End-to-end verified with real user auth (anon key): login, real-event
+  search at venue+date, alias search, like → notification visible to owner
+  via RLS, RLS isolation between users, unlike cleanup, team queries
+
+**Still required (no Vercel access from the session):**
+- Set `CRON_SECRET` in Vercel env vars (any random string) so the hourly
+  cover-photo cron in vercel.json authenticates
+- Merge this branch to main so the app-side features (follow request UI,
+  team pages, settings, etc.) actually deploy — the database side is live
+- Rotate the Supabase access token / database password shared during setup
+
+Original checklist (for reference):
 
 1. **Run `scripts/notifications-migration.sql`** in Supabase Dashboard → SQL Editor. This creates all notification triggers, adds the `follow_request` enum value, and adds `notifications` to the realtime publication. (If the editor wraps the script in one transaction and the `ALTER TYPE ... ADD VALUE` line complains, run that single line by itself first, then the rest.)
 2. **Run `scripts/data/001-external-ids-migration.sql`** (same way, or via psql).
