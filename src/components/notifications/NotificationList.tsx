@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import Link from "next/link";
 import type { Notification } from "@/lib/queries/notifications";
 
@@ -90,9 +91,11 @@ export default function NotificationList({ notifications }: Props) {
             {n.actor ? (
               <div className="w-10 h-10 rounded-full flex-shrink-0 overflow-hidden">
                 {n.actor.avatar_url ? (
-                  <img
+                  <Image
                     src={n.actor.avatar_url}
                     alt={n.actor.display_name || n.actor.username}
+                    width={40}
+                    height={40}
                     className="w-full h-full object-cover"
                   />
                 ) : (

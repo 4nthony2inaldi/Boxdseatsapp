@@ -1,3 +1,4 @@
+import Image from "next/image";
 import { createClient } from "@/lib/supabase/server";
 import {
   fetchVenueDetail,
@@ -75,9 +76,13 @@ export default async function VenueDetailPage({
       <div className="relative -mx-4 -mt-0 mb-5">
         {venueCover ? (
           <div className="relative">
-            <img
+            <Image
               src={venueCover.photo_url}
               alt={`${venue.name} cover photo`}
+              width={800}
+              height={176}
+              quality={75}
+              sizes="(max-width: 640px) 100vw, 640px"
               className="w-full h-44 object-cover"
             />
             <div className="absolute inset-0 bg-gradient-to-t from-bg via-transparent to-transparent" />
@@ -202,9 +207,11 @@ export default async function VenueDetailPage({
                       title={friend.display_name || friend.username}
                     >
                       {friend.avatar_url ? (
-                        <img
+                        <Image
                           src={friend.avatar_url}
                           alt={friend.username}
+                          width={28}
+                          height={28}
                           className="w-full h-full object-cover"
                         />
                       ) : (

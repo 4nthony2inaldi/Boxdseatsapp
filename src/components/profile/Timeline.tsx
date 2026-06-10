@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, useEffect } from "react";
+import { useState, useCallback, useRef } from "react";
 import type { TimelineEntry } from "@/lib/queries/profile";
 import { LEAGUES } from "@/lib/constants";
 import SectionLabel from "./SectionLabel";
@@ -27,77 +27,77 @@ export default function Timeline({ initialEntries, initialHasMore, userId }: Tim
   const [loading, setLoading] = useState(false);
   const [loadingMore, setLoadingMore] = useState(false);
 
-  // Reset when filter changes
-  useEffect(() => {
-    if (filter === "All") {
+  // Incremented on each filter change so stale fetches can be ignored.
+  const filterRequestRef = useRef(0);
+
+  async function handleFilterChange(option: string) {
+    setFilter(option);
+    setIsOpen(false);
+    const requestId = ++filterRequestRef.current;
+
+    if (option === "All") {
       setEntries(initialEntries);
       setHasMore(initialHasMore);
+      setLoading(false);
       return;
     }
 
-    let cancelled = false;
+    setLoading(true);
+    setEntries([]);
+    setHasMore(false);
+    const supabase = createClient();
 
-    async function fetchFiltered() {
-      setLoading(true);
+    const { data: league } = await supabase
+      .from("leagues")
+      .select("id")
+      .eq("slug", option.toLowerCase())
+      .single();
+
+    if (requestId !== filterRequestRef.current) return;
+
+    if (!league) {
       setEntries([]);
-      setHasMore(false);
-      const supabase = createClient();
-
-      const { data: league } = await supabase
-        .from("leagues")
-        .select("id")
-        .eq("slug", filter.toLowerCase())
-        .single();
-
-      if (!league || cancelled) {
-        if (!cancelled) {
-          setEntries([]);
-          setLoading(false);
-        }
-        return;
-      }
-
-      const { data } = await supabase
-        .from("event_logs")
-        .select(
-          `
-          id, event_date, rating, notes, outcome, privacy, like_count, comment_count, seat_location, sport,
-          photo_url, photo_is_verified,
-          is_manual, manual_title, manual_description,
-          event_id,
-          venue_id,
-          venues(name),
-          leagues(slug, name),
-          events!event_logs_event_id_fkey(
-            home_score, away_score,
-            home_team:teams!events_home_team_id_fkey(short_name, abbreviation),
-            away_team:teams!events_away_team_id_fkey(short_name, abbreviation),
-            tournament_name
-          )
-        `
-        )
-        .eq("user_id", userId)
-        .eq("league_id", league.id)
-        .order("event_date", { ascending: false })
-        .range(0, PAGE_SIZE);
-
-      if (cancelled) return;
-
-      if (data) {
-        const moreAvailable = data.length > PAGE_SIZE;
-        const pageData = moreAvailable ? data.slice(0, PAGE_SIZE) : data;
-        setEntries(pageData.map(mapLogToEntry));
-        setHasMore(moreAvailable);
-      } else {
-        setEntries([]);
-        setHasMore(false);
-      }
       setLoading(false);
+      return;
     }
 
-    fetchFiltered();
-    return () => { cancelled = true; };
-  }, [filter, userId, initialEntries, initialHasMore]);
+    const { data } = await supabase
+      .from("event_logs")
+      .select(
+        `
+        id, event_date, rating, notes, outcome, privacy, like_count, comment_count, seat_location, sport,
+        photo_url, photo_is_verified,
+        is_manual, manual_title, manual_description,
+        event_id,
+        venue_id,
+        venues(name),
+        leagues(slug, name),
+        events!event_logs_event_id_fkey(
+          home_score, away_score,
+          home_team:teams!events_home_team_id_fkey(short_name, abbreviation),
+          away_team:teams!events_away_team_id_fkey(short_name, abbreviation),
+          tournament_name
+        )
+      `
+      )
+      .eq("user_id", userId)
+      .eq("league_id", league.id)
+      .order("event_date", { ascending: false })
+      .range(0, PAGE_SIZE);
+
+    if (requestId !== filterRequestRef.current) return;
+
+    if (data) {
+      const moreAvailable = data.length > PAGE_SIZE;
+      const pageData = moreAvailable ? data.slice(0, PAGE_SIZE) : data;
+      setEntries(pageData.map(mapLogToEntry));
+      setHasMore(moreAvailable);
+    } else {
+      setEntries([]);
+      setHasMore(false);
+    }
+    setLoading(false);
+  }
 
   const loadMore = useCallback(async () => {
     if (loadingMore || !hasMore) return;
@@ -189,10 +189,7 @@ export default function Timeline({ initialEntries, initialHasMore, userId }: Tim
               {leagueOptions.map((option) => (
                 <button
                   key={option}
-                  onClick={() => {
-                    setFilter(option);
-                    setIsOpen(false);
-                  }}
+                  onClick={() => handleFilterChange(option)}
                   className={`block w-full text-left px-3 py-1.5 text-[11px] hover:bg-bg-input transition-colors ${
                     filter === option
                       ? "text-accent"

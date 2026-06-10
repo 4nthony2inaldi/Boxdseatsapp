@@ -10,7 +10,6 @@ type Props = {
   userId: string;
   isOwner: boolean;
   isFollowing: boolean;
-  source: string;
 };
 
 export default function ListActions({
@@ -18,7 +17,6 @@ export default function ListActions({
   userId,
   isOwner,
   isFollowing: initialIsFollowing,
-  source,
 }: Props) {
   const router = useRouter();
   const [following, setFollowing] = useState(initialIsFollowing);

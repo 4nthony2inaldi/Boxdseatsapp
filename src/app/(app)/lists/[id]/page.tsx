@@ -84,7 +84,6 @@ export default async function ListDetailPage({
           userId={user.id}
           isOwner={isOwner}
           isFollowing={isFollowing}
-          source={list.source}
         />
       </div>
 

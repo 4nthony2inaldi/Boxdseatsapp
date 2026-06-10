@@ -1,3 +1,4 @@
+/* eslint-disable @next/next/no-img-element -- next/image cannot optimize blob: URLs / OG ImageResponse markup */
 import { ImageResponse } from "next/og";
 import { createClient } from "@/lib/supabase/server";
 import { fetchPublicEventLog } from "@/lib/queries/sharing";

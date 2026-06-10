@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import { useState, useRef } from "react";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
@@ -124,9 +125,11 @@ export default function ExploreSearch() {
                   >
                     <div className="w-9 h-9 rounded-full shrink-0 overflow-hidden">
                       {u.avatar_url ? (
-                        <img
+                        <Image
                           src={u.avatar_url}
                           alt={u.display_name || u.username}
+                          width={36}
+                          height={36}
                           className="w-full h-full object-cover"
                         />
                       ) : (

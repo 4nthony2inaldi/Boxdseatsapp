@@ -1,5 +1,6 @@
 "use client";
 
+/* eslint-disable @next/next/no-img-element -- next/image cannot optimize blob: URLs / OG ImageResponse markup */
 import { useRef, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { uploadAvatar, validateImageFile } from "@/lib/avatar";

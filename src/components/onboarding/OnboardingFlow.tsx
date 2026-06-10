@@ -35,7 +35,7 @@ export default function OnboardingFlow({
   const router = useRouter();
   const supabase = createClient();
 
-  async function handleFinish(skipFirstEvent = true) {
+  async function handleFinish() {
     setFinishing(true);
     try {
       // Mark venues as visited
@@ -43,7 +43,7 @@ export default function OnboardingFlow({
         await markVenuesVisited(supabase, userId, markedVenueIds);
       }
       // Mark onboarding complete
-      await completeOnboarding(supabase, userId);
+      await completeOnboarding(supabase);
       router.push("/profile");
       router.refresh();
     } catch {
