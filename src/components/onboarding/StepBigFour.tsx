@@ -9,6 +9,7 @@ import {
   searchEvents,
   updateBigFourAndSport,
 } from "@/lib/queries/onboarding";
+import { fetchLoggedEventChoices } from "@/lib/queries/bigfour";
 import SportIcon from "@/components/SportIcon";
 import { SPORTS_LIST } from "@/lib/sportIcons";
 
@@ -37,6 +38,7 @@ type SearchResult = { id: string; label: string; subtitle?: string };
 function SearchPicker({
   label,
   placeholder,
+  hint,
   selectedLabel,
   onSearch,
   onSelect,
@@ -44,6 +46,7 @@ function SearchPicker({
 }: {
   label: string;
   placeholder: string;
+  hint?: string;
   selectedLabel: string | null;
   onSearch: (q: string) => Promise<SearchResult[]>;
   onSelect: (id: string, label: string) => void;
@@ -81,6 +84,9 @@ function SearchPicker({
         <label className="font-display text-[11px] text-text-muted tracking-[1.2px] uppercase block mb-2">
           {label}
         </label>
+      {hint && (
+        <p className="text-[11px] text-text-muted -mt-1 mb-2">{hint}</p>
+      )}
         <div className="flex items-center gap-2 py-3 px-3.5 rounded-xl bg-bg-input border border-accent/30">
           <span className="flex-1 text-text-primary text-sm truncate">
             {selectedLabel}
@@ -296,17 +302,18 @@ export default function StepBigFour({
         }}
       />
 
-      {/* Event search */}
+      {/* Event search — favorite events come from your logged events */}
       <SearchPicker
         label="Favorite Event"
-        placeholder="Search events..."
+        placeholder="Filter your logged events..."
+        hint="Picked from events you've logged — you can set this anytime from your profile."
         selectedLabel={selectedLabels.event || null}
         onSearch={async (q) => {
-          const results = await searchEvents(supabase, q);
+          const results = await fetchLoggedEventChoices(supabase, userId, null, q);
           return results.map((e) => ({
             id: e.id,
             label: e.label,
-            subtitle: e.venue_name ? `${e.venue_name} · ${e.event_date}` : e.event_date,
+            subtitle: e.subtitle,
           }));
         }}
         onSelect={(id, label) => {

@@ -7,9 +7,12 @@ import {
   searchTeams,
   searchVenuesForOnboarding,
   searchAthletes,
-  searchEvents,
 } from "@/lib/queries/onboarding";
-import { upsertLeagueFavorite, setFeaturedFavorite } from "@/lib/queries/bigfour";
+import {
+  upsertLeagueFavorite,
+  setFeaturedFavorite,
+  fetchLoggedEventChoices,
+} from "@/lib/queries/bigfour";
 import SportIcon from "@/components/SportIcon";
 import { LEAGUES_LIST } from "@/lib/sportIcons";
 
@@ -40,9 +43,10 @@ export default function BigFourDrillThrough({
   const debounceRef = useRef<ReturnType<typeof setTimeout>>(undefined);
   const supabase = createClient();
 
-  async function handleSearch(q: string) {
+  async function handleSearch(q: string, leagueSlugOverride?: string) {
     setSearchQuery(q);
-    if (!q.trim()) {
+    // Event favorites list your logged events, so an empty query is valid
+    if (!q.trim() && category !== "event") {
       setSearchResults([]);
       return;
     }
@@ -72,11 +76,13 @@ export default function BigFourDrillThrough({
           subtitle: a.sport || undefined,
         }));
       } else if (category === "event") {
-        const events = await searchEvents(supabase, q);
+        // Favorite events are picked from events you've logged
+        const slug = leagueSlugOverride ?? editingLeagueSlug;
+        const events = await fetchLoggedEventChoices(supabase, userId, slug, q);
         results = events.map((e) => ({
           id: e.id,
           label: e.label,
-          subtitle: e.venue_name || undefined,
+          subtitle: e.subtitle,
         }));
       }
       setSearchResults(results);
@@ -184,6 +190,9 @@ export default function BigFourDrillThrough({
                     setSearchResults([]);
                   } else {
                     setEditingLeagueSlug(league.slug);
+                    if (category === "event") {
+                      handleSearch("", league.slug);
+                    }
                   }
                 }}
                 className="text-xs text-text-muted hover:text-accent transition-colors px-2 py-1"
@@ -199,7 +208,11 @@ export default function BigFourDrillThrough({
                     type="text"
                     value={searchQuery}
                     onChange={(e) => handleSearch(e.target.value)}
-                    placeholder={`Search ${category}s...`}
+                    placeholder={
+                      category === "event"
+                        ? "Filter your logged events..."
+                        : `Search ${category}s...`
+                    }
                     autoFocus
                     className="w-full py-2.5 px-3 rounded-lg bg-bg-input border border-border text-text-primary text-sm outline-none focus:border-accent transition-colors"
                   />
@@ -209,6 +222,15 @@ export default function BigFourDrillThrough({
                     </div>
                   )}
                 </div>
+                {category === "event" &&
+                  !searching &&
+                  searchResults.length === 0 && (
+                    <p className="mt-2 text-xs text-text-muted">
+                      {searchQuery.trim()
+                        ? "No logged events match."
+                        : `No logged ${league.name} events yet — your favorite event is picked from events you've logged.`}
+                    </p>
+                  )}
                 {searchResults.length > 0 && (
                   <div className="mt-1.5 rounded-lg bg-bg-elevated border border-border max-h-40 overflow-y-auto">
                     {searchResults.map((r) => (
