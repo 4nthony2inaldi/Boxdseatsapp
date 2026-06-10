@@ -22,6 +22,7 @@ type StepDetailsProps = {
   saving: boolean;
   isEditMode?: boolean;
   initialValues?: DetailsData;
+  existingPhotoUrl?: string | null;
   multiDayCount?: number;
 };
 
@@ -34,6 +35,7 @@ export type DetailsData = {
   companions: CompanionInput[];
   privacy: "show_all" | "hide_personal" | "hide_all";
   photo?: PhotoData | null;
+  removeExistingPhoto?: boolean;
 };
 
 export default function StepDetails({
@@ -47,6 +49,7 @@ export default function StepDetails({
   saving,
   isEditMode,
   initialValues,
+  existingPhotoUrl,
   multiDayCount,
 }: StepDetailsProps) {
   const [rating, setRating] = useState<number | null>(initialValues?.rating ?? null);
@@ -59,6 +62,7 @@ export default function StepDetails({
   >(initialValues?.privacy ?? "show_all");
   const [companions, setCompanions] = useState<CompanionInput[]>(initialValues?.companions ?? []);
   const [photo, setPhoto] = useState<PhotoData | null>(null);
+  const [removeExistingPhoto, setRemoveExistingPhoto] = useState(false);
   const [companionSearch, setCompanionSearch] = useState("");
   const [companionResults, setCompanionResults] = useState<UserSearchResult[]>(
     []
@@ -138,6 +142,7 @@ export default function StepDetails({
       companions,
       privacy,
       photo,
+      removeExistingPhoto,
     });
   };
 
@@ -337,6 +342,55 @@ export default function StepDetails({
           </div>
         )}
       </div>
+
+      {/* Current photo (edit mode) */}
+      {isEditMode && existingPhotoUrl && !removeExistingPhoto && !photo && (
+        <div className="mb-6">
+          <label className="font-display text-[11px] text-text-muted tracking-[1.2px] uppercase block mb-2">
+            Current Photo
+          </label>
+          <div className="relative rounded-xl overflow-hidden border border-border">
+            {/* eslint-disable-next-line @next/next/no-img-element -- transient storage URL with cache-busting param */}
+            <img
+              src={existingPhotoUrl}
+              alt="Current event photo"
+              className="w-full h-44 object-cover"
+            />
+            <button
+              onClick={() => setRemoveExistingPhoto(true)}
+              className="absolute top-2 right-2 flex items-center gap-1 bg-black/60 backdrop-blur-sm rounded-full px-2.5 py-1 text-[11px] text-white hover:bg-loss/80 transition-colors"
+            >
+              <svg
+                width="11"
+                height="11"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              >
+                <line x1="18" y1="6" x2="6" y2="18" />
+                <line x1="6" y1="6" x2="18" y2="18" />
+              </svg>
+              Remove
+            </button>
+          </div>
+        </div>
+      )}
+      {isEditMode && existingPhotoUrl && removeExistingPhoto && !photo && (
+        <div className="mb-6 flex items-center justify-between rounded-xl border border-border bg-bg-card px-4 py-3">
+          <span className="text-xs text-text-muted">
+            Photo will be removed when you save.
+          </span>
+          <button
+            onClick={() => setRemoveExistingPhoto(false)}
+            className="text-xs text-accent hover:underline"
+          >
+            Undo
+          </button>
+        </div>
+      )}
 
       {/* Photo */}
       <PhotoSection
