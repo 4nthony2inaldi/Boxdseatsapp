@@ -116,6 +116,28 @@ attended. Everything is idempotent and safe to re-run.
   `espn` (e.g. `{"espn": "401581097", "statsapi": "748266"}`) without schema
   changes.
 
+## Caveats / known data notes
+
+- ESPN reports historical games under a venue's **current** name (e.g. 2023
+  Astros games say "Daikin Park"). The seeder maps these onto the existing row
+  and stores the new branding as a `venue_alias`. When ESPN instead assigns a
+  **new venue id** across a rename (Red Bull Arena ⇄ Sports Illustrated
+  Stadium, Bercy ⇄ Accor Arena, Mexico City Arena ⇄ Arena CDMX), the curated
+  `KNOWN_VENUE_EQUIVALENTS` map in `seed-real-data.mjs` keeps them as one row —
+  extend it if validation or the run log shows a new duplicate building.
+- `KNOWN_TEAM_ALIASES` handles franchise rebrands ESPN can't be fuzzy-matched
+  on (currently Utah Mammoth → the seeded "Utah Hockey Club" row).
+- All-star exhibitions (NBA All-Star weekend, NFL Pro Bowl, MLB/NHL ASG, the
+  2025 4 Nations Face-Off) are excluded so fake "franchises" (Team LeBron,
+  AFC/NFC, national teams) never enter the teams table.
+- Hand-seeded events that correspond to real games are enriched with
+  `external_ids.espn`; hand-seeded events that don't match any real game
+  (fictional matchups) are left untouched and show up as non-`espn` rows in
+  the validation report.
+- A few legitimately new venue rows are created for special games (London /
+  Munich / São Paulo NFL games, Tokyo/Seoul MLB openers, Field of Dreams-style
+  one-offs, NHL outdoor games, the Coyotes' Mullett Arena, etc.).
+
 ## Validation
 
 `validate-data.mjs` hard-fails (exit 1) on: cross-league team references,
