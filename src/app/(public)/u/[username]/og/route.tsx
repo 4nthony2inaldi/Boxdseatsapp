@@ -144,7 +144,7 @@ export async function GET(
                 {displayName}
               </div>
               <div style={{ fontSize: 22, color: TEXT_MUTED, marginTop: 4 }}>
-                @{profile.username}
+                {`@${profile.username}`}
               </div>
               {profile.bio && (
                 <div
@@ -190,15 +190,15 @@ export async function GET(
               </div>
               <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
                 <span style={{ fontSize: 28, fontWeight: 700, color: WIN }}>
-                  {stats.wins}
+                  {String(stats.wins)}
                 </span>
                 <span style={{ fontSize: 20, color: TEXT_MUTED }}>{"\u2014"}</span>
                 <span style={{ fontSize: 28, fontWeight: 700, color: LOSS }}>
-                  {stats.losses}
+                  {String(stats.losses)}
                 </span>
                 <span style={{ fontSize: 20, color: TEXT_MUTED }}>{"\u2014"}</span>
                 <span style={{ fontSize: 28, fontWeight: 700, color: DRAW }}>
-                  {stats.draws}
+                  {String(stats.draws)}
                 </span>
               </div>
             </div>
@@ -238,7 +238,7 @@ export async function GET(
                     color: ACCENT,
                   }}
                 >
-                  {stat.value}
+                  {String(stat.value)}
                 </div>
                 <div
                   style={{
@@ -379,7 +379,7 @@ export async function GET(
             BOXDSEATS
           </div>
           <div style={{ fontSize: 16, color: TEXT_MUTED }}>
-            boxdseats.com/@{username}
+            {`boxdseats.com/@${username}`}
           </div>
         </div>
       </div>
