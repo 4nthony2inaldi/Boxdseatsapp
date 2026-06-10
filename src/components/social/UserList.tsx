@@ -4,15 +4,38 @@ import Image from "next/image";
 import { useState } from "react";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
-import { followUser, unfollowUser, type FollowUser } from "@/lib/queries/social";
+import {
+  followUser,
+  unfollowUser,
+  removeFollower,
+  type FollowUser,
+} from "@/lib/queries/social";
 
 type Props = {
   users: FollowUser[];
   currentUserId: string;
+  /** True on your own followers list — lets you remove a follower. */
+  allowRemove?: boolean;
 };
 
-export default function UserList({ users: initialUsers, currentUserId }: Props) {
+export default function UserList({
+  users: initialUsers,
+  currentUserId,
+  allowRemove = false,
+}: Props) {
   const [users, setUsers] = useState(initialUsers);
+  const [removingId, setRemovingId] = useState<string | null>(null);
+
+  const handleRemove = async (targetId: string) => {
+    if (removingId) return;
+    setRemovingId(targetId);
+    const supabase = createClient();
+    const result = await removeFollower(supabase, currentUserId, targetId);
+    if (!("error" in result)) {
+      setUsers((prev) => prev.filter((u) => u.id !== targetId));
+    }
+    setRemovingId(null);
+  };
 
   const handleToggleFollow = async (targetId: string) => {
     const user = users.find((u) => u.id === targetId);
@@ -107,6 +130,17 @@ export default function UserList({ users: initialUsers, currentUserId }: Props) 
             </div>
             <div className="text-xs text-text-muted">@{user.username}</div>
           </Link>
+
+          {/* Remove follower */}
+          {allowRemove && user.id !== currentUserId && (
+            <button
+              onClick={() => handleRemove(user.id)}
+              disabled={removingId === user.id}
+              className="rounded-lg px-2.5 py-1.5 text-xs text-text-muted bg-bg-elevated border border-border hover:text-loss hover:border-loss/30 disabled:opacity-50 transition-colors"
+            >
+              {removingId === user.id ? "..." : "Remove"}
+            </button>
+          )}
 
           {/* Follow button */}
           {user.id !== currentUserId && (

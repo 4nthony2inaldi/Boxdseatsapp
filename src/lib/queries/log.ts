@@ -766,3 +766,19 @@ export async function deleteEventLog(
 
   return { success: true };
 }
+
+// ── Which of these events has the user already logged? ──
+
+export async function fetchLoggedEventIds(
+  supabase: SupabaseClient,
+  userId: string,
+  eventIds: string[]
+): Promise<Set<string>> {
+  if (eventIds.length === 0) return new Set();
+  const { data } = await supabase
+    .from("event_logs")
+    .select("event_id")
+    .eq("user_id", userId)
+    .in("event_id", eventIds);
+  return new Set((data || []).map((row) => row.event_id as string));
+}

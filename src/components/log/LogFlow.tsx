@@ -501,6 +501,7 @@ export default function LogFlow({ userId, prefillVenue, editLog }: LogFlowProps)
 
       {step === 3 && selectedVenue && selectedDate && (
         <StepEvent
+          userId={userId}
           venueId={selectedVenue.id}
           venueName={selectedVenue.name}
           date={selectedDate}

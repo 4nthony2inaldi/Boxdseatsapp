@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { createClient } from "@/lib/supabase/client";
 import {
   findEventsAtVenueOnDate,
+  fetchLoggedEventIds,
   fetchTournamentDays,
   type EventMatch,
   type ManualTeamScore,
@@ -20,6 +21,7 @@ export type ManualEntryData = {
 };
 
 type StepEventProps = {
+  userId: string;
   venueId: string;
   venueName: string;
   date: string; // YYYY-MM-DD
@@ -29,6 +31,7 @@ type StepEventProps = {
 };
 
 export default function StepEvent({
+  userId,
   venueId,
   venueName,
   date,
@@ -37,6 +40,7 @@ export default function StepEvent({
   onBack,
 }: StepEventProps) {
   const [events, setEvents] = useState<EventMatch[]>([]);
+  const [loggedIds, setLoggedIds] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(true);
   const [showManual, setShowManual] = useState(false);
   const [manualTitle, setManualTitle] = useState("");
@@ -63,11 +67,17 @@ export default function StepEvent({
     async function load() {
       const supabase = createClient();
       const results = await findEventsAtVenueOnDate(supabase, venueId, date);
+      const logged = await fetchLoggedEventIds(
+        supabase,
+        userId,
+        results.map((r) => r.id)
+      );
       setEvents(results);
+      setLoggedIds(logged);
       setLoading(false);
     }
     load();
-  }, [venueId, date]);
+  }, [venueId, date, userId]);
 
   // Handle clicking a tournament/multi-day event
   const handleTournamentClick = async (event: EventMatch) => {
@@ -272,16 +282,22 @@ export default function StepEvent({
               : null;
 
           const isMultiDay = !!event.tournament_id;
+          const alreadyLogged = !isMultiDay && loggedIds.has(event.id);
 
           return (
             <button
               key={event.id}
+              disabled={alreadyLogged}
               onClick={() =>
                 isMultiDay
                   ? handleTournamentClick(event)
                   : onSelect(event)
               }
-              className="w-full bg-bg-card rounded-[14px] border border-border p-4 cursor-pointer text-left mb-3 hover:border-accent/50 transition-colors"
+              className={`w-full bg-bg-card rounded-[14px] border p-4 text-left mb-3 transition-colors ${
+                alreadyLogged
+                  ? "border-win/30 opacity-70 cursor-default"
+                  : "border-border cursor-pointer hover:border-accent/50"
+              }`}
             >
               <div className="flex items-center gap-2 mb-2">
                 <SportIcon src={leagueData?.icon || event.sport_icon} sport={event.sport} size={22} />
@@ -294,6 +310,11 @@ export default function StepEvent({
                 {isMultiDay && (
                   <span className="text-[10px] text-text-muted bg-bg-input px-1.5 py-0.5 rounded-full">
                     Multi-day
+                  </span>
+                )}
+                {alreadyLogged && (
+                  <span className="ml-auto shrink-0 text-[10px] font-display tracking-wider uppercase text-win border border-win/30 bg-win/10 rounded-full px-2 py-0.5">
+                    Logged ✓
                   </span>
                 )}
               </div>
