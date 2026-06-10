@@ -69,7 +69,7 @@ export default async function UserTimelinePage({ params }: Props) {
           {profile.display_name || profile.username}&apos;s Events
         </h1>
       </div>
-      <Timeline initialEntries={timelineEntries} initialHasMore={hasMore} userId={profile.id} />
+      <Timeline initialEntries={timelineEntries} initialHasMore={hasMore} userId={profile.id} viewerId={user.id} />
     </div>
   );
 }

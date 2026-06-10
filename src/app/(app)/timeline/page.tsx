@@ -44,7 +44,7 @@ export default async function TimelinePage() {
           Logged Events
         </h1>
       </div>
-      <Timeline initialEntries={timelineEntries} initialHasMore={hasMore} userId={user.id} canEdit />
+      <Timeline initialEntries={timelineEntries} initialHasMore={hasMore} userId={user.id} viewerId={user.id} canEdit />
     </div>
   );
 }

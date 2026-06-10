@@ -43,7 +43,7 @@ export default async function FollowersPage() {
           Followers
         </h1>
       </div>
-      <UserList users={followers} currentUserId={user.id} />
+      <UserList users={followers} currentUserId={user.id} allowRemove />
     </div>
   );
 }

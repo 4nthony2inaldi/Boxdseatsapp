@@ -812,3 +812,20 @@ export async function fetchBlockedUsers(
 
   return (profiles || []) as BlockedUser[];
 }
+
+// ── Remove one of your followers (without blocking them) ──
+
+export async function removeFollower(
+  supabase: SupabaseClient,
+  currentUserId: string,
+  followerId: string
+): Promise<{ success: boolean } | { error: string }> {
+  const { error } = await supabase
+    .from("follows")
+    .delete()
+    .eq("follower_id", followerId)
+    .eq("following_id", currentUserId);
+
+  if (error) return { error: "Failed to remove follower." };
+  return { success: true };
+}

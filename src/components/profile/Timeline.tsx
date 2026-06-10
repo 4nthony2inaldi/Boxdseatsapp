@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, useRef } from "react";
+import { useState, useCallback, useRef, useEffect } from "react";
 import type { TimelineEntry } from "@/lib/queries/profile";
 import { LEAGUES } from "@/lib/constants";
 import SectionLabel from "./SectionLabel";
@@ -8,6 +8,7 @@ import TimelineCard from "../TimelineCard";
 import { SkeletonTimelineCard } from "../Skeleton";
 import { useInfiniteScroll } from "@/hooks/useInfiniteScroll";
 import { createClient } from "@/lib/supabase/client";
+import { toggleLike } from "@/lib/queries/social";
 
 const PAGE_SIZE = 20;
 
@@ -15,13 +16,15 @@ type TimelineProps = {
   initialEntries: TimelineEntry[];
   initialHasMore: boolean;
   userId: string;
+  /** The signed-in viewer (may differ from userId on other profiles). */
+  viewerId?: string;
   /** True on the user's own timeline — shows edit affordances. */
   canEdit?: boolean;
 };
 
 const leagueOptions = ["All", ...Object.keys(LEAGUES)];
 
-export default function Timeline({ initialEntries, initialHasMore, userId, canEdit = false }: TimelineProps) {
+export default function Timeline({ initialEntries, initialHasMore, userId, viewerId, canEdit = false }: TimelineProps) {
   const [filter, setFilter] = useState("All");
   const [entries, setEntries] = useState(initialEntries);
   const [hasMore, setHasMore] = useState(initialHasMore);
@@ -31,6 +34,73 @@ export default function Timeline({ initialEntries, initialHasMore, userId, canEd
 
   // Incremented on each filter change so stale fetches can be ignored.
   const filterRequestRef = useRef(0);
+
+  // Viewer's liked entries; checkedIds tracks which entries we've looked up.
+  const [likedIds, setLikedIds] = useState<Set<string>>(new Set());
+  const checkedIdsRef = useRef<Set<string>>(new Set());
+
+  useEffect(() => {
+    if (!viewerId) return;
+    const unchecked = entries
+      .map((e) => e.id)
+      .filter((id) => !checkedIdsRef.current.has(id));
+    if (unchecked.length === 0) return;
+    for (const id of unchecked) checkedIdsRef.current.add(id);
+
+    const supabase = createClient();
+    supabase
+      .from("likes")
+      .select("event_log_id")
+      .eq("user_id", viewerId)
+      .in("event_log_id", unchecked)
+      .then(({ data }) => {
+        if (!data || data.length === 0) return;
+        setLikedIds((prev) => {
+          const next = new Set(prev);
+          for (const row of data) next.add(row.event_log_id as string);
+          return next;
+        });
+      });
+  }, [entries, viewerId]);
+
+  const handleLike = async (entryId: string) => {
+    if (!viewerId) return;
+    const currentlyLiked = likedIds.has(entryId);
+
+    // Optimistic update
+    setLikedIds((prev) => {
+      const next = new Set(prev);
+      if (currentlyLiked) next.delete(entryId);
+      else next.add(entryId);
+      return next;
+    });
+    setEntries((prev) =>
+      prev.map((e) =>
+        e.id === entryId
+          ? { ...e, like_count: e.like_count + (currentlyLiked ? -1 : 1) }
+          : e
+      )
+    );
+
+    const supabase = createClient();
+    const result = await toggleLike(supabase, viewerId, entryId, currentlyLiked);
+    if ("error" in result) {
+      // Revert
+      setLikedIds((prev) => {
+        const next = new Set(prev);
+        if (currentlyLiked) next.add(entryId);
+        else next.delete(entryId);
+        return next;
+      });
+      setEntries((prev) =>
+        prev.map((e) =>
+          e.id === entryId
+            ? { ...e, like_count: e.like_count + (currentlyLiked ? 1 : -1) }
+            : e
+        )
+      );
+    }
+  };
 
   async function handleFilterChange(option: string) {
     setFilter(option);
@@ -269,6 +339,8 @@ export default function Timeline({ initialEntries, initialHasMore, userId, canEd
                 key={entry.id}
                 entry={entry}
                 editHref={canEdit ? `/log?edit=${entry.id}` : null}
+                liked={likedIds.has(entry.id)}
+                onLike={viewerId ? handleLike : undefined}
               />
             ))}
           </div>
