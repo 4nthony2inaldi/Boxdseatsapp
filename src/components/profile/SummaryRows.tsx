@@ -36,7 +36,9 @@ export default function SummaryRows({
         <SummaryRow
           label="Want to Visit"
           total={counts.wantToVisit}
-          href="/lists/want-to-visit"
+          href={
+            basePath ? `${basePath}/want-to-visit` : "/lists/want-to-visit"
+          }
         />
       </div>
     </div>

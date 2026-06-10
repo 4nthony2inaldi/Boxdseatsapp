@@ -38,7 +38,8 @@ export default function ExploreSearch() {
     results &&
     (results.users.length > 0 ||
       results.venues.length > 0 ||
-      results.teams.length > 0);
+      results.teams.length > 0 ||
+      results.lists.length > 0);
 
   const noResults = results && !hasResults;
 
@@ -64,7 +65,7 @@ export default function ExploreSearch() {
           type="text"
           value={query}
           onChange={(e) => handleChange(e.target.value)}
-          placeholder="Search users, venues, teams..."
+          placeholder="Search users, venues, teams, lists..."
           className="w-full bg-bg-input rounded-xl border border-border pl-9 pr-4 py-3 text-sm text-text-primary placeholder:text-text-muted focus:outline-none focus:border-accent transition-colors"
         />
         {query && (
@@ -106,7 +107,7 @@ export default function ExploreSearch() {
 
       {!loading && !query && (
         <div className="text-center text-text-muted text-sm py-12">
-          Search for users, venues, or teams to explore.
+          Search for users, venues, teams, or lists to explore.
         </div>
       )}
 
@@ -205,9 +206,10 @@ export default function ExploreSearch() {
               <SectionLabel>Teams</SectionLabel>
               <div className="space-y-1">
                 {results.teams.map((t) => (
-                  <div
+                  <Link
                     key={t.id}
-                    className="flex items-center gap-3 py-2.5 px-2"
+                    href={`/team/${t.id}`}
+                    className="flex items-center gap-3 py-2.5 px-2 hover:bg-bg-card/50 rounded-lg transition-colors"
                   >
                     <div className="w-9 h-9 rounded-lg bg-bg-elevated flex items-center justify-center shrink-0">
                       <SportIcon src={t.league_icon} size={22} />
@@ -220,7 +222,55 @@ export default function ExploreSearch() {
                         {t.league_name || ""}
                       </div>
                     </div>
-                  </div>
+                  </Link>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Lists */}
+          {results.lists.length > 0 && (
+            <div>
+              <SectionLabel>Lists</SectionLabel>
+              <div className="space-y-1">
+                {results.lists.map((l) => (
+                  <Link
+                    key={l.id}
+                    href={`/lists/${l.id}`}
+                    className="flex items-center gap-3 py-2.5 px-2 hover:bg-bg-card/50 rounded-lg transition-colors"
+                  >
+                    <div className="w-9 h-9 rounded-lg bg-bg-elevated flex items-center justify-center shrink-0">
+                      <svg
+                        width="18"
+                        height="18"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="var(--color-accent)"
+                        strokeWidth="2"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      >
+                        <line x1="8" y1="6" x2="21" y2="6" />
+                        <line x1="8" y1="12" x2="21" y2="12" />
+                        <line x1="8" y1="18" x2="21" y2="18" />
+                        <line x1="3" y1="6" x2="3.01" y2="6" />
+                        <line x1="3" y1="12" x2="3.01" y2="12" />
+                        <line x1="3" y1="18" x2="3.01" y2="18" />
+                      </svg>
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="text-sm text-text-primary font-medium truncate">
+                        {l.name}
+                      </div>
+                      <div className="text-xs text-text-muted">
+                        {l.item_count} {l.item_count === 1 ? "item" : "items"}
+                        {l.source === "user" &&
+                          (l.creator_display_name || l.creator_username) &&
+                          ` · by ${l.creator_display_name || l.creator_username}`}
+                        {l.source === "system" && " · Challenge"}
+                      </div>
+                    </div>
+                  </Link>
                 ))}
               </div>
             </div>

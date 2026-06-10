@@ -34,9 +34,17 @@ export default async function ListDetailPage({
     );
   }
 
-  const [items, isFollowing] = await Promise.all([
+  const [items, isFollowing, forkedFromList] = await Promise.all([
     fetchListItems(supabase, id, user.id, list.list_type),
     checkListFollow(supabase, user.id, id),
+    list.forked_from
+      ? supabase
+          .from("lists")
+          .select("id, name")
+          .eq("id", list.forked_from)
+          .maybeSingle()
+          .then(({ data }) => data)
+      : Promise.resolve(null),
   ]);
 
   const isOwner = list.created_by === user.id;
@@ -74,6 +82,30 @@ export default async function ListDetailPage({
               </span>
             )}
           </div>
+          {forkedFromList && (
+            <Link
+              href={`/lists/${forkedFromList.id}`}
+              className="inline-flex items-center gap-1 text-[11px] text-text-muted hover:text-accent transition-colors mt-0.5"
+            >
+              <svg
+                width="11"
+                height="11"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              >
+                <circle cx="6" cy="6" r="3" />
+                <circle cx="6" cy="18" r="3" />
+                <circle cx="18" cy="12" r="3" />
+                <path d="M9 6h6a3 3 0 0 1 3 3v0" />
+                <path d="M9 18h6a3 3 0 0 0 3-3v0" />
+              </svg>
+              Forked from {forkedFromList.name}
+            </Link>
+          )}
         </div>
       </div>
 

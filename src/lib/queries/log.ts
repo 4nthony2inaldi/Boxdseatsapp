@@ -132,15 +132,38 @@ export async function searchVenues(
   const trimmed = query.trim();
   if (!trimmed) return [];
 
-  const { data: venues } = await supabase
-    .from("venues")
-    .select("id, name, city, state")
-    .ilike("name", `%${trimmed}%`)
-    .eq("status", "active")
-    .order("name")
-    .limit(20);
+  const [nameRes, aliasRes] = await Promise.all([
+    supabase
+      .from("venues")
+      .select("id, name, city, state")
+      .ilike("name", `%${trimmed}%`)
+      .eq("status", "active")
+      .order("name")
+      .limit(20),
+    // Historical names too (e.g. "Staples Center" -> Crypto.com Arena)
+    supabase
+      .from("venue_aliases")
+      .select("venue_id")
+      .ilike("alias_name", `%${trimmed}%`)
+      .limit(10),
+  ]);
 
-  if (!venues || venues.length === 0) return [];
+  let venues = nameRes.data || [];
+
+  const aliasVenueIds = (aliasRes.data || [])
+    .map((a) => a.venue_id as string)
+    .filter((id) => !venues.some((v) => v.id === id));
+
+  if (aliasVenueIds.length > 0) {
+    const { data: aliasVenues } = await supabase
+      .from("venues")
+      .select("id, name, city, state")
+      .in("id", aliasVenueIds)
+      .eq("status", "active");
+    venues = [...venues, ...(aliasVenues || [])];
+  }
+
+  if (venues.length === 0) return [];
 
   // Get user's visit counts for these venues
   const venueIds = venues.map((v) => v.id);

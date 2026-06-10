@@ -231,7 +231,24 @@ export async function checkAndAwardBadges(
         .in("id", Array.from(followedIds))
     : { data: [] };
 
-  const allLists = [...(systemLists || []), ...(followedUserLists || [])];
+  // Lists the user created also count toward badges
+  const { data: ownLists } = await supabase
+    .from("lists")
+    .select("id, name, sport, item_count, list_type, source")
+    .eq("source", "user")
+    .eq("created_by", userId);
+
+  const combined = [
+    ...(systemLists || []),
+    ...(followedUserLists || []),
+    ...(ownLists || []),
+  ];
+  const seenIds = new Set<string>();
+  const allLists = combined.filter((l) => {
+    if (seenIds.has(l.id)) return false;
+    seenIds.add(l.id);
+    return true;
+  });
   if (allLists.length === 0) return [];
 
   // Get existing badges
