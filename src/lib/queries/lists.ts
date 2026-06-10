@@ -201,6 +201,23 @@ export async function fetchListItems(
       visited: item.venue_id ? visitedSet.has(item.venue_id) : false,
     }));
   } else if (listType === "event") {
+    // Resolve each tag to the venue of its most recent event, so unchecked
+    // items can link somewhere actionable (the venue's Log CTA)
+    const tags = items.map((i) => i.event_tag).filter(Boolean) as string[];
+    const tagVenue = new Map<string, string>();
+    if (tags.length > 0) {
+      const { data: tagEvents } = await supabase
+        .from("events")
+        .select("venue_id, event_tags, event_date")
+        .overlaps("event_tags", tags)
+        .order("event_date", { ascending: false })
+        .limit(200);
+      for (const ev of tagEvents || []) {
+        for (const t of (ev.event_tags as string[]) || []) {
+          if (tags.includes(t) && !tagVenue.has(t)) tagVenue.set(t, ev.venue_id);
+        }
+      }
+    }
     // Get user's event tags
     const { data: userEvents } = await supabase
       .from("event_logs")
@@ -220,7 +237,7 @@ export async function fetchListItems(
 
     return items.map((item) => ({
       id: item.id,
-      venue_id: item.venue_id,
+      venue_id: item.venue_id ?? (item.event_tag ? tagVenue.get(item.event_tag) ?? null : null),
       event_tag: item.event_tag,
       display_name: item.display_name,
       display_order: item.display_order,
