@@ -1,3 +1,4 @@
+/* eslint-disable @next/next/no-img-element -- next/image cannot optimize blob: URLs / OG ImageResponse markup */
 import { ImageResponse } from "next/og";
 import { createClient } from "@/lib/supabase/server";
 import { fetchProfileStats, fetchBigFour } from "@/lib/queries/profile";
@@ -386,6 +387,11 @@ export async function GET(
     {
       width: 1200,
       height: 630,
+      headers: {
+        // Cache at the edge for an hour; serve stale while revalidating
+        "Cache-Control":
+          "public, max-age=3600, s-maxage=3600, stale-while-revalidate=86400",
+      },
     }
   );
 }

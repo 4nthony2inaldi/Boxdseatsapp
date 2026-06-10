@@ -11,8 +11,8 @@ import { processClosedVoting } from "@/lib/queries/coverPhotos";
  *
  * Requires the CRON_SECRET header for authentication.
  */
-export async function POST(request: Request) {
-  // Verify cron secret
+async function handleCronRequest(request: Request) {
+  // Verify cron secret (Vercel Cron sends Authorization: Bearer CRON_SECRET)
   const authHeader = request.headers.get("authorization");
   const cronSecret = process.env.CRON_SECRET;
 
@@ -31,4 +31,13 @@ export async function POST(request: Request) {
     success: true,
     ...result,
   });
+}
+
+export async function POST(request: Request) {
+  return handleCronRequest(request);
+}
+
+// Vercel Cron invokes endpoints with GET
+export async function GET(request: Request) {
+  return handleCronRequest(request);
 }

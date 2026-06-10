@@ -140,6 +140,37 @@ export async function updateEventLogPhoto(
 }
 
 /**
+ * Remove a photo from an event log: clears metadata and deletes the file.
+ */
+export async function removeEventLogPhoto(
+  supabase: SupabaseClient,
+  eventLogId: string,
+  userId: string
+): Promise<{ success: boolean } | { error: string }> {
+  const { error } = await supabase
+    .from("event_logs")
+    .update({
+      photo_url: null,
+      photo_capture_method: null,
+      photo_captured_at: null,
+      photo_is_verified: false,
+    })
+    .eq("id", eventLogId)
+    .eq("user_id", userId);
+
+  if (error) {
+    return { error: "Failed to remove photo." };
+  }
+
+  // Best effort: delete the stored file
+  await supabase.storage
+    .from("event-photos")
+    .remove([`${userId}/${eventLogId}.jpg`]);
+
+  return { success: true };
+}
+
+/**
  * Determine if a photo qualifies as verified.
  * Verified = captured via camera AND within the event window
  * (3 hours before event start through 3 hours after event end).

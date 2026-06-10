@@ -1,3 +1,4 @@
+import Image from "next/image";
 import type { Metadata } from "next";
 import { createClient } from "@/lib/supabase/server";
 import { fetchEventDetail } from "@/lib/queries/event";
@@ -219,9 +220,11 @@ export default async function PublicEventLogPage({ params }: Props) {
           >
             <div className="w-10 h-10 rounded-full shrink-0 overflow-hidden">
               {logEntry.author_avatar_url ? (
-                <img
+                <Image
                   src={logEntry.author_avatar_url}
                   alt={logEntry.author_username}
+                  width={40}
+                  height={40}
                   className="w-full h-full object-cover"
                 />
               ) : (

@@ -5,6 +5,7 @@ import {
   fetchNotifications,
   markNotificationsRead,
 } from "@/lib/queries/notifications";
+import { fetchPendingRequesterIds } from "@/lib/queries/social";
 import NotificationList from "@/components/notifications/NotificationList";
 
 export default async function NotificationsPage() {
@@ -15,7 +16,10 @@ export default async function NotificationsPage() {
 
   if (!user) redirect("/login");
 
-  const notifications = await fetchNotifications(supabase, user.id);
+  const [notifications, pendingRequesterIds] = await Promise.all([
+    fetchNotifications(supabase, user.id),
+    fetchPendingRequesterIds(supabase, user.id),
+  ]);
 
   // Mark all unread notifications as read on view
   const unreadIds = notifications
@@ -38,7 +42,11 @@ export default async function NotificationsPage() {
           Notifications
         </h1>
       </div>
-      <NotificationList notifications={notifications} />
+      <NotificationList
+        notifications={notifications}
+        currentUserId={user.id}
+        pendingRequesterIds={pendingRequesterIds}
+      />
     </div>
   );
 }

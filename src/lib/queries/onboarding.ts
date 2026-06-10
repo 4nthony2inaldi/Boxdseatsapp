@@ -231,8 +231,7 @@ export async function markVenuesVisited(
 // ── Mark onboarding complete ──
 
 export async function completeOnboarding(
-  supabase: SupabaseClient,
-  userId: string
+  supabase: SupabaseClient
 ): Promise<void> {
   // We use the presence of display_name or fav_sport as indicators
   // that onboarding has been done, but also set a metadata flag

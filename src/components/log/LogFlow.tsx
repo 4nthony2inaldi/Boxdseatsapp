@@ -11,7 +11,7 @@ import {
   type EditableEventLog,
 } from "@/lib/queries/log";
 import type { BadgeData } from "@/lib/queries/badges";
-import { uploadEventPhoto, updateEventLogPhoto, isPhotoVerified } from "@/lib/photos";
+import { uploadEventPhoto, updateEventLogPhoto, removeEventLogPhoto, isPhotoVerified } from "@/lib/photos";
 import { ensureVotingWindow } from "@/lib/queries/coverPhotos";
 import StepVenue from "./StepVenue";
 import StepDate from "./StepDate";
@@ -249,6 +249,11 @@ export default function LogFlow({ userId, prefillVenue, editLog }: LogFlowProps)
     } else {
       const eventLogId = result.id;
 
+      // Remove the existing photo if requested in edit mode
+      if (isEditMode && details.removeExistingPhoto && editLog?.photo_url) {
+        await removeEventLogPhoto(supabase, eventLogId, userId);
+      }
+
       // Upload photo if provided
       if (details.photo) {
         const photoResult = await uploadEventPhoto(
@@ -483,6 +488,7 @@ export default function LogFlow({ userId, prefillVenue, editLog }: LogFlowProps)
           onBack={() => setStep(3)}
           saving={saving}
           isEditMode={isEditMode}
+          existingPhotoUrl={editLog?.photo_url ?? null}
           initialValues={
             editLog
               ? {

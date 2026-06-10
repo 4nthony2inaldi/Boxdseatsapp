@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect } from "react";
 import { createClient } from "@/lib/supabase/client";
 import {
   checkUsernameAvailable,
@@ -25,42 +25,45 @@ export default function StepAccount({
   onDisplayNameChange,
   onNext,
 }: StepAccountProps) {
-  const [usernameStatus, setUsernameStatus] = useState<
-    "idle" | "checking" | "available" | "taken" | "invalid"
-  >("idle");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // Result of the most recent completed availability check.
+  const [lastCheck, setLastCheck] = useState<{
+    name: string;
+    available: boolean;
+  } | null>(null);
   const supabase = createClient();
-  const debounceRef = useRef<ReturnType<typeof setTimeout>>(undefined);
-  const initialUsername = useRef(username);
+  // Capture the username from the first render to detect edits.
+  const [initialUsername] = useState(username);
+
+  const trimmed = username.trim().toLowerCase();
+  const syntaxValid = trimmed.length >= 3 && /^[a-z0-9_]+$/.test(trimmed);
+  const isUnchanged = trimmed === initialUsername;
+
+  const usernameStatus: "idle" | "checking" | "available" | "taken" | "invalid" =
+    !trimmed
+      ? "idle"
+      : !syntaxValid
+        ? "invalid"
+        : isUnchanged
+          ? "available"
+          : lastCheck?.name === trimmed
+            ? lastCheck.available
+              ? "available"
+              : "taken"
+            : "checking";
 
   useEffect(() => {
-    const trimmed = username.trim().toLowerCase();
-    if (!trimmed || trimmed.length < 3) {
-      setUsernameStatus(trimmed.length > 0 ? "invalid" : "idle");
-      return;
-    }
-    if (!/^[a-z0-9_]+$/.test(trimmed)) {
-      setUsernameStatus("invalid");
-      return;
-    }
-    // If unchanged from initial, don't check
-    if (trimmed === initialUsername.current) {
-      setUsernameStatus("available");
-      return;
-    }
+    if (!syntaxValid || isUnchanged) return;
+    if (lastCheck?.name === trimmed) return;
 
-    setUsernameStatus("checking");
-    if (debounceRef.current) clearTimeout(debounceRef.current);
-    debounceRef.current = setTimeout(async () => {
+    const timer = setTimeout(async () => {
       const available = await checkUsernameAvailable(supabase, trimmed, userId);
-      setUsernameStatus(available ? "available" : "taken");
+      setLastCheck({ name: trimmed, available });
     }, 400);
 
-    return () => {
-      if (debounceRef.current) clearTimeout(debounceRef.current);
-    };
-  }, [username, userId, supabase]);
+    return () => clearTimeout(timer);
+  }, [trimmed, syntaxValid, isUnchanged, lastCheck, userId, supabase]);
 
   async function handleNext() {
     const trimmedUsername = username.trim().toLowerCase();
@@ -77,7 +80,7 @@ export default function StepAccount({
     setError(null);
 
     const updates: { username?: string; display_name?: string } = {};
-    if (trimmedUsername !== initialUsername.current) {
+    if (trimmedUsername !== initialUsername) {
       updates.username = trimmedUsername;
     }
     if (displayName.trim()) {
@@ -99,7 +102,7 @@ export default function StepAccount({
 
   const usernameValid =
     usernameStatus === "available" ||
-    (username.trim().toLowerCase() === initialUsername.current &&
+    (username.trim().toLowerCase() === initialUsername &&
       username.trim().length >= 3);
 
   return (

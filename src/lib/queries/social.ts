@@ -78,10 +78,21 @@ export type SearchResultTeam = {
   league_icon: string | null;
 };
 
+export type SearchResultList = {
+  type: "list";
+  id: string;
+  name: string;
+  item_count: number;
+  source: string;
+  creator_username: string | null;
+  creator_display_name: string | null;
+};
+
 export type SearchResults = {
   users: SearchResultUser[];
   venues: SearchResultVenue[];
   teams: SearchResultTeam[];
+  lists: SearchResultList[];
 };
 
 export type FeedPage = {
@@ -507,11 +518,11 @@ export async function searchAll(
   limit = 8
 ): Promise<SearchResults> {
   const q = query.trim();
-  if (!q) return { users: [], venues: [], teams: [] };
+  if (!q) return { users: [], venues: [], teams: [], lists: [] };
 
   const pattern = `%${q}%`;
 
-  const [usersRes, venuesRes, teamsRes] = await Promise.all([
+  const [usersRes, venuesRes, teamsRes, listsRes, aliasRes] = await Promise.all([
     // Search users by username or display_name
     supabase
       .from("profiles")
@@ -533,7 +544,36 @@ export async function searchAll(
       .select("id, name, short_name, leagues(name, slug)")
       .or(`name.ilike.${pattern},short_name.ilike.${pattern}`)
       .limit(limit),
+
+    // Search lists by name (RLS limits visibility to public/system lists)
+    supabase
+      .from("lists")
+      .select("id, name, item_count, source, profiles!lists_created_by_fkey(username, display_name)")
+      .ilike("name", pattern)
+      .limit(limit),
+
+    // Historical venue names (e.g. "Staples Center" -> Crypto.com Arena)
+    supabase
+      .from("venue_aliases")
+      .select("venue_id")
+      .ilike("alias_name", pattern)
+      .limit(limit),
   ]);
+
+  // Merge alias matches into venue results
+  let venueRows = venuesRes.data || [];
+  const aliasIds = (aliasRes.data || [])
+    .map((a) => a.venue_id as string)
+    .filter((vid) => !venueRows.some((v) => v.id === vid));
+  if (aliasIds.length > 0 && venueRows.length < limit) {
+    const { data: aliasVenues } = await supabase
+      .from("venues")
+      .select("id, name, city, state")
+      .in("id", aliasIds)
+      .eq("status", "active")
+      .limit(limit - venueRows.length);
+    venueRows = [...venueRows, ...(aliasVenues || [])];
+  }
 
   const LEAGUE_ICONS: Record<string, string> = {
     nfl: "/football.svg",
@@ -553,7 +593,7 @@ export async function searchAll(
       display_name: u.display_name,
       avatar_url: u.avatar_url,
     })),
-    venues: (venuesRes.data || []).map((v) => ({
+    venues: venueRows.map((v) => ({
       type: "venue" as const,
       id: v.id,
       name: v.name,
@@ -572,6 +612,21 @@ export async function searchAll(
         short_name: t.short_name,
         league_name: league?.name || null,
         league_icon: league?.slug ? LEAGUE_ICONS[league.slug] || null : null,
+      };
+    }),
+    lists: (listsRes.data || []).map((l) => {
+      const creator = l.profiles as unknown as {
+        username: string;
+        display_name: string | null;
+      } | null;
+      return {
+        type: "list" as const,
+        id: l.id,
+        name: l.name,
+        item_count: l.item_count,
+        source: l.source,
+        creator_username: creator?.username || null,
+        creator_display_name: creator?.display_name || null,
       };
     }),
   };
@@ -694,4 +749,66 @@ export async function fetchUserProfileByUsername(
     .single();
 
   return data;
+}
+
+// ── Decline (or cancel) a pending follow request ──
+
+export async function declineFollowRequest(
+  supabase: SupabaseClient,
+  currentUserId: string,
+  requesterId: string
+): Promise<{ success: boolean } | { error: string }> {
+  const { error } = await supabase
+    .from("follows")
+    .delete()
+    .eq("follower_id", requesterId)
+    .eq("following_id", currentUserId)
+    .eq("status", "pending");
+
+  if (error) return { error: "Failed to decline request." };
+  return { success: true };
+}
+
+// ── IDs of users with a pending follow request to the current user ──
+
+export async function fetchPendingRequesterIds(
+  supabase: SupabaseClient,
+  userId: string
+): Promise<string[]> {
+  const { data } = await supabase
+    .from("follows")
+    .select("follower_id")
+    .eq("following_id", userId)
+    .eq("status", "pending");
+
+  return (data || []).map((row) => row.follower_id as string);
+}
+
+// ── Users the current user has blocked ──
+
+export type BlockedUser = {
+  id: string;
+  username: string;
+  display_name: string | null;
+  avatar_url: string | null;
+};
+
+export async function fetchBlockedUsers(
+  supabase: SupabaseClient,
+  userId: string
+): Promise<BlockedUser[]> {
+  const { data: blocks } = await supabase
+    .from("blocks")
+    .select("blocked_id")
+    .eq("blocker_id", userId);
+
+  const blockedIds = (blocks || []).map((b) => b.blocked_id as string);
+  if (blockedIds.length === 0) return [];
+
+  const { data: profiles } = await supabase
+    .from("profiles")
+    .select("id, username, display_name, avatar_url")
+    .in("id", blockedIds);
+
+  return (profiles || []) as BlockedUser[];
 }

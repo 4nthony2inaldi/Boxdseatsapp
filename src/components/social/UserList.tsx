@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import { useState } from "react";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
@@ -76,9 +77,11 @@ export default function UserList({ users: initialUsers, currentUserId }: Props) 
             className="w-10 h-10 rounded-full shrink-0 overflow-hidden"
           >
             {user.avatar_url ? (
-              <img
+              <Image
                 src={user.avatar_url}
                 alt={user.display_name || user.username}
+                width={40}
+                height={40}
                 className="w-full h-full object-cover"
               />
             ) : (

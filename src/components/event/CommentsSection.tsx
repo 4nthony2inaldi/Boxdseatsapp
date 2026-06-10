@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import { useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { postComment, deleteComment, type EventComment } from "@/lib/queries/event";
@@ -111,9 +112,11 @@ export default function CommentsSection({ eventLogId, userId, logOwnerId, initia
                 {/* Avatar */}
                 <div className="w-7 h-7 rounded-full shrink-0 overflow-hidden mt-0.5">
                   {comment.avatar_url ? (
-                    <img
+                    <Image
                       src={comment.avatar_url}
                       alt={comment.username}
+                      width={28}
+                      height={28}
                       className="w-full h-full object-cover"
                     />
                   ) : (

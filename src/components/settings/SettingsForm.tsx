@@ -6,6 +6,7 @@ import { createClient } from "@/lib/supabase/client";
 import type { SettingsProfile } from "@/lib/queries/settings";
 import { updateProfile } from "@/lib/queries/settings";
 import AvatarUpload from "@/components/AvatarUpload";
+import AccountSecurity from "@/components/settings/AccountSecurity";
 import SportIcon from "@/components/SportIcon";
 import { SPORTS_LIST } from "@/lib/sportIcons";
 
@@ -284,6 +285,7 @@ export default function SettingsForm({ profile, userEmail, availableLists }: Pro
         <SettingRow label="Username">
           <span className="text-sm text-text-muted">@{profile.username}</span>
         </SettingRow>
+        <AccountSecurity />
         <button
           onClick={() => setShowLogout(!showLogout)}
           className="w-full flex items-center justify-between px-4 py-3 border-b border-border hover:bg-bg-elevated transition-colors"
@@ -318,7 +320,7 @@ export default function SettingsForm({ profile, userEmail, availableLists }: Pro
         )}
         <div className="px-4 py-3">
           <p className="text-xs text-text-muted">
-            To change your password or delete your account, contact support.
+            To change your email address, contact support.
           </p>
         </div>
       </div>

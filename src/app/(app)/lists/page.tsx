@@ -9,7 +9,13 @@ import Link from "next/link";
 import SectionLabel from "@/components/profile/SectionLabel";
 import SportIcon from "@/components/SportIcon";
 
-export default async function ListsPage() {
+export default async function ListsPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ filter?: string }>;
+}) {
+  const { filter } = await searchParams;
+  const showOnlyCreated = filter === "created";
   const supabase = await createClient();
   const {
     data: { user },
@@ -58,11 +64,58 @@ export default async function ListsPage() {
         </Link>
       </div>
       <p className="text-text-secondary text-sm mb-6">
-        Track your progress on stadium challenges and custom lists.
+        {showOnlyCreated
+          ? "Lists you've created."
+          : "Track your progress on stadium challenges and custom lists."}
       </p>
 
+      {showOnlyCreated && (
+        <div className="mb-4">
+          <Link
+            href="/lists"
+            className="text-xs text-accent hover:underline"
+          >
+            ← Show all lists
+          </Link>
+        </div>
+      )}
+
+      {/* My Lists (created-only view) */}
+      {showOnlyCreated && (
+        <div className="mb-6">
+          <SectionLabel>My Lists</SectionLabel>
+          {userLists.length > 0 ? (
+            <div className="space-y-4">
+              {userLists.map((list) => (
+                <ListCard key={list.id} list={list} />
+              ))}
+            </div>
+          ) : (
+            <div className="rounded-xl border border-border bg-bg-card p-8 text-center">
+              <div className="text-4xl mb-3">📋</div>
+              <div className="font-display text-lg text-text-primary tracking-wide mb-2">
+                No Lists Created Yet
+              </div>
+              <p className="text-text-muted text-sm mb-4">
+                Create your own venue checklist to track your goals.
+              </p>
+              <Link
+                href="/lists/create"
+                className="inline-block px-5 py-2.5 rounded-xl text-sm font-medium text-white transition-opacity hover:opacity-90"
+                style={{
+                  background:
+                    "linear-gradient(135deg, var(--color-accent), var(--color-accent-brown))",
+                }}
+              >
+                Create a List
+              </Link>
+            </div>
+          )}
+        </div>
+      )}
+
       {/* Want to Visit */}
-      {wantToVisitCount > 0 && (
+      {!showOnlyCreated && wantToVisitCount > 0 && (
         <div className="mb-6">
           <Link href="/lists/want-to-visit" className="block">
             <div className="rounded-xl border border-accent/30 bg-accent/5 p-4 flex items-center gap-4 cursor-pointer hover:border-accent transition-colors">
@@ -96,7 +149,7 @@ export default async function ListsPage() {
       )}
 
       {/* My Lists */}
-      {userLists.length > 0 && (
+      {!showOnlyCreated && userLists.length > 0 && (
         <div className="mb-6">
           <SectionLabel>My Lists</SectionLabel>
           <div className="space-y-4">
@@ -108,7 +161,7 @@ export default async function ListsPage() {
       )}
 
       {/* Following */}
-      {followedLists.length > 0 && (
+      {!showOnlyCreated && followedLists.length > 0 && (
         <div className="mb-6">
           <SectionLabel>Following</SectionLabel>
           <div className="space-y-4">
@@ -128,7 +181,7 @@ export default async function ListsPage() {
       )}
 
       {/* Challenges */}
-      {systemLists.length > 0 && (
+      {!showOnlyCreated && systemLists.length > 0 && (
         <div className="mb-6">
           <SectionLabel>Challenges</SectionLabel>
           <div className="space-y-4">
@@ -140,7 +193,8 @@ export default async function ListsPage() {
       )}
 
       {/* Empty state — only if no lists at all */}
-      {systemLists.length === 0 &&
+      {!showOnlyCreated &&
+        systemLists.length === 0 &&
         userLists.length === 0 &&
         followedLists.length === 0 && (
           <div className="rounded-xl border border-border bg-bg-card p-8 text-center">
