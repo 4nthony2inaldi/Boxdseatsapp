@@ -29,29 +29,55 @@ export default function AppHeader() {
   useEffect(() => {
     const supabase = createClient();
     let mounted = true;
+    let channel: ReturnType<typeof supabase.channel> | null = null;
 
-    async function loadUnread() {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-      if (!user || !mounted) return;
-
+    async function loadUnread(userId: string) {
       const { count } = await supabase
         .from("notifications")
         .select("id", { count: "exact", head: true })
-        .eq("user_id", user.id)
+        .eq("user_id", userId)
         .eq("is_read", false);
 
       if (mounted) setUnreadCount(count || 0);
     }
 
-    loadUnread();
-    // Poll every 30 seconds
-    const interval = setInterval(loadUnread, 30000);
+    async function init() {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      if (!user || !mounted) return;
+
+      await loadUnread(user.id);
+
+      // Real-time: refresh the badge whenever this user's notifications change
+      channel = supabase
+        .channel(`notifications-${user.id}`)
+        .on(
+          "postgres_changes",
+          {
+            event: "*",
+            schema: "public",
+            table: "notifications",
+            filter: `user_id=eq.${user.id}`,
+          },
+          () => loadUnread(user.id)
+        )
+        .subscribe();
+    }
+
+    init();
+    // Fallback poll (covers missed realtime events / reconnects)
+    const interval = setInterval(async () => {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      if (user && mounted) loadUnread(user.id);
+    }, 120000);
 
     return () => {
       mounted = false;
       clearInterval(interval);
+      if (channel) supabase.removeChannel(channel);
     };
   }, []);
 

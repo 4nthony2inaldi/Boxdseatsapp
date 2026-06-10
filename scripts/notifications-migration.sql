@@ -317,3 +317,17 @@ DROP TRIGGER IF EXISTS trg_notify_badge ON badges;
 CREATE TRIGGER trg_notify_badge
   AFTER INSERT ON badges
   FOR EACH ROW EXECUTE FUNCTION notify_on_badge();
+
+-- ═══════════════════════════════════════════════════════════════
+-- REAL-TIME
+-- Expose notifications over Supabase Realtime so the in-app bell
+-- updates instantly (RLS still applies to the subscription).
+-- ═══════════════════════════════════════════════════════════════
+
+DO $$
+BEGIN
+  ALTER PUBLICATION supabase_realtime ADD TABLE notifications;
+EXCEPTION
+  WHEN duplicate_object THEN NULL;  -- already added
+  WHEN undefined_object THEN NULL;  -- publication doesn't exist (non-Supabase env)
+END $$;
