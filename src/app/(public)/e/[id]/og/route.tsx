@@ -25,7 +25,9 @@ function getOutcomeColor(outcome: string | null): string {
 }
 
 function getStarDisplay(rating: number): string {
-  return "\u2605".repeat(rating) + "\u2606".repeat(5 - rating);
+  // Plain text — star glyphs would trigger Satori's dynamic font fetch,
+  // which fails in the edge runtime and breaks the whole image.
+  return `${rating}/5 rating`;
 }
 
 export async function GET(
@@ -186,7 +188,7 @@ export async function GET(
                     marginTop: 4,
                   }}
                 >
-                  {event.away_score ?? "\u2014"}
+                  {String(event.away_score ?? "\u2014")}
                 </div>
               </div>
 
@@ -227,7 +229,7 @@ export async function GET(
                     marginTop: 4,
                   }}
                 >
-                  {event.home_score ?? "\u2014"}
+                  {String(event.home_score ?? "\u2014")}
                 </div>
               </div>
             </div>
@@ -339,7 +341,7 @@ export async function GET(
                 {authorName}
               </div>
               <div style={{ fontSize: 14, color: TEXT_MUTED }}>
-                @{logEntry.author_username}
+                {`@${logEntry.author_username}`}
               </div>
             </div>
           </div>
@@ -365,7 +367,7 @@ export async function GET(
             BOXDSEATS
           </div>
           <div style={{ fontSize: 16, color: TEXT_MUTED }}>
-            boxdseats.com/e/{id}
+            {`boxdseats.com/e/${id}`}
           </div>
         </div>
       </div>
