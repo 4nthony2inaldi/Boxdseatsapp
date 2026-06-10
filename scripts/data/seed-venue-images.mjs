@@ -51,6 +51,35 @@ function extractImage(payload) {
   return null;
 }
 
+async function commonsSearch(name, city) {
+  // 3. Wikimedia Commons file search (bitmap files only) — catches venues
+  // whose Wikipedia infobox is an SVG map (e.g. race tracks)
+  const url =
+    "https://commons.wikimedia.org/w/api.php?action=query&format=json" +
+    "&generator=search&gsrnamespace=6&gsrlimit=5" +
+    `&gsrsearch=${encodeURIComponent(`${name} ${city ?? ""}`)}` +
+    "&prop=imageinfo&iiprop=url|mime&iiurlwidth=1200";
+  for (let attempt = 0; attempt < 3; attempt++) {
+    try {
+      const res = await fetch(url, { headers: { "User-Agent": UA }, signal: AbortSignal.timeout(15000) });
+      if (res.status === 429 || res.status >= 500) { await sleep(2000 * (attempt + 1)); continue; }
+      if (!res.ok) return null;
+      const d = await res.json();
+      const pages = Object.values(d?.query?.pages ?? {});
+      pages.sort((a, b) => (a.index ?? 99) - (b.index ?? 99));
+      for (const pg of pages) {
+        const info = pg?.imageinfo?.[0];
+        if (!info) continue;
+        if (!/^image\/(jpeg|png|webp)$/.test(info.mime ?? "")) continue;
+        if (BAD_FILE_RE.test(info.url ?? "")) continue;
+        return info.thumburl || info.url;
+      }
+      return null;
+    } catch { await sleep(1500 * (attempt + 1)); }
+  }
+  return null;
+}
+
 async function findImage(name, city) {
   // 1. exact page title
   let img = extractImage(await wikiQuery(`titles=${encodeURIComponent(name)}`));
@@ -58,7 +87,9 @@ async function findImage(name, city) {
   // 2. full-text search with city for disambiguation
   img = extractImage(await wikiQuery(
     `generator=search&gsrlimit=1&gsrsearch=${encodeURIComponent(`${name} ${city ?? ""}`)}`));
-  return img;
+  if (img) return img;
+  // 3. Commons bitmap search
+  return await commonsSearch(name, city);
 }
 
 const { rows: venues } = await db.query(
