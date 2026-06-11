@@ -20,6 +20,14 @@ const LEAGUE_PATHS: Record<string, string> = {
   mls: "soccer/usa.1",
 };
 
+const LEAGUE_SPORTS: Record<string, string> = {
+  nfl: "football",
+  nba: "basketball",
+  mlb: "baseball",
+  nhl: "hockey",
+  mls: "soccer",
+};
+
 type EspnEvent = {
   id: string;
   date: string;
@@ -226,6 +234,7 @@ async function handleSync(request: Request) {
             state: comp.venue.address?.state || null,
             country: comp.venue.address?.country || "US",
             status: "active",
+            primary_sport: LEAGUE_SPORTS[slug] || null,
             external_ids: espnVenueId ? { espn: espnVenueId } : {},
           })
           .select("id")

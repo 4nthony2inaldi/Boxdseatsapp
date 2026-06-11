@@ -1449,6 +1449,7 @@ export type Database = {
           name: string
           opened_year: number | null
           photo_url: string | null
+          primary_sport: string | null
           state: string | null
           status: Database["public"]["Enums"]["venue_status"]
           updated_at: string
@@ -1467,6 +1468,7 @@ export type Database = {
           name: string
           opened_year?: number | null
           photo_url?: string | null
+          primary_sport?: string | null
           state?: string | null
           status?: Database["public"]["Enums"]["venue_status"]
           updated_at?: string
@@ -1485,6 +1487,7 @@ export type Database = {
           name?: string
           opened_year?: number | null
           photo_url?: string | null
+          primary_sport?: string | null
           state?: string | null
           status?: Database["public"]["Enums"]["venue_status"]
           updated_at?: string

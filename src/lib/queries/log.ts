@@ -158,7 +158,7 @@ export async function searchVenues(
   const [nameRes, aliasRes, locationRes, teamRes] = await Promise.all([
     supabase
       .from("venues")
-      .select("id, name, city, state")
+      .select("id, name, city, state, primary_sport")
       .ilike("name", pattern)
       .eq("status", "active")
       .order("name")
@@ -172,7 +172,7 @@ export async function searchVenues(
     // City / state ("Bronx", "Florida")
     supabase
       .from("venues")
-      .select("id, name, city, state")
+      .select("id, name, city, state, primary_sport")
       .or(locationFilter)
       .eq("status", "active")
       .order("name")
@@ -224,7 +224,7 @@ export async function searchVenues(
   if (missingIds.length > 0) {
     const { data: moreVenues } = await supabase
       .from("venues")
-      .select("id, name, city, state")
+      .select("id, name, city, state, primary_sport")
       .in("id", missingIds)
       .eq("status", "active")
       .order("name");
@@ -249,53 +249,15 @@ export async function searchVenues(
     }
   }
 
-  // Look up sport for each venue via venue_teams → teams → leagues
-  const { data: venueTeams } = await supabase
-    .from("venue_teams")
-    .select("venue_id, teams(leagues(sport))")
-    .in("venue_id", venueIds)
-    .eq("is_primary", true);
-
-  const venueSport: Record<string, string | null> = {};
-  if (venueTeams) {
-    for (const vt of venueTeams) {
-      if (!venueSport[vt.venue_id]) {
-        const team = vt.teams as unknown as {
-          leagues: { sport: string } | null;
-        } | null;
-        venueSport[vt.venue_id] = team?.leagues?.sport || null;
-      }
-    }
-  }
-
-  // Venues without a primary team (race tracks, golf courses, tennis sites,
-  // spring parks): derive the sport from the events held there
-  const unresolved = venueIds.filter((id) => !venueSport[id]);
-  if (unresolved.length > 0) {
-    const { data: venueEvents } = await supabase
-      .from("events")
-      .select("venue_id, leagues(sport)")
-      .in("venue_id", unresolved)
-      .limit(400);
-    const tally: Record<string, Record<string, number>> = {};
-    for (const ev of venueEvents || []) {
-      const sport = (ev.leagues as unknown as { sport: string } | null)?.sport;
-      if (!sport) continue;
-      (tally[ev.venue_id] ??= {})[sport] =
-        (tally[ev.venue_id][sport] || 0) + 1;
-    }
-    for (const [vid, sports] of Object.entries(tally)) {
-      venueSport[vid] = Object.entries(sports).sort((a, b) => b[1] - a[1])[0][0];
-    }
-  }
-
+  // venues.primary_sport is precomputed from each venue's event history
+  // (backfilled in prod; the sync sets it for new venues)
   return venues.map((v) => ({
     id: v.id,
     name: v.name,
     city: v.city,
     state: v.state,
     visit_count: venueCounts[v.id] || 0,
-    sport_icon: sportIcon(venueSport[v.id] || null),
+    sport_icon: sportIcon(v.primary_sport),
   }));
 }
 
