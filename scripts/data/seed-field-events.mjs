@@ -297,6 +297,85 @@ const INDYCAR_VENUES = {
   // completed) and the 2011 Las Vegas finale (abandoned)
 };
 
+// ESPN's core API has no venue record for many older Xfinity/Truck races,
+// and their 2007-2011 scoreboard names are blank. The last 4 digits of the
+// event id are a stable per-series race-slot code; each slot's venue was
+// identified from its named years (and race dates for the blank-only slots).
+const NSV = {
+  atlanta: { name: 'Atlanta Motor Speedway', city: 'Hampton', state: 'GA', country: 'US' },
+  autoclub: { name: 'Auto Club Speedway', city: 'Fontana', state: 'CA', country: 'US' },
+  bristol: { name: 'Bristol Motor Speedway', city: 'Bristol', state: 'TN', country: 'US' },
+  charlotte: { name: 'Charlotte Motor Speedway', city: 'Concord', state: 'NC', country: 'US' },
+  cota: { name: 'Circuit of the Americas', city: 'Austin', state: 'TX', country: 'US' },
+  ctmp: { name: 'Canadian Tire Motorsport Park', city: 'Bowmanville', state: 'ON', country: 'CA' },
+  darlington: { name: 'Darlington Raceway', city: 'Darlington', state: 'SC', country: 'US' },
+  iowa: { name: 'Iowa Speedway', city: 'Newton', state: 'IA', country: 'US' },
+  knoxville: { name: 'Knoxville Raceway', city: 'Knoxville', state: 'IA', country: 'US' },
+  limerock: { name: 'Lime Rock Park', city: 'Lakeville', state: 'CT', country: 'US' },
+  lucasoil: { name: 'Lucas Oil Raceway', city: 'Brownsburg', state: 'IN', country: 'US' },
+  mansfield: { name: 'Mansfield Motorsports Park', city: 'Mansfield', state: 'OH', country: 'US' },
+  martinsville: { name: 'Martinsville Speedway', city: 'Martinsville', state: 'VA', country: 'US' },
+  midohio: { name: 'Mid-Ohio Sports Car Course', city: 'Lexington', state: 'OH', country: 'US' },
+  nashvilless: { name: 'Nashville Superspeedway', city: 'Lebanon', state: 'TN', country: 'US' },
+  newhampshire: { name: 'New Hampshire Motor Speedway', city: 'Loudon', state: 'NH', country: 'US' },
+  phoenix: { name: 'Phoenix Raceway', city: 'Avondale', state: 'AZ', country: 'US' },
+  portland: { name: 'Portland International Raceway', city: 'Portland', state: 'OR', country: 'US' },
+  richmond: { name: 'Richmond Raceway', city: 'Richmond', state: 'VA', country: 'US' },
+  rockingham: { name: 'Rockingham Speedway', city: 'Rockingham', state: 'NC', country: 'US' },
+  sonoma: { name: 'Sonoma Raceway', city: 'Sonoma', state: 'CA', country: 'US' },
+  stpete: { name: 'Streets of St. Petersburg', city: 'St. Petersburg', state: 'FL', country: 'US' },
+  watkinsglen: { name: 'Watkins Glen International', city: 'Watkins Glen', state: 'NY', country: 'US' },
+  wwt: { name: 'World Wide Technology Raceway', city: 'Madison', state: 'IL', country: 'US' },
+};
+const NASCAR_SLOT_VENUES = {
+  // Xfinity (nascar-secondary)
+  'nascar-secondary:0304': NSV.newhampshire,
+  'nascar-secondary:0307': NSV.autoclub,
+  'nascar-secondary:0311': NSV.phoenix,
+  'nascar-secondary:0313': NSV.richmond,
+  'nascar-secondary:0314': NSV.charlotte,
+  'nascar-secondary:0325': NSV.autoclub,
+  'nascar-secondary:0329': NSV.charlotte, // oval, then ROVAL from 2018 — same venue
+  'nascar-secondary:0334': NSV.phoenix,
+  'nascar-secondary:0747': NSV.iowa,
+  'nascar-secondary:0759': NSV.iowa,
+  'nascar-secondary:0775': NSV.midohio,
+  'nascar-secondary:3966': NSV.richmond,
+  'nascar-secondary:3991': NSV.cota,
+  'nascar-secondary:3992': NSV.atlanta,
+  'nascar-secondary:3994': NSV.martinsville,
+  'nascar-secondary:4245': NSV.portland,
+  'nascar-secondary:4246': NSV.sonoma,
+  'nascar-secondary:4257': NSV.rockingham,
+  'nascar-secondary:4258': NSV.wwt,
+  // Trucks (nascar-truck)
+  'nascar-truck:0402': NSV.autoclub,
+  'nascar-truck:0405': NSV.wwt, // Gateway-era names
+  'nascar-truck:0406': (year) => (year <= 2008 ? NSV.mansfield : NSV.midohio),
+  'nascar-truck:0407': NSV.charlotte,
+  'nascar-truck:0415': NSV.lucasoil,
+  'nascar-truck:0419': NSV.newhampshire,
+  'nascar-truck:0424': NSV.phoenix,
+  'nascar-truck:0746': NSV.iowa,
+  'nascar-truck:0765': NSV.rockingham,
+  'nascar-truck:0766': NSV.iowa,
+  'nascar-truck:0777': NSV.ctmp,
+  'nascar-truck:3887': NSV.richmond,
+  'nascar-truck:4003': NSV.cota,
+  'nascar-truck:4004': NSV.nashvilless,
+  'nascar-truck:4005': NSV.knoxville,
+  'nascar-truck:4006': NSV.watkinsglen,
+  'nascar-truck:4007': NSV.wwt,
+  'nascar-truck:4009': NSV.bristol,
+  'nascar-truck:4070': NSV.darlington,
+  'nascar-truck:4246': NSV.sonoma,
+  'nascar-truck:4247': NSV.lucasoil, // Trucks "at Indianapolis" = IRP, not the IMS oval
+  'nascar-truck:4259': NSV.rockingham,
+  'nascar-truck:4260': NSV.limerock,
+  'nascar-truck:4261': NSV.charlotte, // road course — same venue
+  'nascar-truck:4265': NSV.stpete,
+};
+
 // F1 circuit address fixes (ESPN puts a state/wrong city in the city slot)
 const F1_CIRCUIT_FIXES = {
   4243: { city: 'Miami Gardens', state: 'FL' },
@@ -959,7 +1038,13 @@ async function nascarVenueSpec(cfg, ev) {
   const ref = core.venues?.[0]?.$ref;
   if (!ref) {
     const key = normName((ev.name ?? '').replace(/^.*\bat\b/i, ''));
-    return NASCAR_VENUE_FALLBACKS[key] ?? null;
+    if (NASCAR_VENUE_FALLBACKS[key]) return NASCAR_VENUE_FALLBACKS[key];
+    const slot = NASCAR_SLOT_VENUES[`${cfg.coreLeague}:${String(ev.id).slice(-4)}`];
+    if (slot) {
+      const year = Number(String(ev.date ?? '').slice(0, 4));
+      return typeof slot === 'function' ? slot(year) : slot;
+    }
+    return null;
   }
   const url = ref.replace('http://', 'https://');
   let v = racingVenueCache.get(url);
