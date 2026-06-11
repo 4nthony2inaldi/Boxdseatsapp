@@ -137,7 +137,7 @@ export async function fetchTeamRecentEvents(
       `id, event_date, home_score, away_score, is_postseason,
        home_team:teams!events_home_team_id_fkey(short_name),
        away_team:teams!events_away_team_id_fkey(short_name),
-       venues(name)`
+       venues!events_venue_id_fkey(name)`
     )
     .or(`home_team_id.eq.${teamId},away_team_id.eq.${teamId}`)
     .lte("event_date", today)

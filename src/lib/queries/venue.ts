@@ -109,13 +109,16 @@ export async function fetchVenueTeams(
   venueId: string
 ): Promise<VenueTeam[]> {
   // venue_teams is the join table between venues and teams
+  // Primary tenants only — one-off relocations and exhibition hosts also
+  // get venue_teams rows but aren't "home teams" in any meaningful sense
   const { data } = await supabase
     .from("venue_teams")
     .select(`
       team_id,
       teams(id, name, short_name, abbreviation, leagues(name, slug, sport))
     `)
-    .eq("venue_id", venueId);
+    .eq("venue_id", venueId)
+    .eq("is_primary", true);
 
   if (!data) return [];
 
