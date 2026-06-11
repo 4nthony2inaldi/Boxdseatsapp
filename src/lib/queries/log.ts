@@ -271,15 +271,23 @@ export async function fetchEventDatesForVenue(
   supabase: SupabaseClient,
   venueId: string
 ): Promise<Set<string>> {
-  const { data } = await supabase
-    .from("events")
-    .select("event_date")
-    .eq("venue_id", venueId)
-    .order("event_date", { ascending: false });
-
-  if (!data) return new Set();
-
-  return new Set(data.map((e) => e.event_date));
+  // Supabase caps responses at 1,000 rows; an MLB park has ~90 events/year,
+  // so a single query silently truncates history around 11 years back.
+  // Page until exhausted (~3 round trips for the busiest venues).
+  const dates = new Set<string>();
+  const PAGE = 1000;
+  for (let from = 0; ; from += PAGE) {
+    const { data } = await supabase
+      .from("events")
+      .select("event_date")
+      .eq("venue_id", venueId)
+      .order("event_date", { ascending: false })
+      .range(from, from + PAGE - 1);
+    if (!data || data.length === 0) break;
+    for (const e of data) dates.add(e.event_date);
+    if (data.length < PAGE) break;
+  }
+  return dates;
 }
 
 // ── Event Matching ──
