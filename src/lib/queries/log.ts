@@ -131,12 +131,35 @@ export async function searchVenues(
 ): Promise<VenueResult[]> {
   const trimmed = query.trim();
   if (!trimmed) return [];
+  const pattern = `%${trimmed}%`;
 
-  const [nameRes, aliasRes] = await Promise.all([
+  // Full state names resolve to their code ("florida" finds FL spring parks)
+  const STATE_CODES: Record<string, string> = {
+    alabama: "AL", alaska: "AK", arizona: "AZ", arkansas: "AR",
+    california: "CA", colorado: "CO", connecticut: "CT", delaware: "DE",
+    florida: "FL", georgia: "GA", hawaii: "HI", idaho: "ID",
+    illinois: "IL", indiana: "IN", iowa: "IA", kansas: "KS",
+    kentucky: "KY", louisiana: "LA", maine: "ME", maryland: "MD",
+    massachusetts: "MA", michigan: "MI", minnesota: "MN",
+    mississippi: "MS", missouri: "MO", montana: "MT", nebraska: "NE",
+    nevada: "NV", "new hampshire": "NH", "new jersey": "NJ",
+    "new mexico": "NM", "new york": "NY", "north carolina": "NC",
+    "north dakota": "ND", ohio: "OH", oklahoma: "OK", oregon: "OR",
+    pennsylvania: "PA", "rhode island": "RI", "south carolina": "SC",
+    "south dakota": "SD", tennessee: "TN", texas: "TX", utah: "UT",
+    vermont: "VT", virginia: "VA", washington: "WA",
+    "west virginia": "WV", wisconsin: "WI", wyoming: "WY",
+  };
+  const stateCode = STATE_CODES[trimmed.toLowerCase()] ?? null;
+  const locationFilter = stateCode
+    ? `city.ilike.${pattern},state.eq.${stateCode},state.ilike.${pattern}`
+    : `city.ilike.${pattern},state.ilike.${pattern}`;
+
+  const [nameRes, aliasRes, locationRes, teamRes] = await Promise.all([
     supabase
       .from("venues")
       .select("id, name, city, state")
-      .ilike("name", `%${trimmed}%`)
+      .ilike("name", pattern)
       .eq("status", "active")
       .order("name")
       .limit(20),
@@ -144,25 +167,71 @@ export async function searchVenues(
     supabase
       .from("venue_aliases")
       .select("venue_id")
-      .ilike("alias_name", `%${trimmed}%`)
+      .ilike("alias_name", pattern)
+      .limit(10),
+    // City / state ("Bronx", "Florida")
+    supabase
+      .from("venues")
+      .select("id, name, city, state")
+      .or(locationFilter)
+      .eq("status", "active")
+      .order("name")
+      .limit(15),
+    // Team names ("Yankees") -> their home venues
+    supabase
+      .from("teams")
+      .select("id")
+      .or(`name.ilike.${pattern},short_name.ilike.${pattern}`)
       .limit(10),
   ]);
 
-  let venues = nameRes.data || [];
-
-  const aliasVenueIds = (aliasRes.data || [])
-    .map((a) => a.venue_id as string)
-    .filter((id) => !venues.some((v) => v.id === id));
-
-  if (aliasVenueIds.length > 0) {
-    const { data: aliasVenues } = await supabase
-      .from("venues")
-      .select("id, name, city, state")
-      .in("id", aliasVenueIds)
-      .eq("status", "active");
-    venues = [...venues, ...(aliasVenues || [])];
+  // Name matches lead; location matches follow
+  let venues = [...(nameRes.data || [])];
+  for (const v of locationRes.data || []) {
+    if (!venues.some((x) => x.id === v.id)) venues.push(v);
   }
 
+  // Resolve team matches to primary venues + spring homes (one-off
+  // relocation associations would otherwise leak in)
+  const teamIds = (teamRes.data || []).map((t) => t.id as string);
+  const extraVenueIds: string[] = [];
+  if (teamIds.length > 0) {
+    const [{ data: primaryVts }, { data: springEvents }] = await Promise.all([
+      supabase
+        .from("venue_teams")
+        .select("venue_id")
+        .in("team_id", teamIds)
+        .eq("is_primary", true),
+      supabase
+        .from("events")
+        .select("venue_id")
+        .in("home_team_id", teamIds)
+        .eq("is_preseason", true)
+        .limit(400),
+    ]);
+    for (const vt of primaryVts || []) extraVenueIds.push(vt.venue_id as string);
+    const springCounts = new Map<string, number>();
+    for (const e of springEvents || []) {
+      springCounts.set(e.venue_id, (springCounts.get(e.venue_id) || 0) + 1);
+    }
+    for (const [vid, n] of springCounts) if (n >= 5) extraVenueIds.push(vid);
+  }
+  for (const a of aliasRes.data || []) extraVenueIds.push(a.venue_id as string);
+
+  const missingIds = [...new Set(extraVenueIds)].filter(
+    (id) => !venues.some((v) => v.id === id)
+  );
+  if (missingIds.length > 0) {
+    const { data: moreVenues } = await supabase
+      .from("venues")
+      .select("id, name, city, state")
+      .in("id", missingIds)
+      .eq("status", "active")
+      .order("name");
+    venues = [...venues, ...(moreVenues || [])];
+  }
+
+  venues = venues.slice(0, 20);
   if (venues.length === 0) return [];
 
   // Get user's visit counts for these venues
