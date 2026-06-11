@@ -40,7 +40,7 @@ export default function PinnedLists({ lists }: PinnedListsProps) {
                 style={{
                   width: `${pct}%`,
                   background:
-                    "linear-gradient(90deg, var(--color-accent), var(--color-accent-brown))",
+                    "linear-gradient(90deg, var(--color-accent), var(--color-accent-hover))",
                 }}
               />
             </div>

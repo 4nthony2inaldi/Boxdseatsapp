@@ -16,9 +16,7 @@ type Props = {
   availableLists: { id: string; name: string; sport: string | null; item_count: number }[];
 };
 
-const SPORTS = SPORTS_LIST.filter((s) =>
-  ["basketball", "football", "baseball", "hockey", "soccer", "golf"].includes(s.key)
-);
+const SPORTS = SPORTS_LIST;
 
 function SectionHeader({ children }: { children: React.ReactNode }) {
   return (

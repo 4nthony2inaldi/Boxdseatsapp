@@ -76,6 +76,15 @@ export default function LoginPage() {
           {loading ? "SIGNING IN..." : "SIGN IN"}
         </button>
 
+        <p className="text-center text-sm">
+          <Link
+            href="/reset-password"
+            className="text-text-secondary hover:text-text-primary transition-colors"
+          >
+            Forgot password?
+          </Link>
+        </p>
+
         <p className="text-center text-sm text-text-secondary">
           Don&apos;t have an account?{" "}
           <Link href="/signup" className="text-accent hover:text-accent-hover transition-colors">

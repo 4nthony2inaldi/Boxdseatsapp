@@ -74,7 +74,7 @@ export default function BadgeSection({ badges, tracked, userId, showTracked = fa
               <span className="text-[10px] text-text-muted text-center leading-tight line-clamp-2">
                 {list.list_name}
               </span>
-              <span className="text-[9px] text-text-muted font-display tracking-wider">
+              <span className="text-[10px] text-text-muted font-display tracking-wider">
                 {pct}%
               </span>
             </div>

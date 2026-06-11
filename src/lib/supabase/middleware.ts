@@ -38,7 +38,8 @@ export async function updateSession(request: NextRequest) {
   const isAuthRoute =
     request.nextUrl.pathname.startsWith("/login") ||
     request.nextUrl.pathname.startsWith("/signup") ||
-    request.nextUrl.pathname.startsWith("/auth");
+    request.nextUrl.pathname.startsWith("/auth") ||
+    request.nextUrl.pathname.startsWith("/reset-password");
 
   const isOnboardingRoute = request.nextUrl.pathname.startsWith("/onboarding");
 
@@ -66,8 +67,14 @@ export async function updateSession(request: NextRequest) {
     return NextResponse.redirect(url);
   }
 
-  // If logged in and trying to access auth routes, redirect to app
-  if (user && isAuthRoute) {
+  // If logged in and trying to access auth routes, redirect to app.
+  // /reset-password stays reachable: recovery links create a session first.
+  if (
+    user &&
+    isAuthRoute &&
+    !request.nextUrl.pathname.startsWith("/reset-password") &&
+    !request.nextUrl.pathname.startsWith("/auth")
+  ) {
     const url = request.nextUrl.clone();
     url.pathname = "/";
     return NextResponse.redirect(url);

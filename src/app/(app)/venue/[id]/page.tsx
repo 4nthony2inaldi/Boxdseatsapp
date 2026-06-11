@@ -1,4 +1,5 @@
 import Image from "next/image";
+import HeroImage from "@/components/HeroImage";
 import { createClient } from "@/lib/supabase/server";
 import {
   fetchVenueDetail,
@@ -93,15 +94,11 @@ export default async function VenueDetailPage({
             </div>
           </div>
         ) : venue.photo_url ? (
-          <div className="relative">
-            <Image
+          <div className="relative h-44 bg-gradient-to-b from-accent/20 via-accent/5 to-bg">
+            <HeroImage
               src={venue.photo_url}
               alt={`${venue.name}`}
-              width={800}
-              height={176}
-              quality={75}
-              sizes="(max-width: 640px) 100vw, 640px"
-              className="w-full h-44 object-cover"
+              className="absolute inset-0 w-full h-full object-cover"
             />
             <div className="absolute inset-0 bg-gradient-to-t from-bg via-transparent to-transparent" />
           </div>
@@ -235,7 +232,7 @@ export default async function VenueDetailPage({
                     </div>
                   ))}
                   {community.friendsWhoVisited.length > 5 && (
-                    <div className="w-7 h-7 rounded-full border-2 border-bg-card bg-bg-elevated flex items-center justify-center text-[9px] text-text-muted font-display">
+                    <div className="w-7 h-7 rounded-full border-2 border-bg-card bg-bg-elevated flex items-center justify-center text-[10px] text-text-muted font-display">
                       +{community.friendsWhoVisited.length - 5}
                     </div>
                   )}
