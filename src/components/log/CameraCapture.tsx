@@ -115,7 +115,7 @@ export default function CameraCapture({ onCapture, onClose }: CameraCaptureProps
 
   if (error) {
     return (
-      <div className="fixed inset-0 z-50 bg-black flex flex-col items-center justify-center px-6">
+      <div className="fixed inset-x-0 top-0 h-dvh z-[60] bg-black flex flex-col items-center justify-center px-6">
         <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="#C83C2C" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
           <circle cx="12" cy="12" r="10" />
           <line x1="12" y1="8" x2="12" y2="12" />
@@ -133,7 +133,7 @@ export default function CameraCapture({ onCapture, onClose }: CameraCaptureProps
   }
 
   return (
-    <div className="fixed inset-0 z-50 bg-black flex flex-col">
+    <div className="fixed inset-x-0 top-0 h-dvh z-[60] bg-black flex flex-col">
       {/* Viewfinder */}
       <div className="flex-1 relative overflow-hidden">
         {captured ? (
@@ -164,7 +164,7 @@ export default function CameraCapture({ onCapture, onClose }: CameraCaptureProps
       <canvas ref={canvasRef} className="hidden" />
 
       {/* Controls */}
-      <div className="bg-black py-6 px-4">
+      <div className="bg-black pt-6 pb-[max(env(safe-area-inset-bottom),1.5rem)] px-4">
         {captured ? (
           // Review mode: Retake / Confirm
           <div className="flex items-center justify-center gap-8">
