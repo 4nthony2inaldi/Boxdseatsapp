@@ -14,6 +14,7 @@ import {
   fetchLoggedEventChoices,
 } from "@/lib/queries/bigfour";
 import SportIcon from "@/components/SportIcon";
+import { leagueFromSlug } from "@/lib/constants";
 import { LEAGUES_LIST } from "@/lib/sportIcons";
 
 const ALL_LEAGUES = LEAGUES_LIST;
@@ -69,7 +70,10 @@ export default function BigFourDrillThrough({
           subtitle: `${v.city}${v.state ? `, ${v.state}` : ""}`,
         }));
       } else if (category === "athlete") {
-        const athletes = await searchAthletes(supabase, q);
+        // Scope results to the league row's sport (ATP row -> tennis, ...)
+        const slug = leagueSlugOverride ?? editingLeagueSlug;
+        const sport = leagueFromSlug(slug)?.sport ?? null;
+        const athletes = await searchAthletes(supabase, q, 10, sport);
         results = athletes.map((a) => ({
           id: a.id,
           label: a.name,

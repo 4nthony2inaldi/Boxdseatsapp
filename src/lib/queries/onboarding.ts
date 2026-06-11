@@ -107,14 +107,17 @@ export async function searchVenuesForOnboarding(
 export async function searchAthletes(
   supabase: SupabaseClient,
   query: string,
-  limit = 10
+  limit = 10,
+  sport?: string | null
 ): Promise<{ id: string; name: string; sport: string | null }[]> {
   const pattern = `%${query.trim()}%`;
-  const { data } = await supabase
+  let q = supabase
     .from("athletes")
     .select("id, name, sport")
     .ilike("name", pattern)
     .limit(limit);
+  if (sport) q = q.eq("sport", sport);
+  const { data } = await q;
 
   return data || [];
 }
