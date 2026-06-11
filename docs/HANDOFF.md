@@ -2913,3 +2913,5 @@ Session credentials were provided via chat and are NOT persisted. For autonomous
 - Tennis non-slam venues are "<Tournament> Site" placeholders; 21 years of sponsor renames created same-city variants (e.g. 3 Acapulco sites). Future: curated tournament→real-venue map + merge.
 - ~20 minor PGA tournaments 2002-2004 skipped (no course data, non-majors); Ryder/Presidents Cup excluded (not PGA Tour stops).
 - 2011 Texas twin-races: kept as the single "Firestone Twin 275s" row.
+- **Calendar dots row cap** (PR #26): fetchEventDatesForVenue paged past Supabase's 1,000-row response cap (busy MLB parks lost dots before ~2015).
+- **Same-name rebuild split** (data fix, prod + staging): ESPN reuses one venue id across rebuilt stadiums, merging eras. Audit (min event year < opened_year) found two: Yankee Stadium → created "Old Yankee Stadium" (1923-2008, alias "Yankee Stadium (1923)") and repointed 591 pre-2009 events; Rogers Place → 5 pre-Sept-2016 Oilers games repointed to Rexall Place. venue_name_at_time set on moved rows. Re-run that audit after future historical ingests.
