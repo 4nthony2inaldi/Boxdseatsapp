@@ -10,10 +10,13 @@ type PhotoCropperProps = {
   /** Keep the uncropped original */
   onSkip: () => void;
   onCancel: () => void;
+  /** Crop frame ratio. Default 16:9, matching timeline/event cards. */
+  aspect?: number;
+  /** "round" shows a circular frame (avatars); output is still a square JPEG. */
+  cropShape?: "rect" | "round";
 };
 
-/** Crop frame matches how photos render on timeline/event cards (16:9). */
-const CROP_ASPECT = 16 / 9;
+const DEFAULT_ASPECT = 16 / 9;
 
 async function cropToBlob(imageUrl: string, area: Area): Promise<Blob> {
   const img = await new Promise<HTMLImageElement>((resolve, reject) => {
@@ -25,7 +28,7 @@ async function cropToBlob(imageUrl: string, area: Area): Promise<Blob> {
 
   // Cap output width to keep uploads small (matches resizePhoto's budget)
   const outWidth = Math.min(area.width, 1600);
-  const outHeight = Math.round(outWidth / CROP_ASPECT);
+  const outHeight = Math.round(outWidth * (area.height / area.width));
 
   const canvas = document.createElement("canvas");
   canvas.width = outWidth;
@@ -59,6 +62,8 @@ export default function PhotoCropper({
   onApply,
   onSkip,
   onCancel,
+  aspect = DEFAULT_ASPECT,
+  cropShape = "rect",
 }: PhotoCropperProps) {
   const [crop, setCrop] = useState({ x: 0, y: 0 });
   const [zoom, setZoom] = useState(1);
@@ -84,7 +89,9 @@ export default function PhotoCropper({
   };
 
   return (
-    <div className="fixed inset-0 z-50 bg-black flex flex-col">
+    // h-dvh (not inset-0) so the footer stays above mobile Safari's toolbar;
+    // z-[60] so the z-50 bottom nav can't cover the Apply button
+    <div className="fixed inset-x-0 top-0 h-dvh z-[60] bg-black flex flex-col">
       {/* Header */}
       <div className="flex items-center justify-between px-4 py-3 shrink-0">
         <button
@@ -110,16 +117,17 @@ export default function PhotoCropper({
           image={imageUrl}
           crop={crop}
           zoom={zoom}
-          aspect={CROP_ASPECT}
+          aspect={aspect}
+          cropShape={cropShape}
           onCropChange={setCrop}
           onZoomChange={setZoom}
           onCropComplete={onCropComplete}
-          showGrid
+          showGrid={cropShape === "rect"}
         />
       </div>
 
       {/* Controls */}
-      <div className="px-6 py-4 shrink-0 space-y-4">
+      <div className="px-6 pt-4 pb-[max(env(safe-area-inset-bottom),1rem)] shrink-0 space-y-4">
         <div className="flex items-center gap-3">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.5)" strokeWidth="2" strokeLinecap="round">
             <circle cx="11" cy="11" r="8" />

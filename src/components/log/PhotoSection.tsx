@@ -3,7 +3,7 @@
 /* eslint-disable @next/next/no-img-element -- next/image cannot optimize blob: URLs / OG ImageResponse markup */
 import { useState, useRef } from "react";
 import CameraCapture from "./CameraCapture";
-import PhotoCropper from "./PhotoCropper";
+import PhotoCropper from "@/components/PhotoCropper";
 
 export type PhotoData = {
   file: File | Blob;

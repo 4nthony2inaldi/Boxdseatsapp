@@ -4,6 +4,7 @@
 import { useRef, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { uploadAvatar, validateImageFile } from "@/lib/avatar";
+import PhotoCropper from "@/components/PhotoCropper";
 
 type AvatarUploadProps = {
   userId: string;
@@ -25,11 +26,13 @@ export default function AvatarUpload({
   const [avatarUrl, setAvatarUrl] = useState(currentAvatarUrl);
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [cropSrc, setCropSrc] = useState<string | null>(null);
+  const [pendingFile, setPendingFile] = useState<File | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const initial = (displayName || username || "?").charAt(0).toUpperCase();
 
-  async function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
+  function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     if (!file) return;
 
@@ -40,8 +43,30 @@ export default function AvatarUpload({
       return;
     }
 
+    setError(null);
+    setPendingFile(file);
+    setCropSrc(URL.createObjectURL(file));
+
+    // Reset file input so the same file can be re-selected
+    if (fileInputRef.current) {
+      fileInputRef.current.value = "";
+    }
+  }
+
+  function closeCropper() {
+    if (cropSrc) URL.revokeObjectURL(cropSrc);
+    setCropSrc(null);
+    setPendingFile(null);
+  }
+
+  async function upload(input: File | Blob) {
     setUploading(true);
     setError(null);
+
+    const file =
+      input instanceof File
+        ? input
+        : new File([input], "avatar.jpg", { type: "image/jpeg" });
 
     const supabase = createClient();
     const result = await uploadAvatar(supabase, userId, file);
@@ -53,11 +78,6 @@ export default function AvatarUpload({
     } else {
       setAvatarUrl(result.url);
       onUploadComplete?.(result.url);
-    }
-
-    // Reset file input so the same file can be re-selected
-    if (fileInputRef.current) {
-      fileInputRef.current.value = "";
     }
   }
 
@@ -136,6 +156,24 @@ export default function AvatarUpload({
 
       {error && (
         <p className="text-loss text-xs text-center mt-1">{error}</p>
+      )}
+
+      {cropSrc && pendingFile && (
+        <PhotoCropper
+          imageUrl={cropSrc}
+          aspect={1}
+          cropShape="round"
+          onApply={(blob) => {
+            closeCropper();
+            upload(blob);
+          }}
+          onSkip={() => {
+            const file = pendingFile;
+            closeCropper();
+            upload(file);
+          }}
+          onCancel={closeCropper}
+        />
       )}
     </div>
   );
