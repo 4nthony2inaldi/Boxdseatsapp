@@ -130,18 +130,26 @@ const GOLF_COURSE_FALLBACKS = {
 // --- tags (CRITICAL: exact strings — they power existing badge lists) -------
 const GOLF_MAJOR_TAGS = {
   'masters tournament': ['masters', 'pga_major'],
+  'the masters': ['masters', 'pga_major'],
+  'the masters tournament': ['masters', 'pga_major'],
   'pga championship': ['pga_championship', 'pga_major'],
   'u s open': ['us_open', 'pga_major'],
+  'u s open championship': ['us_open', 'pga_major'],
+  'u s open golf championship': ['us_open', 'pga_major'],
   'the open': ['open_championship', 'pga_major'],
   'the open championship': ['open_championship', 'pga_major'],
   'open championship': ['open_championship', 'pga_major'],
+  'british open championship': ['open_championship', 'pga_major'],
 };
 const TENNIS_SLAM_TAGS = {
   'australian open': ['grand_slam_australian_open', 'grand_slam'],
   'roland garros': ['grand_slam_french_open', 'grand_slam'],
   'french open': ['grand_slam_french_open', 'grand_slam'],
   wimbledon: ['grand_slam_wimbledon', 'grand_slam'],
+  'wimbledon championships': ['grand_slam_wimbledon', 'grand_slam'],
   'us open': ['grand_slam_us_open', 'grand_slam'],
+  'u s open': ['grand_slam_us_open', 'grand_slam'],
+  'us open championships': ['grand_slam_us_open', 'grand_slam'],
 };
 
 // FedEx Cup playoff events (ESPN marks them season.type 2 like everything else)
@@ -226,6 +234,55 @@ const INDYCAR_VENUES = {
   nashville: (year) => (year >= 2021 && year <= 2023
     ? { name: 'Streets of Nashville', city: 'Nashville', state: 'TN', country: 'US' }
     : { name: 'Nashville Superspeedway', city: 'Lebanon', state: 'TN', country: 'US' }),
+
+  // ── historical circuits (2002-2020 schedules) ──
+  japan: { name: 'Twin Ring Motegi', city: 'Motegi', state: null, country: 'JP' },
+  motegi: { name: 'Twin Ring Motegi', city: 'Motegi', state: null, country: 'JP' },
+  'homestead miami': { name: 'Homestead-Miami Speedway', city: 'Homestead', state: 'FL', country: 'US' },
+  kansas: { name: 'Kansas Speedway', city: 'Kansas City', state: 'KS', country: 'US' },
+  richmond: { name: 'Richmond Raceway', city: 'Richmond', state: 'VA', country: 'US' },
+  'suntrust indy challenge': { name: 'Richmond Raceway', city: 'Richmond', state: 'VA', country: 'US' },
+  michigan: { name: 'Michigan International Speedway', city: 'Brooklyn', state: 'MI', country: 'US' },
+  'firestone indy 400': { name: 'Michigan International Speedway', city: 'Brooklyn', state: 'MI', country: 'US' },
+  kentucky: { name: 'Kentucky Speedway', city: 'Sparta', state: 'KY', country: 'US' },
+  'amber alert portal indy 300': { name: 'Kentucky Speedway', city: 'Sparta', state: 'KY', country: 'US' },
+  sonoma: { name: 'Sonoma Raceway', city: 'Sonoma', state: 'CA', country: 'US' },
+  infineon: { name: 'Sonoma Raceway', city: 'Sonoma', state: 'CA', country: 'US' },
+  'argent mortgage indy grand prix': { name: 'Sonoma Raceway', city: 'Sonoma', state: 'CA', country: 'US' },
+  'watkins glen': { name: 'Watkins Glen International', city: 'Watkins Glen', state: 'NY', country: 'US' },
+  'the glen': { name: 'Watkins Glen International', city: 'Watkins Glen', state: 'NY', country: 'US' },
+  chicagoland: { name: 'Chicagoland Speedway', city: 'Joliet', state: 'IL', country: 'US' },
+  chicago: { name: 'Chicagoland Speedway', city: 'Joliet', state: 'IL', country: 'US' },
+  'peak antifreeze': { name: 'Chicagoland Speedway', city: 'Joliet', state: 'IL', country: 'US' },
+  pocono: { name: 'Pocono Raceway', city: 'Long Pond', state: 'PA', country: 'US' },
+  'abc supply 500': { name: 'Pocono Raceway', city: 'Long Pond', state: 'PA', country: 'US' },
+  gateway: { name: 'World Wide Technology Raceway', city: 'Madison', state: 'IL', country: 'US' },
+  bommarito: { name: 'World Wide Technology Raceway', city: 'Madison', state: 'IL', country: 'US' },
+  edmonton: { name: 'Edmonton City Centre Airport', city: 'Edmonton', state: 'AB', country: 'CA' },
+  baltimore: { name: 'Streets of Baltimore', city: 'Baltimore', state: 'MD', country: 'US' },
+  'sao paulo': { name: 'Streets of Sao Paulo', city: 'Sao Paulo', state: null, country: 'BR' },
+  houston: { name: 'NRG Park Street Circuit', city: 'Houston', state: 'TX', country: 'US' },
+  louisiana: { name: 'NOLA Motorsports Park', city: 'Avondale', state: 'LA', country: 'US' },
+  'mavtv 500': { name: 'Auto Club Speedway', city: 'Fontana', state: 'CA', country: 'US' },
+  'firestone 550': { name: 'Texas Motor Speedway', city: 'Fort Worth', state: 'TX', country: 'US' },
+  'firestone 550k': { name: 'Texas Motor Speedway', city: 'Fort Worth', state: 'TX', country: 'US' },
+  'firestone 600': { name: 'Texas Motor Speedway', city: 'Fort Worth', state: 'TX', country: 'US' },
+  'firestone twin 275s': { name: 'Texas Motor Speedway', city: 'Fort Worth', state: 'TX', country: 'US' },
+  'bombardier 500': { name: 'Texas Motor Speedway', city: 'Fort Worth', state: 'TX', country: 'US' },
+  'genesys 300': { name: 'Texas Motor Speedway', city: 'Fort Worth', state: 'TX', country: 'US' },
+  wisconsin: { name: 'The Milwaukee Mile', city: 'West Allis', state: 'WI', country: 'US' },
+  'abc supply co a j foyt 225': { name: 'The Milwaukee Mile', city: 'West Allis', state: 'WI', country: 'US' },
+  'honda indy 225': { name: 'Pikes Peak International Raceway', city: 'Fountain', state: 'CO', country: 'US' },
+  'honda indy 200': { name: 'Mid-Ohio Sports Car Course', city: 'Lexington', state: 'OH', country: 'US' },
+  'kohler grand prix': { name: 'Road America', city: 'Elkhart Lake', state: 'WI', country: 'US' },
+  'new hampshire': { name: 'New Hampshire Motor Speedway', city: 'Loudon', state: 'NH', country: 'US' },
+  'circuit of the americas': { name: 'Circuit of the Americas', city: 'Austin', state: 'TX', country: 'US' },
+  'gmr grand prix': { name: 'Indianapolis Motor Speedway', city: 'Speedway', state: 'IN', country: 'US' },
+  'harvest grand prix': { name: 'Indianapolis Motor Speedway', city: 'Speedway', state: 'IN', country: 'US' },
+  'belle isle': { name: 'Belle Isle Park', city: 'Detroit', state: 'MI', country: 'US' },
+  'gold coast': { name: 'Surfers Paradise Street Circuit', city: 'Surfers Paradise', state: null, country: 'AU' },
+  // deliberately unmapped: 2015 Brasilia Indy 300 (cancelled race ESPN marks
+  // completed) and the 2011 Las Vegas finale (abandoned)
 };
 
 // F1 circuit address fixes (ESPN puts a state/wrong city in the city slot)
@@ -261,6 +318,18 @@ const NASCAR_VENUE_FALLBACKS = {
   iowa: { name: 'Iowa Speedway', city: 'Newton', state: 'IA', country: 'US' },
   'mexico city': { name: 'Autodromo Hermanos Rodriguez', city: 'Mexico City', state: null, country: 'MX' },
   'north wilkesboro': { name: 'North Wilkesboro Speedway', city: 'North Wilkesboro', state: 'NC', country: 'US' },
+  // The core API has no venue record for the New Hampshire fall races
+  // (2002-2017) and the Fontana fall races (2002-2010)
+  'new hampshire': { name: 'New Hampshire Motor Speedway', city: 'Loudon', state: 'NH', country: 'US' },
+  'new hampshire 300': { name: 'New Hampshire Motor Speedway', city: 'Loudon', state: 'NH', country: 'US' },
+  'sylvania 300': { name: 'New Hampshire Motor Speedway', city: 'Loudon', state: 'NH', country: 'US' },
+  california: { name: 'Auto Club Speedway', city: 'Fontana', state: 'CA', country: 'US' },
+  'california pres by principal financial group': { name: 'Auto Club Speedway', city: 'Fontana', state: 'CA', country: 'US' },
+  'pop secret 500': { name: 'Auto Club Speedway', city: 'Fontana', state: 'CA', country: 'US' },
+  'sony hd 500': { name: 'Auto Club Speedway', city: 'Fontana', state: 'CA', country: 'US' },
+  'charlotte 310': { name: 'Charlotte Motor Speedway', city: 'Concord', state: 'NC', country: 'US' },
+  // deliberately unmapped: 'daytona 500' — ESPN double-lists the 2021 race
+  // under a second id (202102143995); mapping it would insert a duplicate
 };
 
 const COUNTRY_ISO = {
