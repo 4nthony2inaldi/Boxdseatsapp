@@ -26,6 +26,8 @@ const LEAGUE_SPORT_MAP: Record<string, string> = {
   atp: "tennis",
   wta: "tennis",
   "nascar-cup": "motorsports",
+  "nascar-xfinity": "motorsports",
+  "nascar-truck": "motorsports",
   indycar: "motorsports",
   f1: "motorsports",
 };
@@ -73,6 +75,8 @@ export const LEAGUES_LIST = [
   { slug: "atp", name: "ATP Tour", icon: "/tennis.svg" },
   { slug: "wta", name: "WTA Tour", icon: "/tennis.svg" },
   { slug: "nascar-cup", name: "NASCAR Cup Series", icon: "/motorsports.svg" },
+  { slug: "nascar-xfinity", name: "NASCAR Xfinity Series", icon: "/motorsports.svg" },
+  { slug: "nascar-truck", name: "NASCAR Truck Series", icon: "/motorsports.svg" },
   { slug: "indycar", name: "IndyCar Series", icon: "/motorsports.svg" },
   { slug: "f1", name: "Formula 1", icon: "/motorsports.svg" },
 ] as const;

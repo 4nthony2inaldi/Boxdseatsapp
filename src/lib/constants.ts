@@ -44,6 +44,8 @@ export const LEAGUES = {
   ATP: { slug: "atp", color: "#1565C0", icon: "/tennis.svg", sport: "tennis" },
   WTA: { slug: "wta", color: "#5C2D91", icon: "/tennis.svg", sport: "tennis" },
   NASCAR: { slug: "nascar-cup", color: "#E4A11B", icon: "/motorsports.svg", sport: "motorsports" },
+  XFINITY: { slug: "nascar-xfinity", color: "#9E1B32", icon: "/motorsports.svg", sport: "motorsports" },
+  TRUCKS: { slug: "nascar-truck", color: "#B5121B", icon: "/motorsports.svg", sport: "motorsports" },
   INDYCAR: { slug: "indycar", color: "#C8102E", icon: "/motorsports.svg", sport: "motorsports" },
   F1: { slug: "f1", color: "#E10600", icon: "/motorsports.svg", sport: "motorsports" },
 } as const;
