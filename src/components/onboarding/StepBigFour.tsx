@@ -29,9 +29,7 @@ type StepBigFourProps = {
   onNext: () => void;
 };
 
-const SPORTS = SPORTS_LIST.filter((s) =>
-  ["basketball", "football", "baseball", "hockey", "soccer", "golf"].includes(s.key)
-);
+const SPORTS = SPORTS_LIST;
 
 type SearchResult = { id: string; label: string; subtitle?: string };
 

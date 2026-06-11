@@ -172,7 +172,7 @@ export default function BigFourDrillThrough({
                   onClick={() => handleSetFeatured(fav.pick_id)}
                   disabled={saving}
                   title={featuredId === fav.pick_id ? "Featured favorite" : "Set as featured"}
-                  className="p-1 transition-colors disabled:opacity-50"
+                  className="p-2.5 -m-1.5 transition-colors disabled:opacity-50"
                 >
                   <svg
                     width="16"

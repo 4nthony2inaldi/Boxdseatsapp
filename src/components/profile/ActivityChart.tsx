@@ -29,7 +29,7 @@ export default function ActivityChart({ months, total }: ActivityChartProps) {
                 key={i}
                 className="flex-1 flex flex-col items-center gap-1"
               >
-                <div className="text-[9px] text-text-muted font-display">
+                <div className="text-[10px] text-text-muted font-display">
                   {m.count > 0 ? m.count : ""}
                 </div>
                 <div

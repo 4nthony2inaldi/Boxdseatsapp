@@ -11,7 +11,7 @@ type VerifiedBadgeProps = {
 export default function VerifiedBadge({ size = "sm" }: VerifiedBadgeProps) {
   const iconSize = size === "sm" ? 12 : 16;
   const padding = size === "sm" ? "px-1.5 py-0.5" : "px-2 py-1";
-  const textSize = size === "sm" ? "text-[9px]" : "text-[11px]";
+  const textSize = size === "sm" ? "text-[10px]" : "text-[11px]";
 
   return (
     <span

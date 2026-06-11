@@ -218,7 +218,7 @@ export default function PhotoSection({
               <circle cx="12" cy="13" r="4" />
             </svg>
             <span className="text-xs text-accent font-semibold">Camera</span>
-            <span className="text-[9px] text-accent/70">Eligible for verified</span>
+            <span className="text-[10px] text-accent/70">Eligible for verified</span>
           </button>
 
           <button
@@ -231,7 +231,7 @@ export default function PhotoSection({
               <polyline points="21 15 16 10 5 21" />
             </svg>
             <span className="text-xs text-text-secondary font-semibold">Upload</span>
-            <span className="text-[9px] text-text-muted">From camera roll</span>
+            <span className="text-[10px] text-text-muted">From camera roll</span>
           </button>
 
           <button

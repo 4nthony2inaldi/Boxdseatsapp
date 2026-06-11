@@ -135,7 +135,7 @@ export default function TimelineCard({
             </span>
             <OutcomeBadge outcome={entry.outcome} />
             {entry.is_manual && (
-              <span className="text-[9px] text-text-muted bg-bg-input px-1.5 py-0.5 rounded-full tracking-wide uppercase">
+              <span className="text-[10px] text-text-muted bg-bg-input px-1.5 py-0.5 rounded-full tracking-wide uppercase">
                 Manual
               </span>
             )}
@@ -146,7 +146,7 @@ export default function TimelineCard({
               <Link
                 href={editHref}
                 aria-label="Edit this log"
-                className="p-1 -m-1 text-text-muted hover:text-accent transition-colors"
+                className="p-2.5 -m-2 text-text-muted hover:text-accent transition-colors"
                 onClick={(e) => e.stopPropagation()}
               >
                 <svg
@@ -298,7 +298,9 @@ export default function TimelineCard({
             >
               <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" />
             </svg>
-            <span className={`text-xs ${liked ? "text-red-400" : "text-text-muted"}`}>{entry.like_count}</span>
+            {entry.like_count > 0 && (
+              <span className={`text-xs ${liked ? "text-red-400" : "text-text-muted"}`}>{entry.like_count}</span>
+            )}
           </button>
           <button
             onClick={() => onComment?.(entry.id)}
@@ -316,9 +318,11 @@ export default function TimelineCard({
             >
               <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
             </svg>
-            <span className="text-xs text-text-muted">
-              {entry.comment_count}
-            </span>
+            {entry.comment_count > 0 && (
+              <span className="text-xs text-text-muted">
+                {entry.comment_count}
+              </span>
+            )}
           </button>
           <div className="ml-auto">
             <ShareButton

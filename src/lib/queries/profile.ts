@@ -212,7 +212,7 @@ export async function fetchBigFour(
     const { data } = await supabase
       .from("events")
       .select(
-        "event_date, home_team:teams!events_home_team_id_fkey(short_name, abbreviation), away_team:teams!events_away_team_id_fkey(short_name, abbreviation), tournament_name, venues!events_venue_id_fkey(name, photo_url)"
+        "event_date, home_score, away_score, home_team:teams!events_home_team_id_fkey(short_name, abbreviation), away_team:teams!events_away_team_id_fkey(short_name, abbreviation), tournament_name, venues!events_venue_id_fkey(name, photo_url)"
       )
       .eq("id", profile.fav_event_id)
       .single();
@@ -229,11 +229,26 @@ export async function fetchBigFour(
         homeAbbr && awayAbbr
           ? `${awayAbbr} @ ${homeAbbr} ${dateStr}`
           : data.tournament_name || "Event";
+      const score =
+        data.home_score !== null && data.away_score !== null
+          ? `${data.away_score}\u2013${data.home_score}`
+          : null;
+
+      // Prefer the user's own photo from their log of this event
+      const { data: ownLog } = await supabase
+        .from("event_logs")
+        .select("photo_url")
+        .eq("user_id", profile.id)
+        .eq("event_id", profile.fav_event_id)
+        .not("photo_url", "is", null)
+        .limit(1)
+        .maybeSingle();
+
       items.push({
         category: "event",
         name,
-        subtitle: venue,
-        image_url: venueData?.photo_url ?? null,
+        subtitle: score ? `${score} \u00b7 ${venue}` : venue,
+        image_url: ownLog?.photo_url ?? venueData?.photo_url ?? null,
       });
     }
   } else {

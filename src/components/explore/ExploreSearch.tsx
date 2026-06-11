@@ -170,20 +170,30 @@ export default function ExploreSearch() {
                     href={`/venue/${v.id}`}
                     className="flex items-center gap-3 py-2.5 hover:bg-bg-card/50 rounded-lg px-2 transition-colors"
                   >
-                    <div className="w-9 h-9 rounded-lg bg-accent/10 flex items-center justify-center shrink-0">
-                      <svg
-                        width="18"
-                        height="18"
-                        viewBox="0 0 24 24"
-                        fill="none"
-                        stroke="#D4872C"
-                        strokeWidth="2"
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                      >
-                        <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" />
-                        <circle cx="12" cy="10" r="3" />
-                      </svg>
+                    <div className="w-9 h-9 rounded-lg bg-accent/10 flex items-center justify-center shrink-0 overflow-hidden">
+                      {v.photo_url ? (
+                        <Image
+                          src={v.photo_url}
+                          alt={v.name}
+                          width={36}
+                          height={36}
+                          className="w-full h-full object-cover"
+                        />
+                      ) : (
+                        <svg
+                          width="18"
+                          height="18"
+                          viewBox="0 0 24 24"
+                          fill="none"
+                          stroke="#D4872C"
+                          strokeWidth="2"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                        >
+                          <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" />
+                          <circle cx="12" cy="10" r="3" />
+                        </svg>
+                      )}
                     </div>
                     <div className="flex-1 min-w-0">
                       <div className="text-sm text-text-primary font-medium truncate">

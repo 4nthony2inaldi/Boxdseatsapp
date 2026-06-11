@@ -1,4 +1,5 @@
 import Image from "next/image";
+import Link from "next/link";
 import type { ProfileData, ProfileStats } from "@/lib/queries/profile";
 import SportIcon from "@/components/SportIcon";
 
@@ -43,8 +44,8 @@ export default function ProfileHeader({ profile, stats }: ProfileHeaderProps) {
         </div>
         {/* Sport badge */}
         {profile.fav_sport && (
-          <div className="absolute -bottom-0.5 -right-0.5 w-[26px] h-[26px] rounded-full bg-bg flex items-center justify-center border-2 border-border">
-            <SportIcon sport={profile.fav_sport} size={16} />
+          <div className="absolute -bottom-1 -right-1 w-8 h-8 rounded-full bg-bg flex items-center justify-center border-2 border-accent/40">
+            <SportIcon sport={profile.fav_sport} size={20} />
           </div>
         )}
       </div>
@@ -56,16 +57,20 @@ export default function ProfileHeader({ profile, stats }: ProfileHeaderProps) {
         </div>
         <div className="flex items-center justify-between">
           <div className="text-xs text-text-muted">@{profile.username}</div>
-          <div className="flex flex-col items-center">
-            <span className="font-display text-[9px] text-text-muted tracking-[1px] uppercase leading-none mb-0.5">Fan Record</span>
-            <div className="flex gap-1 items-center">
-              <span className="text-[11px] text-win">{stats.wins}</span>
-              <span className="text-[11px] text-text-muted">—</span>
-              <span className="text-[11px] text-loss">{stats.losses}</span>
-              <span className="text-[11px] text-text-muted">—</span>
-              <span className="text-[11px] text-draw">{stats.draws}</span>
+          <Link
+            href="/timeline"
+            className="flex flex-col items-center hover:opacity-80 transition-opacity"
+            aria-label="View your timeline"
+          >
+            <span className="font-display text-[10px] text-text-muted tracking-[1px] uppercase leading-none mb-0.5">Fan Record</span>
+            <div className="flex gap-1.5 items-center">
+              <span className="font-display text-base text-win leading-none">{stats.wins}</span>
+              <span className="text-xs text-text-muted">—</span>
+              <span className="font-display text-base text-loss leading-none">{stats.losses}</span>
+              <span className="text-xs text-text-muted">—</span>
+              <span className="font-display text-base text-draw leading-none">{stats.draws}</span>
             </div>
-          </div>
+          </Link>
         </div>
         {profile.bio && (
           <div className="text-xs text-text-secondary leading-snug mt-1">

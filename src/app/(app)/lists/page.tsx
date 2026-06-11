@@ -180,15 +180,56 @@ export default async function ListsPage({
         </div>
       )}
 
-      {/* Challenges */}
+      {/* Challenges, grouped by sport */}
       {!showOnlyCreated && systemLists.length > 0 && (
         <div className="mb-6">
           <SectionLabel>Challenges</SectionLabel>
-          <div className="space-y-4">
-            {systemLists.map((list) => (
-              <ListCard key={list.id} list={list} showIcon />
-            ))}
-          </div>
+          {(() => {
+            const sportOrder = [
+              "baseball",
+              "football",
+              "basketball",
+              "hockey",
+              "soccer",
+              "golf",
+              "tennis",
+              "motorsports",
+            ];
+            const sportLabels: Record<string, string> = {
+              baseball: "Baseball",
+              football: "Football",
+              basketball: "Basketball",
+              hockey: "Hockey",
+              soccer: "Soccer",
+              golf: "Golf",
+              tennis: "Tennis",
+              motorsports: "Motorsports",
+            };
+            const groups = sportOrder
+              .map((sport) => ({
+                sport,
+                lists: systemLists.filter((l) => l.sport === sport),
+              }))
+              .filter((g) => g.lists.length > 0);
+            const ungrouped = systemLists.filter(
+              (l) => !l.sport || !sportOrder.includes(l.sport)
+            );
+            if (ungrouped.length > 0)
+              groups.push({ sport: "other", lists: ungrouped });
+
+            return groups.map((group) => (
+              <div key={group.sport} className="mb-5 last:mb-0">
+                <div className="font-display text-[11px] text-text-muted tracking-[1.5px] uppercase mb-2">
+                  {sportLabels[group.sport] || "More"}
+                </div>
+                <div className="space-y-3">
+                  {group.lists.map((list) => (
+                    <ListCard key={list.id} list={list} showIcon />
+                  ))}
+                </div>
+              </div>
+            ));
+          })()}
         </div>
       )}
 

@@ -67,6 +67,7 @@ export type SearchResultVenue = {
   name: string;
   city: string;
   state: string | null;
+  photo_url: string | null;
 };
 
 export type SearchResultTeam = {
@@ -534,7 +535,7 @@ export async function searchAll(
     // Search venues by name or city
     supabase
       .from("venues")
-      .select("id, name, city, state")
+      .select("id, name, city, state, photo_url")
       .eq("status", "active")
       .or(`name.ilike.${pattern},city.ilike.${pattern}`)
       .limit(limit),
@@ -569,7 +570,7 @@ export async function searchAll(
   if (aliasIds.length > 0 && venueRows.length < limit) {
     const { data: aliasVenues } = await supabase
       .from("venues")
-      .select("id, name, city, state")
+      .select("id, name, city, state, photo_url")
       .in("id", aliasIds)
       .eq("status", "active")
       .limit(limit - venueRows.length);
@@ -600,6 +601,7 @@ export async function searchAll(
       name: v.name,
       city: v.city,
       state: v.state,
+      photo_url: (v as { photo_url?: string | null }).photo_url ?? null,
     })),
     teams: (teamsRes.data || []).map((t) => {
       const league = t.leagues as unknown as {

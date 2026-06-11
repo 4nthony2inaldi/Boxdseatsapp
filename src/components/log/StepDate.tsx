@@ -26,6 +26,8 @@ export default function StepDate({
   // Quick time-travel picker: closed | choosing year | choosing month of year
   const [jumpYear, setJumpYear] = useState<number | null>(null);
   const [jumpOpen, setJumpOpen] = useState(false);
+  // True when the calendar auto-navigated to the venue's last event month
+  const [autoJumped, setAutoJumped] = useState(false);
 
   // Load all event dates for this venue on mount
   useEffect(() => {
@@ -44,6 +46,7 @@ export default function StepDate({
         if (y !== today.getFullYear() || m - 1 !== today.getMonth()) {
           setViewYear(y);
           setViewMonth(m - 1);
+          setAutoJumped(true);
         }
       }
     }
@@ -94,6 +97,7 @@ export default function StepDate({
   for (let y = today.getFullYear(); y >= earliestYear; y--) jumpYears.push(y);
 
   const handleJumpToMonth = (year: number, monthIdx: number) => {
+    setAutoJumped(false);
     setViewYear(year);
     setViewMonth(monthIdx);
     setJumpOpen(false);
@@ -121,6 +125,7 @@ export default function StepDate({
   };
 
   const goToPrevMonth = () => {
+    setAutoJumped(false);
     if (viewMonth === 0) {
       setViewMonth(11);
       setViewYear(viewYear - 1);
@@ -130,6 +135,7 @@ export default function StepDate({
   };
 
   const goToNextMonth = () => {
+    setAutoJumped(false);
     const nextMonth = viewMonth === 11 ? 0 : viewMonth + 1;
     const nextYear = viewMonth === 11 ? viewYear + 1 : viewYear;
     // Don't go past current month
@@ -253,6 +259,12 @@ export default function StepDate({
               </svg>
             </button>
           </div>
+
+          {autoJumped && (
+            <p className="text-[11px] text-text-muted text-center -mt-2 mb-3">
+              Jumped to this venue&apos;s most recent event month
+            </p>
+          )}
 
           {/* Quick jump: year grid, then months of the chosen year */}
           {jumpOpen && (
