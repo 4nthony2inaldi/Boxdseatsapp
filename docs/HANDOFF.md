@@ -2888,3 +2888,28 @@ Session credentials were provided via chat and are NOT persisted. For autonomous
 - Every change: tsc + lint + build green → commit → PR → merge → watch Vercel deploy → verify live
 - Data changes: rehearse on local staging → batch via Management API → validate → e2e as a real user
 - UI changes: before/after headless screenshots for owner approval before committing
+
+## Session 13 — Phone QA round 2 + full field-sport history (2002+)
+
+**Date:** June 11, 2026 (continuation of Session 12's context). All merged to main and deployed; data changes applied to prod via Management API.
+
+### Shipped (PRs #22-24 + seeder commits)
+1. **Bottom nav + log flow spacing** (#22): taller tabs (pt-3 pb-2.5), guaranteed bottom inset `max(env(safe-area-inset-bottom), 0.5rem)` (env() alone is 0 in non-PWA Safari), main pb-24→pb-28, log step indicator pt-5. This closes Session 12 open item 5 (safe-area).
+2. **Avatar crop + overlay viewport fixes** (#23): profile-picture uploads (settings + onboarding) now use PhotoCropper (moved to src/components/, generalized with aspect/cropShape). Full-screen overlays (PhotoCropper, CameraCapture) were `fixed inset-0 z-50` — bottom-of-screen buttons rendered behind mobile Safari's toolbar AND tied z-index with BottomNav (later in DOM, painted on top). Now `inset-x-0 top-0 h-dvh z-[60]` + safe-area footer padding.
+3. **venues.primary_sport** (#24): venue-search icons were derived per-request via venue_teams + an events tally LIMIT 400 across ALL unresolved venues → nondeterministic generic icons (USTA, Steinbrenner, Nassau). Column backfilled (dominant event sport; 7 orphans hand-set), searchVenues reads it, sync-events stamps it on created venues. scripts/data/004-primary-sport-migration.sql.
+4. **Field sports now 2002→present** (closes the "why does Daytona stop at 2023" gap — only team sports had been backfilled). ~27K events transplanted: NASCAR 882 (36ish points races/season), F1 462, IndyCar 351 (ESPN irl data simply starts 2005), ATP 13,755 / WTA 13,346 day-rows, PGA 4,744 day-rows. 726 new venues (golf courses, tennis "Site" placeholders, circuits), 272 aliases.
+
+### Seeder fixes made along the way (scripts/data/seed-field-events.mjs)
+- **Placeholder-date bug**: pre-~2010 ESPN race timestamps are midnight-ET placeholders (T04/T05:00Z); the -6h Americas shift dated them a day early. Placeholders now use the UTC date as-is.
+- **Exhibition filter**: added historical names (Budweiser Shootout, Gatorade 125/Duel, The Winston, Nextel/Sprint/Monster Energy Open, Showdown).
+- **IndyCar circuit map**: ~45 historical entries + whole-word substring fallback (sponsor-wrapped names); era-aware Detroit (Belle Isle ≤2022) and Nashville (Superspeedway outside 2021-23); deliberately unmapped: 2015 Brasilia (cancelled, ESPN says completed), 2011 Las Vegas finale (abandoned), second 2021 Daytona 500 listing (dup id 202102143995).
+- **NASCAR venue fallbacks**: core API has no venue record for NH fall races 2002-2017 + Fontana fall 2002-2010 + Charlotte 310.
+- **Tag variants**: tennis (Wimbledon Championships / U.s. Open / Us Open Championships) and golf (The Masters / U.S. Open (Golf) Championship / British Open Championship) historical names now tagged; staged rows were tagged via SQL incl. NASCAR crown jewels (Brickyard by name ILIKE '%brickyard%' — the venue+July rule misses 2002-2020 ovals and wrongly needs season≥2024 for road-course-era exclusion).
+- **Curated golf majors**: ESPN has no course data for 8 early-2000s majors; host courses hand-mapped (Bethpage Black '02, Muirfield '02, Hazeltine '02, Olympia Fields '03, Oak Hill '03, Shinnecock '04, Royal Troon '04, Whistling Straits '04).
+- **Manual rows** (ESPN data lost/broken): 2022 Daytona 500 (espn 202202200001, Austin Cindric — scoreboard has a literal empty object for it), 2008 Sylvania 300 (200809140033, Greg Biffle). 2021 Daytona 500 winner (Michael McDowell) was NULL — set.
+
+### Known data gaps / future curation
+- IndyCar before 2005: not on ESPN at all.
+- Tennis non-slam venues are "<Tournament> Site" placeholders; 21 years of sponsor renames created same-city variants (e.g. 3 Acapulco sites). Future: curated tournament→real-venue map + merge.
+- ~20 minor PGA tournaments 2002-2004 skipped (no course data, non-majors); Ryder/Presidents Cup excluded (not PGA Tour stops).
+- 2011 Texas twin-races: kept as the single "Firestone Twin 275s" row.
