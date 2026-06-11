@@ -2849,3 +2849,42 @@ without ESPN ids). System badge lists kept (ownerless). The sole remaining
 account is the real owner account; its 13 logs all reference real events.
 Full pre-cleanup backup retained during the session. Note: the documented
 test credentials no longer work.
+
+
+---
+
+## Session 12 — Continuation Notes (for the next session)
+
+**Date:** June 11, 2026. Everything below is committed, pushed, merged to main, and deployed (19 PRs this session).
+
+### Current production state
+- **156K+ real events**, 11 leagues, 778 venues (87% with photos), 6,940 athletes, 13 system lists, all mock/test data removed (single real account: @tonytest)
+- **Hourly crons live**: /api/sync-events (ingests upcoming games, attaches final scores, incl. preseason) and /api/cover-photos (voting)
+- **Auth**: forgot-password flow live; Supabase site_url + redirect allowlist fixed (was localhost!)
+- **Design**: contrast/type floor, radius system (12px surfaces / 8px controls), profile header breathing room, real imagery everywhere
+
+### Deferred / open items (owner decisions or future work)
+1. **Big Four photo height** (110px → 140px) — owner deferred; patch concept proven via screenshots
+2. **Field-sport hourly sync** — golf/tennis/racing are batch-only (re-run scripts/data/seed-field-events.mjs periodically; team sports auto-sync)
+3. **Lowercase display typeface** for list/venue names (Bebas has no lowercase) — proposed, not decided
+4. **Desktop two-column layout** — acknowledged future work
+5. **Bottom-nav safe-area padding** (PWA prep), activity-chart month taps, explore browse state — small items from the UI review not yet done
+6. **NASCAR race names** are mostly generic ("NASCAR Cup Series at X") — ESPN data limitation; could enrich from another field
+7. **All-Star games** excluded by design (need field-event modeling)
+
+### Credentials / environment for future sessions
+Session credentials were provided via chat and are NOT persisted. For autonomous operation the next session needs (ideally as environment variables on the Claude Code environment):
+- `SUPABASE_ACCESS_TOKEN` (Management API — SQL over HTTPS; direct Postgres ports are blocked in the sandbox)
+- `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY`
+- `VERCEL_TOKEN` (deploy watching, env vars)
+- **The tokens used this session should be rotated** (they passed through chat): Supabase PAT 'claude-finish-line', Vercel token 'claude-finish-line', DB password.
+
+### Rebuilding the dev/verify rig (ephemeral; all sources in-repo)
+- Local staging DB: install postgres+postgis, apply docs/boxdseats-schema.sql (profiles/lists circular FK needs deferral), scripts/photos-migration.sql, scripts/notifications-migration.sql, scripts/data/00*-*.sql, then run the scripts/data seeders (idempotent)
+- Headless UI verification: playwright is a devDependency; `npx playwright install chromium`; pattern: create temp user via admin API → drive localhost:3100 dev server (needs NEXT_TURBOPACK_EXPERIMENTAL_USE_SYSTEM_TLS_CERTS=1 in this sandbox) → screenshot → delete temp user
+- Management-API SQL helper pattern: POST https://api.supabase.com/v1/projects/{ref}/database/query
+
+### Working conventions that served well
+- Every change: tsc + lint + build green → commit → PR → merge → watch Vercel deploy → verify live
+- Data changes: rehearse on local staging → batch via Management API → validate → e2e as a real user
+- UI changes: before/after headless screenshots for owner approval before committing
