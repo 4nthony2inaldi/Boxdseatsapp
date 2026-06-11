@@ -98,6 +98,18 @@ const LEAGUES = {
     coreLeague: 'nascar-premier',
     create: { name: 'NASCAR Cup Series', sport: 'motorsports', country: 'US' },
   },
+  // Xfinity/Truck share NASCAR's venue id space (Daytona=1 in all three
+  // series), so they reuse extPrefix 'nascar' and match existing tracks.
+  xfinity: {
+    slug: 'nascar-xfinity', kind: 'racing', path: 'racing/nascar-secondary', extPrefix: 'nascar',
+    coreLeague: 'nascar-secondary',
+    create: { name: 'NASCAR Xfinity Series', sport: 'motorsports', country: 'US' },
+  },
+  truck: {
+    slug: 'nascar-truck', kind: 'racing', path: 'racing/nascar-truck', extPrefix: 'nascar',
+    coreLeague: 'nascar-truck',
+    create: { name: 'NASCAR Truck Series', sport: 'motorsports', country: 'US' },
+  },
   indycar: {
     slug: 'indycar', kind: 'racing', path: 'racing/irl', extPrefix: 'indycar',
     create: { name: 'IndyCar Series', sport: 'motorsports', country: 'US' },
@@ -1015,7 +1027,7 @@ async function seedRacing(leagueKey, cfg, leagueId, stats) {
     const id = String(ev.id);
     if (ev.status?.type?.completed !== true) { stats.filtered++; continue; }
     if (ev.season?.type === 1 || ev.season?.type === 4) { stats.filtered++; continue; } // pre/off-season
-    if (leagueKey === 'nascar' && NASCAR_EXHIBITION_RE.test(ev.name ?? '')) { stats.filtered++; continue; }
+    if (cfg.coreLeague && NASCAR_EXHIBITION_RE.test(ev.name ?? '')) { stats.filtered++; continue; }
     if (extSet.has(id)) { stats.skipped++; continue; }
 
     // the race competition (F1 weekends also list FP/Quali/Sprint sessions)
@@ -1030,7 +1042,7 @@ async function seedRacing(leagueKey, cfg, leagueId, stats) {
     let venueSpec = null;
     try {
       if (leagueKey === 'f1') venueSpec = f1VenueSpec(cfg, ev);
-      else if (leagueKey === 'nascar') venueSpec = await nascarVenueSpec(cfg, ev);
+      else if (cfg.coreLeague) venueSpec = await nascarVenueSpec(cfg, ev);
       else venueSpec = indycarVenueSpec(ev);
     } catch (err) {
       warnings.push(`[${cfg.slug}] venue lookup failed for ${ev.name} (${id}): ${err.message} — race skipped`);
