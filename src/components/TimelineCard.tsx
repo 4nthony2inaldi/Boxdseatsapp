@@ -80,7 +80,7 @@ export default function TimelineCard({
   const displayTitle = entry.matchup || entry.manual_title || null;
 
   return (
-    <div className="bg-bg-card rounded-[14px] border border-border overflow-hidden mb-3">
+    <div className="bg-bg-card rounded-xl border border-border overflow-hidden mb-3">
       <div className="px-4 py-3.5">
         {/* Author row (feed mode only) */}
         {showAuthor && author && (

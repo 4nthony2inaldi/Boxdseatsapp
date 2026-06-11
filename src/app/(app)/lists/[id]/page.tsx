@@ -129,7 +129,7 @@ export default async function ListDetailPage({
       )}
 
       {/* Progress card */}
-      <div className="bg-bg-card rounded-xl border border-border p-5 mb-6">
+      <div className="bg-bg-card rounded-xl border border-border p-4 mb-6">
         <div className="flex items-end justify-between mb-3">
           <div>
             <div className="font-display text-4xl text-accent tracking-wide">
