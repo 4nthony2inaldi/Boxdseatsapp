@@ -2837,3 +2837,15 @@ Tested end-to-end against the local replica:
 - ~1,500 games (1.4%, mostly 2002-2006 NFL) skipped where ESPN lacks venue data
 - All-Star games / pseudo-team exhibitions excluded by design (would need field-event modeling)
 - ESPN historical preseason coverage thins before ~2006 for some leagues
+
+
+### Mock data cleanup — June 10, 2026
+
+All seed/test social data removed from production once real data was flowing:
+the 5 @test.com accounts (anthony/kyle/sarah/dave/mike, password123) and
+everything they owned (53 logs, likes, comments, follows, notifications,
+storage files), plus the 150 fictional seed events (hand-made matchups
+without ESPN ids). System badge lists kept (ownerless). The sole remaining
+account is the real owner account; its 13 logs all reference real events.
+Full pre-cleanup backup retained during the session. Note: the documented
+test credentials no longer work.

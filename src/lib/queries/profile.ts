@@ -333,22 +333,21 @@ export async function fetchPinnedLists(
 
       if (listItems && listItems.length > 0) {
         const tags = listItems.map((li) => li.event_tag).filter(Boolean);
-        // Check user's event_logs for events with matching tags
+        // Collect the tags the user has attended, then count LIST ITEMS
+        // matched — not logs (multi-day events produce several logs per item)
         const { data: userEvents } = await supabase
           .from("event_logs")
           .select("event_id, events!event_logs_event_id_fkey!inner(event_tags)")
           .eq("user_id", userId)
           .not("event_id", "is", null);
 
-        if (userEvents) {
-          for (const ue of userEvents) {
-            const eventTags = (ue.events as unknown as { event_tags: string[] | null })
-              ?.event_tags;
-            if (eventTags && tags.some((t) => eventTags.includes(t!))) {
-              visited++;
-            }
-          }
+        const userTags = new Set<string>();
+        for (const ue of userEvents || []) {
+          const eventTags = (ue.events as unknown as { event_tags: string[] | null })
+            ?.event_tags;
+          for (const t of eventTags || []) userTags.add(t);
         }
+        visited = tags.filter((t) => userTags.has(t!)).length;
       }
     }
 
