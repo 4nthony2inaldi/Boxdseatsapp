@@ -89,7 +89,7 @@ export default function StepVenue({ userId, onSelect }: StepVenueProps) {
         <input
           value={search}
           onChange={(e) => handleSearch(e.target.value)}
-          placeholder="Search venues..."
+          placeholder="Search venue, team, or city..."
           autoFocus
           className="w-full pl-9 pr-3 py-3 rounded-lg bg-bg-input border border-border text-text-primary text-sm outline-none focus:border-accent transition-colors"
         />
