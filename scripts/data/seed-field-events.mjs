@@ -113,6 +113,20 @@ const CHUNK_DAYS = 28; // scoreboard date-range window
 const MAX_GOLF_DAYS = 8; // skip golf "tournaments" longer than this
 const MAX_TENNIS_DAYS = 15; // cap tennis spans (slams incl. qualifying run ~21)
 
+// ESPN's leaderboard endpoint has no course data for some early-2000s
+// tournaments; the majors matter (they power the golf-major badge lists), so
+// their host courses are curated. Key: `${season} ${stripYears(normName(name))}`.
+const GOLF_COURSE_FALLBACKS = {
+  '2002 u s open championship': { name: 'Bethpage State Park (Black Course)', city: 'Farmingdale', state: 'NY', country: 'US' },
+  '2002 british open championship': { name: 'Muirfield', city: 'Gullane', state: null, country: 'GB' },
+  '2002 pga championship': { name: 'Hazeltine National Golf Club', city: 'Chaska', state: 'MN', country: 'US' },
+  '2003 u s open championship': { name: 'Olympia Fields Country Club', city: 'Olympia Fields', state: 'IL', country: 'US' },
+  '2003 pga championship': { name: 'Oak Hill Country Club', city: 'Rochester', state: 'NY', country: 'US' },
+  '2004 u s open championship': { name: 'Shinnecock Hills Golf Club', city: 'Southampton', state: 'NY', country: 'US' },
+  '2004 british open championship': { name: 'Royal Troon Golf Club', city: 'Troon', state: null, country: 'GB' },
+  '2004 pga championship': { name: 'Whistling Straits', city: 'Kohler', state: 'WI', country: 'US' },
+};
+
 // --- tags (CRITICAL: exact strings — they power existing badge lists) -------
 const GOLF_MAJOR_TAGS = {
   'masters tournament': ['masters', 'pga_major'],
@@ -172,8 +186,11 @@ const TENNIS_CITY_FALLBACKS = [
   ['thoreau tennis', { city: 'Concord', state: 'MA', country: 'US' }],
 ];
 
-// NASCAR exhibition events to exclude (points races only => ~36/season)
-const NASCAR_EXHIBITION_RE = /\b(clash|duel|all[- ]?star)\b/i;
+// NASCAR exhibition events to exclude (points races only => ~36/season).
+// Older naming: Budweiser Shootout / Sprint Unlimited (Clash), Gatorade 125s
+// (Duels), The Winston / Nextel Open (All-Star weekend).
+const NASCAR_EXHIBITION_RE =
+  /\b(clash|duel|all[- ]?star|shootout|gatorade (duel|125)|sprint unlimited|the winston|(nextel|sprint|monster energy) open|showdown)\b/i;
 
 // IndyCar circuits: ESPN exposes no venue data for IRL, curated by race name.
 // Key = normalized race name minus "Grand Prix of" / "Race N" noise.
@@ -186,7 +203,11 @@ const INDYCAR_VENUES = {
   texas: { name: 'Texas Motor Speedway', city: 'Fort Worth', state: 'TX', country: 'US' },
   'indianapolis road course': { name: 'Indianapolis Motor Speedway', city: 'Speedway', state: 'IN', country: 'US' },
   'indianapolis 500': { name: 'Indianapolis Motor Speedway', city: 'Speedway', state: 'IN', country: 'US' },
-  detroit: { name: 'Streets of Detroit', city: 'Detroit', state: 'MI', country: 'US' },
+  indianapolis: { name: 'Indianapolis Motor Speedway', city: 'Speedway', state: 'IN', country: 'US' },
+  // Downtown street circuit from 2023; Belle Isle 2007-2022 (no race 2009-11)
+  detroit: (year) => (year >= 2023
+    ? { name: 'Streets of Detroit', city: 'Detroit', state: 'MI', country: 'US' }
+    : { name: 'Belle Isle Park', city: 'Detroit', state: 'MI', country: 'US' }),
   'road america': { name: 'Road America', city: 'Elkhart Lake', state: 'WI', country: 'US' },
   'mid ohio': { name: 'Mid-Ohio Sports Car Course', city: 'Lexington', state: 'OH', country: 'US' },
   toronto: { name: 'Exhibition Place', city: 'Toronto', state: 'ON', country: 'CA' },
@@ -200,10 +221,11 @@ const INDYCAR_VENUES = {
   arlington: { name: 'Streets of Arlington', city: 'Arlington', state: 'TX', country: 'US' },
   ontario: { name: 'Streets of Ontario', city: 'Ontario', state: 'CA', country: 'US' },
   'washington d c': { name: 'Streets of Washington, D.C.', city: 'Washington', state: 'DC', country: 'US' },
-  // Nashville: street race through 2023, Nashville Superspeedway from 2024
-  nashville: (year) => (year >= 2024
-    ? { name: 'Nashville Superspeedway', city: 'Lebanon', state: 'TN', country: 'US' }
-    : { name: 'Streets of Nashville', city: 'Nashville', state: 'TN', country: 'US' }),
+  // Nashville: downtown street race only 2021-2023; Nashville Superspeedway
+  // before (IRL 2001-2008) and after (2024+)
+  nashville: (year) => (year >= 2021 && year <= 2023
+    ? { name: 'Streets of Nashville', city: 'Nashville', state: 'TN', country: 'US' }
+    : { name: 'Nashville Superspeedway', city: 'Lebanon', state: 'TN', country: 'US' }),
 };
 
 // F1 circuit address fixes (ESPN puts a state/wrong city in the city slot)
@@ -371,8 +393,14 @@ function markerDate(isoUtc) {
  * Americas venues run UTC-4..-8 (races never start before 06:00 local), the
  * rest of the F1/racing world runs UTC+0..+11 with afternoon starts — so
  * subtract 6h for the Americas and add 4h elsewhere.
+ *
+ * Pre-~2010 events carry midnight-ET placeholders (T04:00Z/T05:00Z) instead
+ * of real start times; shifting those lands a day early (2002 Daytona 500:
+ * 2002-02-17T05:00Z -> Feb 16). No race starts at exactly midnight ET/UTC,
+ * so treat those as date-only and return the UTC calendar date.
  */
 function raceLocalDate(isoUtc, countryIso) {
+  if (/T0?[045]:00(:00)?Z?$/.test(isoUtc)) return isoUtc.slice(0, 10);
   const offset = AMERICAS.has(countryIso) ? -6 : +4;
   return new Date(new Date(isoUtc).getTime() + offset * 3600 * 1000).toISOString().slice(0, 10);
 }
@@ -641,20 +669,26 @@ async function seedGolf(leagueKey, cfg, leagueId, stats) {
     const lbEvent = lb.events?.[0];
     const courses = lbEvent?.courses ?? [];
     const course = courses.find((c) => c.host) ?? courses[0];
-    if (!course?.name) {
+    let venueSpec;
+    if (course?.name) {
+      const addr = course.address ?? {};
+      venueSpec = {
+        extKey: `golf:${course.id}`,
+        name: course.name,
+        city: addr.city ?? 'Unknown',
+        state: addr.state ?? null,
+        country: countryIso(addr.country),
+      };
+    } else {
+      venueSpec = GOLF_COURSE_FALLBACKS[`${season} ${stripYears(normName(ev.name))}`] ?? null;
+    }
+    if (!venueSpec) {
       warnings.push(`[${cfg.slug}] no course data for ${ev.name} (${id}) — tournament skipped`);
       stats.errored++;
       continue;
     }
     const winner = lbEvent?.winner?.displayName ?? null;
-    const addr = course.address ?? {};
-    const venueId = await resolveVenue({
-      extKey: `golf:${course.id}`,
-      name: course.name,
-      city: addr.city ?? 'Unknown',
-      state: addr.state ?? null,
-      country: countryIso(addr.country),
-    }, stats);
+    const venueId = await resolveVenue(venueSpec, stats);
 
     const tags = golfTags(ev.name);
     const isPost = GOLF_POSTSEASON.has(stripYears(normName(ev.name)));
@@ -886,7 +920,20 @@ function indycarVenueSpec(ev) {
     .replace(/^grand prix of /, '')
     .replace(/\brace \d+$/, '')
     .trim();
-  const hit = INDYCAR_VENUES[key];
+  let hit = INDYCAR_VENUES[key];
+  // Historical names wrap the circuit in sponsor noise ("The 92nd
+  // Indianapolis 500 Telecast Presented by GoDaddy.com", "Toyota Grand Prix
+  // of Long Beach") — fall back to whole-word substring matching, longest
+  // key first so "indianapolis 500" beats shorter overlaps.
+  if (!hit) {
+    if (/\bindianapolis 500\b|\bindy 500\b/.test(key)) {
+      hit = INDYCAR_VENUES['indianapolis 500'];
+    } else {
+      const keys = Object.keys(INDYCAR_VENUES).sort((a, b) => b.length - a.length);
+      const sub = keys.find((k) => new RegExp(`\\b${k}\\b`).test(key));
+      if (sub) hit = INDYCAR_VENUES[sub];
+    }
+  }
   if (!hit) return null;
   return typeof hit === 'function' ? hit(year) : hit;
 }
@@ -942,7 +989,7 @@ async function seedRacing(leagueKey, cfg, leagueId, stats) {
          league_id, venue_id, event_date, event_template, tournament_name,
          winner_name, season, is_postseason, external_ids
        ) values ($1,$2,$3,'field',$4,$5,$6,$7, jsonb_build_object('espn', $8::text))`,
-      [leagueId, venueId, raceDate, ev.name, winner, season, isPost, id],
+      [leagueId, venueId, raceDate, String(ev.name ?? '').trim(), winner, season, isPost, id],
     );
     extSet.add(id);
     stats.inserted++;
