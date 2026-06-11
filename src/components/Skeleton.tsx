@@ -91,7 +91,7 @@ export function SkeletonFeed() {
 
 export function SkeletonTimelineCard() {
   return (
-    <div className="rounded-[14px] border border-border bg-bg-card p-4 mb-3 animate-pulse">
+    <div className="rounded-xl border border-border bg-bg-card p-4 mb-3 animate-pulse">
       <div className="flex items-center justify-between mb-2">
         <div className="flex items-center gap-2">
           <div className="w-5 h-5 rounded bg-bg-elevated" />
@@ -117,7 +117,7 @@ export function SkeletonTimelineCard() {
 
 export function SkeletonFeedCard() {
   return (
-    <div className="rounded-[14px] border border-border bg-bg-card p-4 mb-3 animate-pulse">
+    <div className="rounded-xl border border-border bg-bg-card p-4 mb-3 animate-pulse">
       <div className="flex items-center gap-2.5 mb-3 pb-3 border-b border-border">
         <div className="w-8 h-8 rounded-full bg-bg-elevated" />
         <div className="flex-1">

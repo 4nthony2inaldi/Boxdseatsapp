@@ -195,7 +195,7 @@ export default function StepDetails({
                       setIsNeutral(true);
                     }
                   }}
-                  className={`flex-1 py-2.5 rounded-[10px] text-[13px] cursor-pointer border transition-colors ${
+                  className={`flex-1 py-2.5 rounded-lg text-[13px] cursor-pointer border transition-colors ${
                     isSelected
                       ? "bg-accent/10 border-accent text-accent font-semibold"
                       : "bg-bg-input border-border text-text-secondary"
@@ -247,7 +247,7 @@ export default function StepDetails({
           value={seatLocation}
           onChange={(e) => setSeatLocation(e.target.value)}
           placeholder="Section, row, seat"
-          className="w-full px-3.5 py-3 rounded-[10px] bg-bg-input border border-border text-text-primary text-sm outline-none focus:border-accent transition-colors"
+          className="w-full px-3.5 py-3 rounded-lg bg-bg-input border border-border text-text-primary text-sm outline-none focus:border-accent transition-colors"
         />
       </div>
 
@@ -261,7 +261,7 @@ export default function StepDetails({
           onChange={(e) => setNotes(e.target.value)}
           placeholder="What made this game memorable?"
           rows={3}
-          className="w-full px-3.5 py-3 rounded-[10px] bg-bg-input border border-border text-text-primary text-sm outline-none resize-none font-[inherit] focus:border-accent transition-colors"
+          className="w-full px-3.5 py-3 rounded-lg bg-bg-input border border-border text-text-primary text-sm outline-none resize-none font-[inherit] focus:border-accent transition-colors"
         />
       </div>
 
@@ -302,7 +302,7 @@ export default function StepDetails({
               onChange={(e) => handleCompanionSearch(e.target.value)}
               placeholder="@username or type a name"
               autoFocus
-              className="w-full px-3.5 py-3 rounded-[10px] bg-bg-input border border-border text-text-primary text-sm outline-none focus:border-accent transition-colors"
+              className="w-full px-3.5 py-3 rounded-lg bg-bg-input border border-border text-text-primary text-sm outline-none focus:border-accent transition-colors"
               onKeyDown={(e) => {
                 if (e.key === "Enter" && companionSearch.trim()) {
                   addFreeTextCompanion();
@@ -422,7 +422,7 @@ export default function StepDetails({
               <button
                 key={opt.value}
                 onClick={() => setPrivacy(opt.value)}
-                className={`flex-1 py-2.5 px-1 rounded-[10px] text-[11px] cursor-pointer border transition-colors ${
+                className={`flex-1 py-2.5 px-1 rounded-lg text-[11px] cursor-pointer border transition-colors ${
                   isSelected
                     ? "bg-accent/10 border-accent text-accent font-semibold"
                     : "bg-bg-input border-border text-text-secondary"

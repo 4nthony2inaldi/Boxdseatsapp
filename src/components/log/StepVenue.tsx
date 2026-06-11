@@ -91,7 +91,7 @@ export default function StepVenue({ userId, onSelect }: StepVenueProps) {
           onChange={(e) => handleSearch(e.target.value)}
           placeholder="Search venues..."
           autoFocus
-          className="w-full pl-9 pr-3 py-3 rounded-[10px] bg-bg-input border border-border text-text-primary text-sm outline-none focus:border-accent transition-colors"
+          className="w-full pl-9 pr-3 py-3 rounded-lg bg-bg-input border border-border text-text-primary text-sm outline-none focus:border-accent transition-colors"
         />
       </div>
 
@@ -128,9 +128,9 @@ export default function StepVenue({ userId, onSelect }: StepVenueProps) {
           <button
             key={venue.id}
             onClick={() => onSelect(venue)}
-            className="w-full flex items-center gap-3 p-3 bg-bg-card rounded-[10px] border border-border mb-2 cursor-pointer text-left hover:border-accent/50 transition-colors"
+            className="w-full flex items-center gap-3 p-3 bg-bg-card rounded-lg border border-border mb-2 cursor-pointer text-left hover:border-accent/50 transition-colors"
           >
-            <div className="w-10 h-10 rounded-[10px] bg-accent/10 flex items-center justify-center shrink-0">
+            <div className="w-10 h-10 rounded-lg bg-accent/10 flex items-center justify-center shrink-0">
               <SportIcon src={venue.sport_icon} size={24} />
             </div>
             <div className="flex-1 min-w-0">

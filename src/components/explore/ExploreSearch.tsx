@@ -66,7 +66,7 @@ export default function ExploreSearch() {
           value={query}
           onChange={(e) => handleChange(e.target.value)}
           placeholder="Search users, venues, teams, lists..."
-          className="w-full bg-bg-input rounded-xl border border-border pl-9 pr-4 py-3 text-sm text-text-primary placeholder:text-text-muted focus:outline-none focus:border-accent transition-colors"
+          className="w-full bg-bg-input rounded-xl border border-border pl-9 pr-4 py-3.5 text-sm text-text-primary placeholder:text-text-muted focus:outline-none focus:border-accent transition-colors"
         />
         {query && (
           <button

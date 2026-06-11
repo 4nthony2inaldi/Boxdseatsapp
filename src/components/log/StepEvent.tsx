@@ -184,7 +184,7 @@ export default function StepEvent({
             <button
               key={day.id}
               onClick={() => toggleDay(day.id)}
-              className={`w-full rounded-[14px] border p-4 cursor-pointer text-left mb-2 transition-colors flex items-center gap-3 ${
+              className={`w-full rounded-xl border p-4 cursor-pointer text-left mb-2 transition-colors flex items-center gap-3 ${
                 isSelected
                   ? "bg-accent/10 border-accent"
                   : "bg-bg-card border-border hover:border-accent/50"
@@ -293,7 +293,7 @@ export default function StepEvent({
                   ? handleTournamentClick(event)
                   : onSelect(event)
               }
-              className={`w-full bg-bg-card rounded-[14px] border p-4 text-left mb-3 transition-colors ${
+              className={`w-full bg-bg-card rounded-xl border p-4 text-left mb-3 transition-colors ${
                 alreadyLogged
                   ? "border-win/30 opacity-70 cursor-default"
                   : "border-border cursor-pointer hover:border-accent/50"
@@ -357,7 +357,7 @@ export default function StepEvent({
       {!loading && events.length > 0 && !showManual && (
         <button
           onClick={() => setShowManual(true)}
-          className="w-full p-3 mt-1 bg-transparent border border-dashed border-border rounded-[10px] text-text-muted text-[13px] cursor-pointer hover:border-accent/30 transition-colors"
+          className="w-full p-3 mt-1 bg-transparent border border-dashed border-border rounded-lg text-text-muted text-[13px] cursor-pointer hover:border-accent/30 transition-colors"
         >
           Can&apos;t find your event? Enter manually →
         </button>
@@ -365,7 +365,7 @@ export default function StepEvent({
 
       {/* Manual entry form */}
       {showManual && (
-        <div className="bg-bg-card rounded-[14px] border border-border p-4 mt-3">
+        <div className="bg-bg-card rounded-xl border border-border p-4 mt-3">
           <div className="font-display text-sm text-text-primary tracking-[1px] uppercase mb-4">
             Manual Entry
           </div>
@@ -379,7 +379,7 @@ export default function StepEvent({
               value={manualTitle}
               onChange={(e) => setManualTitle(e.target.value)}
               placeholder="e.g. Yankees vs Red Sox, 2025 US Open"
-              className="w-full px-3.5 py-3 rounded-[10px] bg-bg-input border border-border text-text-primary text-sm outline-none focus:border-accent transition-colors"
+              className="w-full px-3.5 py-3 rounded-lg bg-bg-input border border-border text-text-primary text-sm outline-none focus:border-accent transition-colors"
             />
           </div>
 
@@ -419,14 +419,14 @@ export default function StepEvent({
                 value={manualAwayTeam}
                 onChange={(e) => setManualAwayTeam(e.target.value)}
                 placeholder="Away team"
-                className="w-full px-3 py-2.5 rounded-[10px] bg-bg-input border border-border text-text-primary text-sm outline-none focus:border-accent transition-colors"
+                className="w-full px-3 py-2.5 rounded-lg bg-bg-input border border-border text-text-primary text-sm outline-none focus:border-accent transition-colors"
               />
               <span className="text-text-muted text-xs font-display">@</span>
               <input
                 value={manualHomeTeam}
                 onChange={(e) => setManualHomeTeam(e.target.value)}
                 placeholder="Home team"
-                className="w-full px-3 py-2.5 rounded-[10px] bg-bg-input border border-border text-text-primary text-sm outline-none focus:border-accent transition-colors"
+                className="w-full px-3 py-2.5 rounded-lg bg-bg-input border border-border text-text-primary text-sm outline-none focus:border-accent transition-colors"
               />
             </div>
             {(manualHomeTeam.trim() || manualAwayTeam.trim()) && (
@@ -436,7 +436,7 @@ export default function StepEvent({
                   onChange={(e) => setManualAwayScore(e.target.value.replace(/\D/g, ""))}
                   placeholder="Score"
                   inputMode="numeric"
-                  className="w-full px-3 py-2 rounded-[10px] bg-bg-input border border-border text-text-primary text-sm outline-none focus:border-accent transition-colors text-center"
+                  className="w-full px-3 py-2 rounded-lg bg-bg-input border border-border text-text-primary text-sm outline-none focus:border-accent transition-colors text-center"
                 />
                 <span className="text-text-muted text-xs">–</span>
                 <input
@@ -444,7 +444,7 @@ export default function StepEvent({
                   onChange={(e) => setManualHomeScore(e.target.value.replace(/\D/g, ""))}
                   placeholder="Score"
                   inputMode="numeric"
-                  className="w-full px-3 py-2 rounded-[10px] bg-bg-input border border-border text-text-primary text-sm outline-none focus:border-accent transition-colors text-center"
+                  className="w-full px-3 py-2 rounded-lg bg-bg-input border border-border text-text-primary text-sm outline-none focus:border-accent transition-colors text-center"
                 />
               </div>
             )}

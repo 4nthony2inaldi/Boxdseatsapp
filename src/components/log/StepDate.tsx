@@ -168,7 +168,7 @@ export default function StepDate({
       {/* Today shortcut */}
       <button
         onClick={handleToday}
-        className="w-full mb-4 p-3 rounded-[10px] bg-accent/10 border border-accent/30 text-accent text-sm font-medium cursor-pointer hover:bg-accent/15 transition-colors"
+        className="w-full mb-4 p-3 rounded-lg bg-accent/10 border border-accent/30 text-accent text-sm font-medium cursor-pointer hover:bg-accent/15 transition-colors"
       >
         Today &mdash;{" "}
         {today.toLocaleDateString("en-US", {
@@ -187,7 +187,7 @@ export default function StepDate({
 
       {/* Calendar */}
       {!loading && (
-        <div className="bg-bg-card rounded-[14px] border border-border p-4 mb-4">
+        <div className="bg-bg-card rounded-xl border border-border p-4 mb-4">
           {/* Month navigation */}
           <div className="flex items-center justify-between mb-4">
             <button
