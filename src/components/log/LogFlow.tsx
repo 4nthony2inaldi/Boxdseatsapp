@@ -409,7 +409,7 @@ export default function LogFlow({ userId, prefillVenue, editLog }: LogFlowProps)
   }
 
   return (
-    <div className="px-4 pb-5 max-w-lg mx-auto">
+    <div className="px-4 pt-5 pb-5 max-w-lg mx-auto">
       {/* Step progress indicator */}
       <div className="flex items-center gap-2 mb-6">
         {STEP_LABELS.map((label, i) => {

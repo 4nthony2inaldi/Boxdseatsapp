@@ -71,7 +71,7 @@ export default function BottomNav() {
 
   return (
     <nav className="fixed bottom-0 left-0 right-0 z-50 border-t border-border bg-bg-card">
-      <div className="flex items-end justify-around px-2 pb-[env(safe-area-inset-bottom)] max-w-lg mx-auto">
+      <div className="flex items-end justify-around px-2 pb-[max(env(safe-area-inset-bottom),0.5rem)] max-w-lg mx-auto">
         {tabs.map((tab) => {
           const active = isActive(tab.href);
           const Icon = tab.icon;
@@ -81,7 +81,7 @@ export default function BottomNav() {
               <Link
                 key={tab.href}
                 href={tab.href}
-                className="flex flex-col items-center -mt-4"
+                className="flex flex-col items-center -mt-4 pb-2.5"
               >
                 <div
                   className="w-14 h-14 rounded-full flex items-center justify-center shadow-lg"
@@ -103,7 +103,7 @@ export default function BottomNav() {
             <Link
               key={tab.href}
               href={tab.href}
-              className="flex flex-col items-center py-2 px-3"
+              className="flex flex-col items-center pt-3 pb-2.5 px-3"
             >
               <Icon active={active} />
               <span
