@@ -163,6 +163,9 @@ export async function fetchFeed(
     )
     .in("user_id", feedUserIds)
     .neq("privacy", "hide_all")
+    // Chronological by when the event HAPPENED, not when it was logged —
+    // you can rewatch a 2005 film today but you attended a 2005 game in 2005.
+    .order("event_date", { ascending: false })
     .order("created_at", { ascending: false })
     .range(offset, offset + limit);
 
