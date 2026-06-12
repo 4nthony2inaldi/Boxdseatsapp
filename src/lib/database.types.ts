@@ -1021,6 +1021,7 @@ export type Database = {
           fav_athlete_id: string | null
           fav_event_id: string | null
           fav_sport: Database["public"]["Enums"]["sport_type"] | null
+          home_city: string | null
           fav_team_id: string | null
           fav_venue_id: string | null
           id: string
@@ -1041,6 +1042,7 @@ export type Database = {
           fav_athlete_id?: string | null
           fav_event_id?: string | null
           fav_sport?: Database["public"]["Enums"]["sport_type"] | null
+          home_city?: string | null
           fav_team_id?: string | null
           fav_venue_id?: string | null
           id: string
@@ -1061,6 +1063,7 @@ export type Database = {
           fav_athlete_id?: string | null
           fav_event_id?: string | null
           fav_sport?: Database["public"]["Enums"]["sport_type"] | null
+          home_city?: string | null
           fav_team_id?: string | null
           fav_venue_id?: string | null
           id?: string

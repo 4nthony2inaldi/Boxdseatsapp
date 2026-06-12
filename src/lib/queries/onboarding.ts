@@ -26,6 +26,7 @@ export async function updateProfileSetup(
     username?: string;
     display_name?: string;
     avatar_url?: string;
+    home_city?: string;
   }
 ): Promise<{ success: boolean } | { error: string }> {
   const { error } = await supabase

@@ -1,6 +1,8 @@
 import { createClient } from "@/lib/supabase/server";
 import { fetchFeed } from "@/lib/queries/social";
+import { fetchNearbyEvents, type NearbyEvent } from "@/lib/queries/nearby";
 import FeedList from "@/components/feed/FeedList";
+import NearbySection from "@/components/feed/NearbySection";
 
 export default async function FeedPage() {
   const supabase = await createClient();
@@ -16,7 +18,15 @@ export default async function FeedPage() {
     );
   }
 
-  const { entries, hasMore } = await fetchFeed(supabase, user.id);
+  const [{ entries, hasMore }, profileRes] = await Promise.all([
+    fetchFeed(supabase, user.id),
+    supabase.from("profiles").select("home_city").eq("id", user.id).single(),
+  ]);
+  const homeCity = profileRes.data?.home_city ?? null;
+  let nearby: NearbyEvent[] = [];
+  if (homeCity) {
+    nearby = await fetchNearbyEvents(supabase, homeCity);
+  }
 
   return (
     <div className="max-w-lg mx-auto">
@@ -24,6 +34,14 @@ export default async function FeedPage() {
         <h1 className="font-display text-[22px] text-text-primary tracking-wide">
           Feed
         </h1>
+      </div>
+
+      <NearbySection userId={user.id} initialCity={homeCity} initialEvents={nearby} />
+
+      <div className="px-4 mb-2.5">
+        <span className="font-display text-[13px] text-text-muted tracking-[1.5px] uppercase">
+          From Friends
+        </span>
       </div>
       <FeedList initialEntries={entries} initialHasMore={hasMore} userId={user.id} />
     </div>

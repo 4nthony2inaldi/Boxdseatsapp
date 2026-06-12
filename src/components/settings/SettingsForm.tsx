@@ -9,6 +9,7 @@ import AvatarUpload from "@/components/AvatarUpload";
 import AccountSecurity from "@/components/settings/AccountSecurity";
 import SportIcon from "@/components/SportIcon";
 import { SPORTS_LIST } from "@/lib/sportIcons";
+import { METROS } from "@/lib/metros";
 
 type Props = {
   profile: SettingsProfile;
@@ -45,6 +46,7 @@ export default function SettingsForm({ profile, userEmail, availableLists }: Pro
   const [displayName, setDisplayName] = useState(profile.display_name || "");
   const [bio, setBio] = useState(profile.bio || "");
   const [favSport, setFavSport] = useState(profile.fav_sport);
+  const [homeCity, setHomeCity] = useState(profile.home_city);
   const [isPrivate, setIsPrivate] = useState(profile.is_private);
   const [defaultPrivacy, setDefaultPrivacy] = useState(profile.default_privacy);
   const [commentsEnabled, setCommentsEnabled] = useState(profile.comments_enabled);
@@ -66,6 +68,7 @@ export default function SettingsForm({ profile, userEmail, availableLists }: Pro
       display_name: displayName.trim() || null,
       bio: bio.trim() || null,
       fav_sport: favSport,
+      home_city: homeCity,
       is_private: isPrivate,
       default_privacy: defaultPrivacy,
       comments_enabled: commentsEnabled,
@@ -126,6 +129,25 @@ export default function SettingsForm({ profile, userEmail, availableLists }: Pro
           <div className="text-xs text-text-muted text-right mt-0.5">
             {bio.length}/160
           </div>
+        </div>
+        <div className="px-4 py-3 border-b border-border">
+          <label className="text-xs text-text-muted block mb-1">Home City</label>
+          <select
+            value={homeCity || ""}
+            onChange={(e) => setHomeCity(e.target.value || null)}
+            className="w-full py-2 px-3 rounded-lg bg-bg-input border border-border text-text-primary text-sm outline-none"
+          >
+            <option value="">Not set</option>
+            {METROS.map((m) => (
+              <option key={m.key} value={m.key}>
+                {m.label}
+                {m.state ? `, ${m.state}` : ""}
+              </option>
+            ))}
+          </select>
+          <p className="text-[11px] text-text-muted mt-1">
+            Powers the &ldquo;Around You&rdquo; section on your feed.
+          </p>
         </div>
         <div className="px-4 py-3">
           <label className="text-xs text-text-muted block mb-2">Sport Badge</label>
