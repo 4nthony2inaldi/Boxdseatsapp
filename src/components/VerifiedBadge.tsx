@@ -1,5 +1,3 @@
-"use client";
-
 type VerifiedBadgeProps = {
   size?: "sm" | "md";
 };

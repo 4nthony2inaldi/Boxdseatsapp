@@ -1,4 +1,5 @@
 import { SupabaseClient } from "@supabase/supabase-js";
+import { fetchUserEventTags } from "./eventTags";
 import { getSportIconPath } from "@/lib/sportIcons";
 
 // ── Types ──
@@ -65,21 +66,7 @@ export async function fetchAllLists(
   );
 
   // Get user's event logs for event-type list matching
-  const { data: userEventLogs } = await supabase
-    .from("event_logs")
-    .select("event_id, events!event_logs_event_id_fkey(event_tags)")
-    .eq("user_id", userId)
-    .not("event_id", "is", null);
-
-  const userEventTags = new Set<string>();
-  if (userEventLogs) {
-    for (const ue of userEventLogs) {
-      const tags = (ue.events as unknown as { event_tags: string[] | null })?.event_tags;
-      if (tags) {
-        for (const t of tags) userEventTags.add(t);
-      }
-    }
-  }
+  const userEventTags = await fetchUserEventTags(supabase, userId);
 
   const result: ListSummary[] = [];
 
@@ -218,22 +205,8 @@ export async function fetchListItems(
         }
       }
     }
-    // Get user's event tags
-    const { data: userEvents } = await supabase
-      .from("event_logs")
-      .select("event_id, events!event_logs_event_id_fkey(event_tags)")
-      .eq("user_id", userId)
-      .not("event_id", "is", null);
-
-    const userTags = new Set<string>();
-    if (userEvents) {
-      for (const ue of userEvents) {
-        const tags = (ue.events as unknown as { event_tags: string[] | null })?.event_tags;
-        if (tags) {
-          for (const t of tags) userTags.add(t);
-        }
-      }
-    }
+    // Get user's event tags (paginated, see fetchUserEventTags)
+    const userTags = await fetchUserEventTags(supabase, userId);
 
     return items.map((item) => ({
       id: item.id,
@@ -335,19 +308,7 @@ async function computeListProgress(
 
   const visitedVenueIds = new Set((venueVisits || []).map((vv) => vv.venue_id));
 
-  const { data: userEventLogs } = await supabase
-    .from("event_logs")
-    .select("event_id, events!event_logs_event_id_fkey(event_tags)")
-    .eq("user_id", userId)
-    .not("event_id", "is", null);
-
-  const userEventTags = new Set<string>();
-  if (userEventLogs) {
-    for (const ue of userEventLogs) {
-      const tags = (ue.events as unknown as { event_tags: string[] | null })?.event_tags;
-      if (tags) for (const t of tags) userEventTags.add(t);
-    }
-  }
+  const userEventTags = await fetchUserEventTags(supabase, userId);
 
   const result: UserListSummary[] = [];
 

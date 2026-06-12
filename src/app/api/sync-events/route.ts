@@ -66,7 +66,8 @@ function fmtDate(d: Date): string {
 async function handleSync(request: Request) {
   const authHeader = request.headers.get("authorization");
   const cronSecret = process.env.CRON_SECRET;
-  if (cronSecret && authHeader !== `Bearer ${cronSecret}`) {
+  // Fail closed: a missing secret must NOT open this service-role write endpoint.
+  if (!cronSecret || authHeader !== `Bearer ${cronSecret}`) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
@@ -92,10 +93,19 @@ async function handleSync(request: Request) {
     .in("slug", Object.keys(LEAGUE_PATHS));
   const leagueIds = new Map((leagues || []).map((l) => [l.slug, l.id]));
 
-  // Venue lookup: by espn id and by normalized name
-  const { data: venues } = await supabase
-    .from("venues")
-    .select("id, name, external_ids");
+  // Venue lookup: by espn id and by normalized name.
+  // Page past the 1,000-row cap — the venues table is already >1,500, so a
+  // single select would hide venues from the matcher and spawn duplicates.
+  const venues: { id: string; name: string; external_ids: Record<string, unknown> }[] = [];
+  for (let from = 0; ; from += 1000) {
+    const { data: page } = await supabase
+      .from("venues")
+      .select("id, name, external_ids")
+      .range(from, from + 999);
+    if (!page || page.length === 0) break;
+    venues.push(...(page as typeof venues));
+    if (page.length < 1000) break;
+  }
   const venueByEspn = new Map<string, string>();
   const venueByName = new Map<string, string>();
   for (const v of venues || []) {
