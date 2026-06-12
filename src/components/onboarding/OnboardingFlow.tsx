@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { completeOnboarding, markVenuesVisited } from "@/lib/queries/onboarding";
 import StepAccount from "./StepAccount";
-import StepBigFour from "./StepBigFour";
+import StepFavorites from "./StepFavorites";
 import StepVenues from "./StepVenues";
 import StepFirstEvent from "./StepFirstEvent";
 
@@ -26,10 +26,6 @@ export default function OnboardingFlow({
   const [username, setUsername] = useState(initialUsername);
   const [displayName, setDisplayName] = useState("");
   const [favSport, setFavSport] = useState<string | null>(null);
-  const [favTeamId, setFavTeamId] = useState<string | null>(null);
-  const [favVenueId, setFavVenueId] = useState<string | null>(null);
-  const [favAthleteId, setFavAthleteId] = useState<string | null>(null);
-  const [favEventId, setFavEventId] = useState<string | null>(null);
   const [markedVenueIds, setMarkedVenueIds] = useState<string[]>([]);
   const [finishing, setFinishing] = useState(false);
   const router = useRouter();
@@ -85,18 +81,10 @@ export default function OnboardingFlow({
       )}
 
       {step === 1 && (
-        <StepBigFour
+        <StepFavorites
           userId={userId}
           favSport={favSport}
-          favTeamId={favTeamId}
-          favVenueId={favVenueId}
-          favAthleteId={favAthleteId}
-          favEventId={favEventId}
           onFavSportChange={setFavSport}
-          onFavTeamChange={setFavTeamId}
-          onFavVenueChange={setFavVenueId}
-          onFavAthleteChange={setFavAthleteId}
-          onFavEventChange={setFavEventId}
           onBack={() => setStep(0)}
           onNext={() => setStep(2)}
         />
