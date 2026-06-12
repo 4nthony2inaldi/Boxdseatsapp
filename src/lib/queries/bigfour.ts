@@ -36,63 +36,48 @@ export async function fetchLeagueFavorites(
 
   if (!data || data.length === 0) return [];
 
-  const results: LeagueFavorite[] = [];
+  // Batch all picks of this (homogeneous) category in one query
+  const ids = data
+    .map((f) => f.team_id || f.athlete_id || f.venue_id || f.event_id)
+    .filter((x): x is string => !!x);
+  const nameById = new Map<string, string>();
 
-  for (const fav of data) {
-    const league = fav.leagues as unknown as { name: string; slug: string } | null;
-    if (!league) continue;
-
-    let pickName = "";
-    let pickId = "";
-
-    if (category === "team" && fav.team_id) {
-      const { data: team } = await supabase
-        .from("teams")
-        .select("name, short_name")
-        .eq("id", fav.team_id)
-        .single();
-      pickName = team?.short_name || team?.name || "Unknown";
-      pickId = fav.team_id;
-    } else if (category === "athlete" && fav.athlete_id) {
-      const { data: athlete } = await supabase
-        .from("athletes")
-        .select("name")
-        .eq("id", fav.athlete_id)
-        .single();
-      pickName = athlete?.name || "Unknown";
-      pickId = fav.athlete_id;
-    } else if (category === "venue" && fav.venue_id) {
-      const { data: venue } = await supabase
-        .from("venues")
-        .select("name")
-        .eq("id", fav.venue_id)
-        .single();
-      pickName = venue?.name || "Unknown";
-      pickId = fav.venue_id;
-    } else if (category === "event" && fav.event_id) {
-      const { data: event } = await supabase
+  if (ids.length > 0) {
+    if (category === "team") {
+      const { data: rows } = await supabase.from("teams").select("id, name, short_name").in("id", ids);
+      for (const t of rows || []) nameById.set(t.id, t.short_name || t.name || "Unknown");
+    } else if (category === "athlete") {
+      const { data: rows } = await supabase.from("athletes").select("id, name").in("id", ids);
+      for (const a of rows || []) nameById.set(a.id, a.name || "Unknown");
+    } else if (category === "venue") {
+      const { data: rows } = await supabase.from("venues").select("id, name").in("id", ids);
+      for (const v of rows || []) nameById.set(v.id, v.name || "Unknown");
+    } else if (category === "event") {
+      const { data: rows } = await supabase
         .from("events")
-        .select(
-          `event_date, tournament_name,
+        .select(`id, event_date, tournament_name,
            home_team:teams!events_home_team_id_fkey(short_name, abbreviation),
-           away_team:teams!events_away_team_id_fkey(short_name, abbreviation)`
-        )
-        .eq("id", fav.event_id)
-        .single();
-      if (event) {
+           away_team:teams!events_away_team_id_fkey(short_name, abbreviation)`)
+        .in("id", ids);
+      for (const event of rows || []) {
         const home = event.home_team as unknown as { short_name: string; abbreviation: string } | null;
         const away = event.away_team as unknown as { short_name: string; abbreviation: string } | null;
         const homeAbbr = home?.abbreviation || home?.short_name;
         const awayAbbr = away?.abbreviation || away?.short_name;
         const d = new Date(event.event_date + "T00:00:00");
         const dateStr = `${d.getMonth() + 1}/${d.getDate()}/${String(d.getFullYear()).slice(2)}`;
-        pickName = homeAbbr && awayAbbr
-          ? `${awayAbbr} @ ${homeAbbr} ${dateStr}`
-          : event.tournament_name || "Event";
+        nameById.set(event.id, homeAbbr && awayAbbr ? `${awayAbbr} @ ${homeAbbr} ${dateStr}` : event.tournament_name || "Event");
       }
-      pickId = fav.event_id;
     }
+  }
 
+  const results: LeagueFavorite[] = [];
+  for (const fav of data) {
+    const league = fav.leagues as unknown as { name: string; slug: string } | null;
+    if (!league) continue;
+    const pickId = fav.team_id || fav.athlete_id || fav.venue_id || fav.event_id || "";
+    if (!pickId) continue;
+    const pickName = nameById.get(pickId) || "Unknown";
     results.push({
       id: fav.id,
       league_id: fav.league_id,

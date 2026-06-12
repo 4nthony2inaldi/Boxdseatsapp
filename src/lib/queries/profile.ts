@@ -1,4 +1,5 @@
 import { SupabaseClient } from "@supabase/supabase-js";
+import { fetchUserEventTags } from "./eventTags";
 import { getSportIconPath } from "@/lib/sportIcons";
 
 export type ProfileData = {
@@ -150,110 +151,74 @@ export async function fetchBigFour(
   supabase: SupabaseClient,
   profile: ProfileData
 ): Promise<BigFourItem[]> {
+  // The four lookups are independent \u2014 run them concurrently, then assemble
+  // in fixed display order (team, venue, athlete, event).
+  const [teamRes, venueRes, athleteRes, eventRes, ownLogRes] = await Promise.all([
+    profile.fav_team_id
+      ? supabase.from("teams").select("name, short_name, logo_url, leagues(name)").eq("id", profile.fav_team_id).single()
+      : Promise.resolve({ data: null }),
+    profile.fav_venue_id
+      ? supabase.from("venues").select("name, city, state, photo_url").eq("id", profile.fav_venue_id).single()
+      : Promise.resolve({ data: null }),
+    profile.fav_athlete_id
+      ? supabase.from("athletes").select("name, sport, headshot_url").eq("id", profile.fav_athlete_id).single()
+      : Promise.resolve({ data: null }),
+    profile.fav_event_id
+      ? supabase.from("events").select(
+          "event_date, home_score, away_score, home_team:teams!events_home_team_id_fkey(short_name, abbreviation), away_team:teams!events_away_team_id_fkey(short_name, abbreviation), tournament_name, venues!events_venue_id_fkey(name, photo_url)"
+        ).eq("id", profile.fav_event_id).single()
+      : Promise.resolve({ data: null }),
+    profile.fav_event_id
+      ? supabase.from("event_logs").select("photo_url").eq("user_id", profile.id).eq("event_id", profile.fav_event_id).not("photo_url", "is", null).limit(1).maybeSingle()
+      : Promise.resolve({ data: null }),
+  ]);
+
   const items: BigFourItem[] = [];
 
-  // Fetch team
-  if (profile.fav_team_id) {
-    const { data } = await supabase
-      .from("teams")
-      .select("name, short_name, logo_url, leagues(name)")
-      .eq("id", profile.fav_team_id)
-      .single();
-    if (data) {
-      const league = (data.leagues as unknown as { name: string } | null)?.name || "";
-      items.push({
-        category: "team",
-        name: data.short_name || data.name,
-        subtitle: league,
-        image_url: data.logo_url,
-      });
-    }
+  const team = teamRes.data as { name: string; short_name: string; logo_url: string | null; leagues: unknown } | null;
+  if (team) {
+    const league = (team.leagues as unknown as { name: string } | null)?.name || "";
+    items.push({ category: "team", name: team.short_name || team.name, subtitle: league, image_url: team.logo_url });
   } else {
     items.push({ category: "team", name: "Not set", subtitle: "" });
   }
 
-  // Fetch venue
-  if (profile.fav_venue_id) {
-    const { data } = await supabase
-      .from("venues")
-      .select("name, city, state, photo_url")
-      .eq("id", profile.fav_venue_id)
-      .single();
-    if (data) {
-      items.push({
-        category: "venue",
-        name: data.name,
-        subtitle: `${data.city}${data.state ? `, ${data.state}` : ""}`,
-        image_url: data.photo_url,
-      });
-    }
+  const venue = venueRes.data as { name: string; city: string; state: string | null; photo_url: string | null } | null;
+  if (venue) {
+    items.push({ category: "venue", name: venue.name, subtitle: `${venue.city}${venue.state ? `, ${venue.state}` : ""}`, image_url: venue.photo_url });
   } else {
     items.push({ category: "venue", name: "Not set", subtitle: "" });
   }
 
-  // Fetch athlete
-  if (profile.fav_athlete_id) {
-    const { data } = await supabase
-      .from("athletes")
-      .select("name, sport, headshot_url")
-      .eq("id", profile.fav_athlete_id)
-      .single();
-    if (data) {
-      items.push({
-        category: "athlete",
-        name: data.name,
-        subtitle: data.sport || "",
-        image_url: data.headshot_url,
-      });
-    }
+  const athlete = athleteRes.data as { name: string; sport: string | null; headshot_url: string | null } | null;
+  if (athlete) {
+    items.push({ category: "athlete", name: athlete.name, subtitle: athlete.sport || "", image_url: athlete.headshot_url });
   } else {
     items.push({ category: "athlete", name: "Not set", subtitle: "" });
   }
 
-  // Fetch event
-  if (profile.fav_event_id) {
-    const { data } = await supabase
-      .from("events")
-      .select(
-        "event_date, home_score, away_score, home_team:teams!events_home_team_id_fkey(short_name, abbreviation), away_team:teams!events_away_team_id_fkey(short_name, abbreviation), tournament_name, venues!events_venue_id_fkey(name, photo_url)"
-      )
-      .eq("id", profile.fav_event_id)
-      .single();
-    if (data) {
-      const home = (data.home_team as unknown as { short_name: string; abbreviation: string } | null);
-      const away = (data.away_team as unknown as { short_name: string; abbreviation: string } | null);
-      const venueData = data.venues as unknown as { name: string; photo_url: string | null } | null;
-      const venue = venueData?.name || "";
-      const d = new Date(data.event_date + "T00:00:00");
-      const dateStr = `${d.getMonth() + 1}/${d.getDate()}/${String(d.getFullYear()).slice(2)}`;
-      const homeAbbr = home?.abbreviation || home?.short_name;
-      const awayAbbr = away?.abbreviation || away?.short_name;
-      const name =
-        homeAbbr && awayAbbr
-          ? `${awayAbbr} @ ${homeAbbr} ${dateStr}`
-          : data.tournament_name || "Event";
-      const score =
-        data.home_score !== null && data.away_score !== null
-          ? `${data.away_score}\u2013${data.home_score}`
-          : null;
-
-      // Prefer the user's own photo from their log of this event
-      const { data: ownLog } = await supabase
-        .from("event_logs")
-        .select("photo_url")
-        .eq("user_id", profile.id)
-        .eq("event_id", profile.fav_event_id)
-        .not("photo_url", "is", null)
-        .limit(1)
-        .maybeSingle();
-
-      items.push({
-        category: "event",
-        name,
-        subtitle: score ? `${score} \u00b7 ${venue}` : venue,
-        image_url: ownLog?.photo_url ?? venueData?.photo_url ?? null,
-      });
-    }
+  const data = eventRes.data as {
+    event_date: string; home_score: number | null; away_score: number | null;
+    home_team: unknown; away_team: unknown; tournament_name: string | null; venues: unknown;
+  } | null;
+  if (data) {
+    const home = data.home_team as unknown as { short_name: string; abbreviation: string } | null;
+    const away = data.away_team as unknown as { short_name: string; abbreviation: string } | null;
+    const venueData = data.venues as unknown as { name: string; photo_url: string | null } | null;
+    const venueName = venueData?.name || "";
+    const d = new Date(data.event_date + "T00:00:00");
+    const dateStr = `${d.getMonth() + 1}/${d.getDate()}/${String(d.getFullYear()).slice(2)}`;
+    const homeAbbr = home?.abbreviation || home?.short_name;
+    const awayAbbr = away?.abbreviation || away?.short_name;
+    const name = homeAbbr && awayAbbr ? `${awayAbbr} @ ${homeAbbr} ${dateStr}` : data.tournament_name || "Event";
+    const score = data.home_score !== null && data.away_score !== null ? `${data.away_score}\u2013${data.home_score}` : null;
+    const ownLog = ownLogRes.data as { photo_url: string | null } | null;
+    items.push({
+      category: "event",
+      name,
+      subtitle: score ? `${score} \u00b7 ${venueName}` : venueName,
+      image_url: ownLog?.photo_url ?? venueData?.photo_url ?? null,
+    });
   } else {
     items.push({ category: "event", name: "Not set", subtitle: "" });
   }
@@ -360,18 +325,7 @@ export async function fetchPinnedLists(
         const tags = listItems.map((li) => li.event_tag).filter(Boolean);
         // Collect the tags the user has attended, then count LIST ITEMS
         // matched — not logs (multi-day events produce several logs per item)
-        const { data: userEvents } = await supabase
-          .from("event_logs")
-          .select("event_id, events!event_logs_event_id_fkey!inner(event_tags)")
-          .eq("user_id", userId)
-          .not("event_id", "is", null);
-
-        const userTags = new Set<string>();
-        for (const ue of userEvents || []) {
-          const eventTags = (ue.events as unknown as { event_tags: string[] | null })
-            ?.event_tags;
-          for (const t of eventTags || []) userTags.add(t);
-        }
+        const userTags = await fetchUserEventTags(supabase, userId);
         visited = tags.filter((t) => userTags.has(t!)).length;
       }
     }

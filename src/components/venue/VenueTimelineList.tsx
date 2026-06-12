@@ -1,5 +1,3 @@
-"use client";
-
 import Link from "next/link";
 import TimelineCard, { type TimelineCardEntry } from "@/components/TimelineCard";
 import type { VenueTimelineEntry } from "@/lib/queries/venue";
