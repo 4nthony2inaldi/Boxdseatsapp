@@ -57,6 +57,11 @@ const LEAGUES = {
   'ger.1': { sport: 'soccer', espn: 'ger.1', soccer: true },
   'ita.1': { sport: 'soccer', espn: 'ita.1', soccer: true },
   'fra.1': { sport: 'soccer', espn: 'fra.1', soccer: true },
+  // College "Big Events" — tournament games only. lazyTeams skips the
+  // 350+-team bulk import (only schools that made the field get created);
+  // postseasonOnly keeps just the NCAA tournament (seasontype 3).
+  ncaam: { sport: 'basketball', espn: 'mens-college-basketball', soccer: false, lazyTeams: true, postseasonOnly: true, singleDayFetch: true },
+  ncaaw: { sport: 'basketball', espn: 'womens-college-basketball', soccer: false, lazyTeams: true, postseasonOnly: true, singleDayFetch: true },
 };
 
 const CONCURRENCY = 8;
@@ -559,6 +564,15 @@ async function ensureVenueTeam(venueId, teamId) {
 // --- team phase --------------------------------------------------------------
 
 async function syncTeams(leagueSlug, leagueId, cfg, stats) {
+  if (cfg.lazyTeams) {
+    // Don't bulk-import the full team universe; resolveCompetitorTeam will
+    // create only the teams that actually appear in the ingested events.
+    const { rows } = await db.query(
+      `select id, name, short_name, abbreviation, city, logo_url, external_ids from teams where league_id = $1`,
+      [leagueId],
+    );
+    return new TeamIndex(rows);
+  }
   const data = await fetchJSON(
     `https://site.api.espn.com/apis/site/v2/sports/${cfg.sport}/${cfg.espn}/teams?limit=100`,
   );
@@ -684,10 +698,28 @@ async function seedLeague(leagueSlug) {
     }
   }
 
-  // fetch all date chunks (concurrency-limited), keep only the fields we need
-  const chunks = [...dateChunks(args.from, args.to, CHUNK_DAYS)];
-  const fetches = chunks.map(([a, b]) => limiter(async () => {
-    const url = `https://site.api.espn.com/apis/site/v2/sports/${cfg.sport}/${cfg.espn}/scoreboard?dates=${a}-${b}&limit=1000`;
+  // Some ESPN scoreboards (college basketball) reject date RANGES (404) and
+  // only accept single dates. For those, fetch one day at a time — but only
+  // within the tournament window (Mar 1 – Apr 10) to keep it to ~40 days/yr.
+  let windows;
+  if (cfg.singleDayFetch) {
+    windows = [];
+    const fromY = Number(args.from.slice(0, 4));
+    const toY = Number((args.to ?? new Date().toISOString().slice(0, 10)).slice(0, 4));
+    for (let y = fromY; y <= toY; y++) {
+      const start = new Date(Date.UTC(y, 2, 1)); // Mar 1
+      const end = new Date(Date.UTC(y, 3, 10)); // Apr 10
+      for (let d = new Date(start); d <= end; d.setUTCDate(d.getUTCDate() + 1)) {
+        const ymd = d.toISOString().slice(0, 10).replace(/-/g, '');
+        windows.push([ymd, ymd]);
+      }
+    }
+  } else {
+    windows = [...dateChunks(args.from, args.to, CHUNK_DAYS)];
+  }
+  const fetches = windows.map(([a, b]) => limiter(async () => {
+    const dateParam = a === b ? a : `${a}-${b}`;
+    const url = `https://site.api.espn.com/apis/site/v2/sports/${cfg.sport}/${cfg.espn}/scoreboard?dates=${dateParam}&limit=1000`;
     const data = await fetchJSON(url);
     const events = data.events ?? [];
     if (events.length >= 950) console.warn(`  WARNING: chunk ${a}-${b} returned ${events.length} events (near cap) — consider smaller CHUNK_DAYS`);
@@ -758,6 +790,8 @@ async function processEvent(ev, leagueSlug, leagueId, cfg, teamIndex, existingBy
   if (!ev.completed) { stats.eventsFiltered++; return; }
   const cls = classifySeason(ev.season, cfg.soccer);
   if (!cls.include) { stats.eventsFiltered++; return; }
+  // "Big Events" leagues ingest only the NCAA tournament, not the season
+  if (cfg.postseasonOnly && !cls.isPostseason) { stats.eventsFiltered++; return; }
 
   // exclude all-star / exhibition competitions (Pro Bowl, ASG, 4 Nations, …)
   if (ev.compType && EXCLUDED_COMP_TYPES.has(ev.compType)) { stats.eventsFiltered++; return; }

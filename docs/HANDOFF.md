@@ -2928,3 +2928,23 @@ Root cause of every per-venue gap: the original backfill skipped any ESPN game w
 - **Standing validation queries** (run after any ingest): per-team-year zero home games inside existence window (now 0, modulo Earthquakes 2006-07 hiatus); spring per-team-year zeros (now 0); era-split pair detector with overlap tolerance. Staging still contains the original mock users/events (espn-less, never transplant); prod has zero espn-less events.
 - **Branded auth emails + custom sender** (config-only, no deploy): all six Supabase auth templates (confirmation, recovery, magic link, invite, email change, reauthentication code) replaced with dark-branded table-based HTML via Management API PATCH /config/auth (builder script pattern: /tmp/emails/build.py — brand tokens inline; re-render if copy changes). Custom SMTP live: smtp.resend.com:465, sender "BoxdSeats <noreply@boxdseats.com>", domain verified in owner's Resend account (DNS in Squarespace/Google Cloud DNS: resend._domainkey TXT + send MX/TXT). End-to-end verified (real recovery email through Supabase→Resend). ROTATE the Resend API key (passed through chat) along with the other session credentials; after rotating, re-PATCH smtp_pass via Management API.
 - **Around You feed section** (PR #34): feed splits Letterboxd-style — horizontal "Around {city}" carousel (events_near RPC, ±75mi, last 3 / next 7 days, tournament day-rows collapsed, "Were you there?" on past events) above From Friends. City is self-declared (profiles.home_city; TickPick-style chip picker on the feed, optional select in onboarding StepAccount + Settings; curated metro list src/lib/metros.ts). All 1,511 venues geocoded (Nominatim: 493 venue-level hits, 1,007 city centroids — fine at metro radius, 11 hand-fixed typo'd rows e.g. 'Georia'/'Shenzen'; Farmasi Arena/Saitama/MINES/Taipei country codes corrected). Coordinates in BOTH DBs; new venues from sync are NOT geocoded automatically (RPC skips null-location; geocode-venues.mjs pattern is rerunnable — note for future).
+
+## Session 14 — International soccer + NCAA tournament "Big Events"
+**Date:** June 12, 2026. Merged to main + deployed + data live in prod.
+
+### Shipped
+- **Top-5 European soccer** (PR #43): Premier League/La Liga/Bundesliga/Serie A/Ligue 1, 2002→present, 43,925 matches, ~190 clubs, 309 venues. Reuses MLS soccer model — seed-real-data.mjs LEAGUES config + app constants/sportIcons. "<League> Grounds" system lists (latest-season stadiums). Migrations 009/010.
+- **NCAA tournaments** (March Madness men's 2009+ / women's 2003+): 2,375 games, ~358 schools, 70 campus venues. Three new seeder flags: `lazyTeams` (skip bulk team import, create only schools seen in events), `postseasonOnly` (seasontype 3 only), `singleDayFetch` (CBB scoreboards 404 on date ranges — fetch single days within Mar 1–Apr 10). Leagues ncaam/ncaaw. Tags: march_madness, final_four (count check), ncaa_championship (39). Lists: "Final Fours", "NCAA Title Games". Migrations 011/012/013.
+
+### Critical gotchas learned (for any future league add)
+1. **League-id alignment**: leagues created separately in staging vs prod get DIFFERENT uuids → transplanted teams fail FK. FIX: after creating a league in both, realign prod's id to staging's (DELETE+re-INSERT with staging uuid; safe before any data references it). Do this BEFORE the transplant.
+2. **Venue espn-id namespacing**: ESPN venue ids collide across sports. New non-US-team-sport venues must have espn namespaced (`soccer:N`, `ncaab:N`, like `golf:`/`nascar:`) or venue inserts hit uq_venues_espn_id. Sed the batch `*venues-*.sql` files AND update staging to match. Drop the `venue-espn-update` batch (enrichment, not needed, collision-risky).
+3. **CBB scoreboard**: single-date only (ranges 404); default returns Top-25 unless `groups=50`, but tournament games all return.
+4. Transplant pipeline unchanged: fetch-prod-state → gen-transplant-v2 → prune event-upd batches → apply-batches2 (paced 800ms). Then push-coords.mjs for geocoded coords (transplant venue inserts DON'T carry location). Total prod events now ~233K.
+
+### Deferred / next
+- **CFP + NY6 bowls** (football college Big Events) — same postseasonOnly pattern, new team universe; not yet done.
+- **UCL/Europa** — cross-competition team duplication needs schema thought (teams.league_id is 1:1).
+- Soccer: ~hundreds of older Ligue1/other matches skipped on missing ESPN venue payloads — recoverable via a soccer HOME_VENUE_FALLBACKS map.
+- Full college regular seasons (FBS football + D1 basketball) = the big "college vertical" if alumni acquisition is pursued.
+- Still open from before: the stadium MAP + share CARD (the two growth swings), Apple Business Connect email logo, photo-height bump.
