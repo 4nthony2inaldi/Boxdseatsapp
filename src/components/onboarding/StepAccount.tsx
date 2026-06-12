@@ -7,6 +7,7 @@ import {
   updateProfileSetup,
 } from "@/lib/queries/onboarding";
 import AvatarUpload from "@/components/AvatarUpload";
+import { METROS } from "@/lib/metros";
 
 type StepAccountProps = {
   userId: string;
@@ -26,6 +27,7 @@ export default function StepAccount({
   onNext,
 }: StepAccountProps) {
   const [saving, setSaving] = useState(false);
+  const [homeCity, setHomeCity] = useState("");
   const [error, setError] = useState<string | null>(null);
   // Result of the most recent completed availability check.
   const [lastCheck, setLastCheck] = useState<{
@@ -79,12 +81,15 @@ export default function StepAccount({
     setSaving(true);
     setError(null);
 
-    const updates: { username?: string; display_name?: string } = {};
+    const updates: { username?: string; display_name?: string; home_city?: string } = {};
     if (trimmedUsername !== initialUsername) {
       updates.username = trimmedUsername;
     }
     if (displayName.trim()) {
       updates.display_name = displayName.trim();
+    }
+    if (homeCity) {
+      updates.home_city = homeCity;
     }
 
     if (Object.keys(updates).length > 0) {
@@ -170,6 +175,26 @@ export default function StepAccount({
           placeholder="Your Name"
           className="w-full py-3.5 px-3.5 rounded-xl bg-bg-input border border-border text-text-primary text-[15px] outline-none focus:border-accent transition-colors"
         />
+      </div>
+
+      {/* Home City */}
+      <div className="mb-5">
+        <label className="font-display text-[11px] text-text-muted tracking-[1.2px] uppercase block mb-2">
+          Home City <span className="text-text-muted font-body text-[10px] normal-case tracking-normal">(optional — powers your local feed)</span>
+        </label>
+        <select
+          value={homeCity}
+          onChange={(e) => setHomeCity(e.target.value)}
+          className="w-full py-3.5 px-3.5 rounded-xl bg-bg-input border border-border text-text-primary text-[15px] outline-none focus:border-accent transition-colors"
+        >
+          <option value="">Select your city...</option>
+          {METROS.map((m) => (
+            <option key={m.key} value={m.key}>
+              {m.label}
+              {m.state ? `, ${m.state}` : ""}
+            </option>
+          ))}
+        </select>
       </div>
 
       {/* Profile Photo */}

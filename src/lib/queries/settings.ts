@@ -7,6 +7,7 @@ export type SettingsProfile = {
   bio: string | null;
   avatar_url: string | null;
   fav_sport: string | null;
+  home_city: string | null;
   is_private: boolean;
   default_privacy: string;
   comments_enabled: boolean;
@@ -21,7 +22,7 @@ export async function fetchSettingsProfile(
   const { data } = await supabase
     .from("profiles")
     .select(
-      "id, username, display_name, bio, avatar_url, fav_sport, is_private, default_privacy, comments_enabled, pinned_list_1_id, pinned_list_2_id"
+      "id, username, display_name, bio, avatar_url, fav_sport, home_city, is_private, default_privacy, comments_enabled, pinned_list_1_id, pinned_list_2_id"
     )
     .eq("id", userId)
     .single();
@@ -36,6 +37,7 @@ export async function updateProfile(
     display_name: string | null;
     bio: string | null;
     fav_sport: string | null;
+    home_city: string | null;
     is_private: boolean;
     default_privacy: string;
     comments_enabled: boolean;
