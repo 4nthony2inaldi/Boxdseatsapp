@@ -1,6 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import LogFlow from "@/components/log/LogFlow";
-import { fetchEventLogForEdit } from "@/lib/queries/log";
+import { fetchEventLogForEdit, fetchEventForPrefill } from "@/lib/queries/log";
 
 export default async function LogPage({
   searchParams,
@@ -34,6 +34,15 @@ export default async function LogPage({
       );
     }
     return <LogFlow userId={user.id} editLog={editLog} />;
+  }
+
+  // "I was there" deep link from an event page
+  const eventId = typeof sp.eventId === "string" ? sp.eventId : undefined;
+  if (eventId) {
+    const prefillEvent = await fetchEventForPrefill(supabase, eventId);
+    if (prefillEvent) {
+      return <LogFlow userId={user.id} prefillEvent={prefillEvent} />;
+    }
   }
 
   // New log mode: optional venue pre-fill

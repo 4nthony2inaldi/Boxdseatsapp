@@ -11,6 +11,7 @@ import {
 } from "@/lib/queries/venue";
 import { fetchVenueCoverPhoto } from "@/lib/queries/coverPhotos";
 import Link from "next/link";
+import BackButton from "@/components/BackButton";
 import SectionLabel from "@/components/profile/SectionLabel";
 import StatBox from "@/components/profile/StatBox";
 import VenueTimelineList from "@/components/venue/VenueTimelineList";
@@ -32,6 +33,7 @@ export default async function VenueDetailPage({
   if (!user) {
     return (
       <div className="px-4 py-8 max-w-lg mx-auto text-center">
+        <div className="px-4 pt-3 -mb-1 relative z-10"><BackButton fallback="/explore" /></div>
         <p className="text-text-muted">Please log in to view venue details.</p>
       </div>
     );

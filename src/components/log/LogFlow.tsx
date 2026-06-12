@@ -23,24 +23,26 @@ import StepDetails, { type DetailsData } from "./StepDetails";
 type LogFlowProps = {
   userId: string;
   prefillVenue?: VenueResult;
+  /** "I was there" deep link: venue + date + event preselected, straight to details */
+  prefillEvent?: { venue: VenueResult; event: EventMatch };
   editLog?: EditableEventLog;
 };
 
 const STEP_LABELS = ["Venue", "Date", "Event", "Details"];
 
-export default function LogFlow({ userId, prefillVenue, editLog }: LogFlowProps) {
+export default function LogFlow({ userId, prefillVenue, prefillEvent, editLog }: LogFlowProps) {
   const router = useRouter();
   const isEditMode = !!editLog;
 
-  const [step, setStep] = useState(editLog ? 4 : prefillVenue ? 2 : 1);
+  const [step, setStep] = useState(editLog || prefillEvent ? 4 : prefillVenue ? 2 : 1);
   const [selectedVenue, setSelectedVenue] = useState<VenueResult | null>(
-    editLog?.venue || prefillVenue || null
+    editLog?.venue || prefillEvent?.venue || prefillVenue || null
   );
   const [selectedDate, setSelectedDate] = useState<string | null>(
-    editLog?.event_date || null
+    editLog?.event_date || prefillEvent?.event.event_date || null
   );
   const [selectedEvent, setSelectedEvent] = useState<EventMatch | null>(
-    editLog?.event || null
+    editLog?.event || prefillEvent?.event || null
   );
   const [manualTitle, setManualTitle] = useState<string | null>(
     editLog?.manual_title || null
@@ -422,9 +424,15 @@ export default function LogFlow({ userId, prefillVenue, editLog }: LogFlowProps)
           const isActive = step === stepNum;
           const isCompleted = step > stepNum;
 
+          const canJumpBack = !isEditMode && isCompleted;
           return (
             <div key={label} className="flex items-center gap-2 flex-1">
-              <div className="flex items-center gap-1.5 flex-1">
+              <button
+                onClick={canJumpBack ? () => setStep(stepNum) : undefined}
+                disabled={!canJumpBack}
+                className="flex items-center gap-1.5 flex-1 bg-transparent border-none p-0 disabled:cursor-default cursor-pointer"
+                aria-label={canJumpBack ? `Back to ${label}` : undefined}
+              >
                 <div
                   className={`w-6 h-6 rounded-full flex items-center justify-center text-[11px] font-display shrink-0 ${
                     isCompleted
@@ -462,7 +470,7 @@ export default function LogFlow({ userId, prefillVenue, editLog }: LogFlowProps)
                 >
                   {label}
                 </span>
-              </div>
+              </button>
               {i < STEP_LABELS.length - 1 && (
                 <div
                   className={`h-px flex-1 min-w-[12px] ${

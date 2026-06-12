@@ -103,7 +103,7 @@ export default function BottomNav() {
             <Link
               key={tab.href}
               href={tab.href}
-              className="flex flex-col items-center pt-3 pb-2.5 px-3"
+              className="flex flex-col items-center pt-3 pb-2.5 px-3 active:opacity-60 transition-opacity"
             >
               <Icon active={active} />
               <span

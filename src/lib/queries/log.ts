@@ -290,6 +290,68 @@ export async function fetchEventDatesForVenue(
   return dates;
 }
 
+// ── "I was there" deep link: build log-flow prefill from an event id ──
+
+export async function fetchEventForPrefill(
+  supabase: SupabaseClient,
+  eventId: string
+): Promise<{ venue: VenueResult; event: EventMatch } | null> {
+  const { data } = await supabase
+    .from("events")
+    .select(
+      `id, event_date, league_id, event_template, round_or_stage,
+       home_team_id, away_team_id, home_score, away_score,
+       tournament_name, tournament_id, day_number,
+       leagues(name, slug, sport),
+       home_team:teams!events_home_team_id_fkey(short_name),
+       away_team:teams!events_away_team_id_fkey(short_name),
+       venues!events_venue_id_fkey(id, name, city, state, primary_sport)`
+    )
+    .eq("id", eventId)
+    .maybeSingle();
+  if (!data) return null;
+
+  const league = data.leagues as unknown as { name: string; slug: string; sport: string } | null;
+  const home = data.home_team as unknown as { short_name: string } | null;
+  const away = data.away_team as unknown as { short_name: string } | null;
+  const venue = data.venues as unknown as {
+    id: string; name: string; city: string; state: string | null; primary_sport: string | null;
+  } | null;
+  if (!venue) return null;
+
+  return {
+    venue: {
+      id: venue.id,
+      name: venue.name,
+      city: venue.city,
+      state: venue.state,
+      visit_count: 0,
+      sport_icon: sportIcon(venue.primary_sport),
+    },
+    event: {
+      id: data.id,
+      event_date: data.event_date,
+      league_id: data.league_id,
+      league_name: league?.name || "",
+      league_slug: league?.slug || "",
+      sport: league?.sport || "",
+      sport_icon: sportIcon(league?.sport),
+      home_team_id: data.home_team_id,
+      away_team_id: data.away_team_id,
+      home_team_short: home?.short_name || null,
+      away_team_short: away?.short_name || null,
+      home_score: data.home_score,
+      away_score: data.away_score,
+      tournament_name: data.tournament_name,
+      tournament_id: data.tournament_id,
+      day_number: data.day_number,
+      round_or_stage: data.round_or_stage,
+      event_template: data.event_template,
+      start_time: null,
+    },
+  };
+}
+
 // ── Event Matching ──
 
 /**

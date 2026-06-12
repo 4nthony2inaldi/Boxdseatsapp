@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useCallback, useRef, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import type { TimelineEntry } from "@/lib/queries/profile";
 import { LEAGUES } from "@/lib/constants";
 import SectionLabel from "./SectionLabel";
@@ -10,6 +11,7 @@ import { useInfiniteScroll } from "@/hooks/useInfiniteScroll";
 import { createClient } from "@/lib/supabase/client";
 import { toggleLike } from "@/lib/queries/social";
 import { StadiumIcon } from "@/components/icons";
+import { toastError } from "@/components/Toaster";
 
 const PAGE_SIZE = 20;
 
@@ -28,6 +30,7 @@ type TimelineProps = {
 const leagueOptions = ["All", ...Object.keys(LEAGUES)];
 
 export default function Timeline({ initialEntries, initialHasMore, userId, viewerId, canEdit = false, monthFilter }: TimelineProps) {
+  const router = useRouter();
   const [filter, setFilter] = useState("All");
   const [entries, setEntries] = useState(initialEntries);
   const [hasMore, setHasMore] = useState(initialHasMore);
@@ -66,6 +69,11 @@ export default function Timeline({ initialEntries, initialHasMore, userId, viewe
       });
   }, [entries, viewerId]);
 
+  const handleComment = (entryId: string) => {
+    const entry = entries.find((e) => e.id === entryId);
+    if (entry?.event_id) router.push(`/event/${entry.event_id}?log=${entryId}#comments`);
+  };
+
   const handleLike = async (entryId: string) => {
     if (!viewerId) return;
     const currentlyLiked = likedIds.has(entryId);
@@ -88,6 +96,7 @@ export default function Timeline({ initialEntries, initialHasMore, userId, viewe
     const supabase = createClient();
     const result = await toggleLike(supabase, viewerId, entryId, currentlyLiked);
     if ("error" in result) {
+      toastError("Couldn't save your like — check your connection.");
       // Revert
       setLikedIds((prev) => {
         const next = new Set(prev);
@@ -357,6 +366,7 @@ export default function Timeline({ initialEntries, initialHasMore, userId, viewe
                 editHref={canEdit ? `/log?edit=${entry.id}` : null}
                 liked={likedIds.has(entry.id)}
                 onLike={viewerId ? handleLike : undefined}
+                onComment={handleComment}
               />
             ))}
           </div>
