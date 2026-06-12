@@ -52,6 +52,11 @@ const LEAGUES = {
   mlb: { sport: 'baseball', espn: 'mlb', soccer: false },
   nhl: { sport: 'hockey', espn: 'nhl', soccer: false },
   mls: { sport: 'soccer', espn: 'usa.1', soccer: true },
+  'eng.1': { sport: 'soccer', espn: 'eng.1', soccer: true },
+  'esp.1': { sport: 'soccer', espn: 'esp.1', soccer: true },
+  'ger.1': { sport: 'soccer', espn: 'ger.1', soccer: true },
+  'ita.1': { sport: 'soccer', espn: 'ita.1', soccer: true },
+  'fra.1': { sport: 'soccer', espn: 'fra.1', soccer: true },
 };
 
 const CONCURRENCY = 8;
