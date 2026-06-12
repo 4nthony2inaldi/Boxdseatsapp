@@ -19,6 +19,8 @@ export default function ActivityChart({ months, total, linkToTimeline = false }:
   const scrollRef = useRef<HTMLDivElement>(null);
   // Y-axis normalizes to the max within the visible window
   const [winMax, setWinMax] = useState(1);
+  // Year(s) currently in view, shown as a floating indicator
+  const [winYears, setWinYears] = useState("");
 
   const recompute = useCallback(() => {
     const el = scrollRef.current;
@@ -26,13 +28,20 @@ export default function ActivityChart({ months, total, linkToTimeline = false }:
     const first = Math.max(0, Math.floor(el.scrollLeft / BAR_PX));
     const visible = Math.ceil(el.clientWidth / BAR_PX) + 1;
     const slice = months.slice(first, first + visible);
+    if (slice.length) {
+      const y1 = slice[0].year;
+      const y2 = slice[slice.length - 1].year;
+      setWinYears(y1 === y2 ? String(y1) : `${y1}–${y2}`);
+    }
     setWinMax(Math.max(1, ...slice.map((m) => m.count)));
   }, [months]);
 
   useEffect(() => {
     const el = scrollRef.current;
     if (el) el.scrollLeft = el.scrollWidth; // start at the present
-    recompute();
+    // defer the first window computation out of the effect body
+    const id = requestAnimationFrame(recompute);
+    return () => cancelAnimationFrame(id);
   }, [recompute]);
 
   const raf = useRef(0);
@@ -49,7 +58,12 @@ export default function ActivityChart({ months, total, linkToTimeline = false }:
           {total} {total === 1 ? "event" : "events"} all time
         </div>
       </div>
-      <div className="bg-bg-card rounded-xl border border-border px-3 pt-3.5 pb-2">
+      <div className="bg-bg-card rounded-xl border border-border px-3 pt-3.5 pb-2 relative">
+        {winYears && (
+          <div className="absolute top-2 right-3 font-display text-[10px] text-text-muted tracking-[1.5px]">
+            {winYears}
+          </div>
+        )}
         <div
           ref={scrollRef}
           onScroll={onScroll}
@@ -58,8 +72,6 @@ export default function ActivityChart({ months, total, linkToTimeline = false }:
         >
           {months.map((m, i) => {
             const isCurrentMonth = i === months.length - 1;
-            const isJanuary = m.month === "Jan";
-            const showYear = isJanuary || i === 0;
             const barHeight = m.count > 0 ? `${Math.max(4, (m.count / winMax) * 50)}px` : "4px";
 
             const bar = (
@@ -78,13 +90,6 @@ export default function ActivityChart({ months, total, linkToTimeline = false }:
                 />
                 <div className="text-[8px] text-text-muted font-display tracking-wider uppercase">
                   {m.month}
-                </div>
-                <div
-                  className={`text-[7px] font-display tracking-wider h-2.5 ${
-                    showYear ? "text-text-secondary" : "text-transparent"
-                  }`}
-                >
-                  {showYear ? m.year : "·"}
                 </div>
               </>
             );
