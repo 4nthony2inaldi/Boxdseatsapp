@@ -3,7 +3,13 @@ import { fetchTimeline } from "@/lib/queries/profile";
 import Timeline from "@/components/profile/Timeline";
 import Link from "next/link";
 
-export default async function TimelinePage() {
+export default async function TimelinePage({
+  searchParams,
+}: {
+  searchParams: Promise<{ month?: string }>;
+}) {
+  const { month } = await searchParams;
+  const monthFilter = month && /^\d{4}-\d{2}$/.test(month) ? month : undefined;
   const supabase = await createClient();
   const {
     data: { user },
@@ -17,7 +23,7 @@ export default async function TimelinePage() {
     );
   }
 
-  const { entries: timelineEntries, hasMore } = await fetchTimeline(supabase, user.id);
+  const { entries: timelineEntries, hasMore } = await fetchTimeline(supabase, user.id, undefined, 20, 0, monthFilter);
 
   return (
     <div className="max-w-lg mx-auto pb-5">
@@ -43,8 +49,20 @@ export default async function TimelinePage() {
         <h1 className="font-display text-2xl text-text-primary tracking-wide">
           Logged Events
         </h1>
+        {monthFilter && (
+          <Link
+            href="/timeline"
+            className="ml-auto flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-accent/15 border border-accent/40 text-accent text-xs"
+          >
+            {new Date(monthFilter + "-15T00:00:00").toLocaleString("en-US", { month: "long", year: "numeric" })}
+            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
+              <line x1="18" y1="6" x2="6" y2="18" />
+              <line x1="6" y1="6" x2="18" y2="18" />
+            </svg>
+          </Link>
+        )}
       </div>
-      <Timeline initialEntries={timelineEntries} initialHasMore={hasMore} userId={user.id} viewerId={user.id} canEdit />
+      <Timeline key={monthFilter ?? "all"} initialEntries={timelineEntries} initialHasMore={hasMore} userId={user.id} viewerId={user.id} canEdit monthFilter={monthFilter} />
     </div>
   );
 }

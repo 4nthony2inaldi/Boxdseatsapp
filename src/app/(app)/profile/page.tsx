@@ -66,7 +66,7 @@ export default async function ProfilePage() {
       <ProfileHeader profile={profile} stats={stats} />
       <StatsRow stats={stats} />
       <BigFourSection items={bigFour} />
-      <ActivityChart months={activityData.months} total={activityData.total} />
+      <ActivityChart months={activityData.months} total={activityData.total} linkToTimeline />
       <PinnedLists lists={pinnedLists} />
       <BadgeSection badges={badges} tracked={trackedIncomplete} userId={user.id} showTracked={pinnedLists.length === 0} />
       <LatestEvent entry={latestEvent} canEdit />

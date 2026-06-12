@@ -21,11 +21,13 @@ type TimelineProps = {
   viewerId?: string;
   /** True on the user's own timeline — shows edit affordances. */
   canEdit?: boolean;
+  /** Restrict to one month (YYYY-MM) — set when arriving from the activity chart. */
+  monthFilter?: string;
 };
 
 const leagueOptions = ["All", ...Object.keys(LEAGUES)];
 
-export default function Timeline({ initialEntries, initialHasMore, userId, viewerId, canEdit = false }: TimelineProps) {
+export default function Timeline({ initialEntries, initialHasMore, userId, viewerId, canEdit = false, monthFilter }: TimelineProps) {
   const [filter, setFilter] = useState("All");
   const [entries, setEntries] = useState(initialEntries);
   const [hasMore, setHasMore] = useState(initialHasMore);
@@ -135,7 +137,7 @@ export default function Timeline({ initialEntries, initialHasMore, userId, viewe
       return;
     }
 
-    const { data } = await supabase
+    let fq = supabase
       .from("event_logs")
       .select(
         `
@@ -158,6 +160,12 @@ export default function Timeline({ initialEntries, initialHasMore, userId, viewe
       .eq("league_id", league.id)
       .order("event_date", { ascending: false })
       .range(0, PAGE_SIZE);
+    if (monthFilter && /^\d{4}-\d{2}$/.test(monthFilter)) {
+      const [y, mo] = monthFilter.split("-").map(Number);
+      const to = `${mo === 12 ? y + 1 : y}-${String(mo === 12 ? 1 : mo + 1).padStart(2, "0")}-01`;
+      fq = fq.gte("event_date", `${monthFilter}-01`).lt("event_date", to);
+    }
+    const { data } = await fq;
 
     if (requestId !== filterRequestRef.current) return;
 
@@ -217,6 +225,11 @@ export default function Timeline({ initialEntries, initialHasMore, userId, viewe
     if (leagueId) {
       query = query.eq("league_id", leagueId);
     }
+    if (monthFilter && /^\d{4}-\d{2}$/.test(monthFilter)) {
+      const [y, mo] = monthFilter.split("-").map(Number);
+      const to = `${mo === 12 ? y + 1 : y}-${String(mo === 12 ? 1 : mo + 1).padStart(2, "0")}-01`;
+      query = query.gte("event_date", `${monthFilter}-01`).lt("event_date", to);
+    }
 
     const { data } = await query;
 
@@ -229,7 +242,7 @@ export default function Timeline({ initialEntries, initialHasMore, userId, viewe
       setHasMore(false);
     }
     setLoadingMore(false);
-  }, [entries.length, hasMore, loadingMore, filter, userId]);
+  }, [entries.length, hasMore, loadingMore, filter, userId, monthFilter]);
 
   const sentinelRef = useInfiniteScroll(loadMore, {
     enabled: hasMore && !loadingMore && !loading,
