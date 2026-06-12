@@ -17,6 +17,7 @@ import CommentsSection from "@/components/event/CommentsSection";
 import SportIcon from "@/components/SportIcon";
 import ShareButton from "@/components/sharing/ShareButton";
 import VerifiedBadge from "@/components/VerifiedBadge";
+import { CameraIcon } from "@/components/icons";
 import EventGallery from "@/components/event/EventGallery";
 
 export default async function EventDetailPage({
@@ -94,8 +95,9 @@ export default async function EventDetailPage({
             />
             <div className="absolute inset-0 bg-gradient-to-t from-bg via-transparent to-transparent" />
             <div className="absolute bottom-2 right-3 flex items-center gap-1 bg-black/50 backdrop-blur-sm rounded-full px-2 py-0.5">
+              <CameraIcon size={11} className="text-white/80" />
               <span className="text-[10px] text-white/80">
-                📸 @{coverCredit.username}
+                @{coverCredit.username}
               </span>
             </div>
           </div>

@@ -16,6 +16,7 @@ import StatBox from "@/components/profile/StatBox";
 import VenueTimelineList from "@/components/venue/VenueTimelineList";
 import VenueStatusToggle from "@/components/venue/VenueStatusToggle";
 import SportIcon from "@/components/SportIcon";
+import { CameraIcon } from "@/components/icons";
 
 export default async function VenueDetailPage({
   params,
@@ -88,8 +89,9 @@ export default async function VenueDetailPage({
             />
             <div className="absolute inset-0 bg-gradient-to-t from-bg via-transparent to-transparent" />
             <div className="absolute bottom-2 right-3 flex items-center gap-1 bg-black/50 backdrop-blur-sm rounded-full px-2 py-0.5">
+              <CameraIcon size={11} className="text-white/80" />
               <span className="text-[10px] text-white/80">
-                📸 @{venueCover.username}
+                @{venueCover.username}
               </span>
             </div>
           </div>

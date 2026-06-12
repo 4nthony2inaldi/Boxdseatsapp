@@ -9,6 +9,18 @@ import {
   acceptFollowRequest,
   declineFollowRequest,
 } from "@/lib/queries/social";
+import {
+  BellIcon,
+  CheckCircleIcon,
+  CelebrationIcon,
+  ChartIcon,
+  CommentIcon,
+  HeartIcon,
+  MegaphoneIcon,
+  StadiumIcon,
+  TrophyIcon,
+  UserPlusIcon,
+} from "@/components/icons";
 
 type Props = {
   notifications: Notification[];
@@ -16,17 +28,17 @@ type Props = {
   pendingRequesterIds?: string[];
 };
 
-const TYPE_ICONS: Record<string, string> = {
-  like: "❤️",
-  comment: "💬",
-  follow: "👤",
-  follow_request: "👤",
-  follow_request_approved: "✅",
-  companion_tag: "🏟️",
-  badge_earned: "🏆",
-  progress_nudge: "📊",
-  friend_activity: "📣",
-  friend_milestone: "🎉",
+const TYPE_ICONS: Record<string, React.ComponentType<{ size?: number; className?: string }>> = {
+  like: HeartIcon,
+  comment: CommentIcon,
+  follow: UserPlusIcon,
+  follow_request: UserPlusIcon,
+  follow_request_approved: CheckCircleIcon,
+  companion_tag: StadiumIcon,
+  badge_earned: TrophyIcon,
+  progress_nudge: ChartIcon,
+  friend_activity: MegaphoneIcon,
+  friend_milestone: CelebrationIcon,
 };
 
 const TYPE_LABELS: Record<string, string> = {
@@ -104,7 +116,9 @@ export default function NotificationList({
   if (notifications.length === 0) {
     return (
       <div className="px-4 py-16 text-center">
-        <div className="text-4xl mb-3">🔔</div>
+        <div className="mb-3 flex justify-center text-text-muted">
+          <BellIcon size={40} />
+        </div>
         <div className="font-display text-lg text-text-primary tracking-wide mb-1">
           No Notifications
         </div>
@@ -118,7 +132,7 @@ export default function NotificationList({
   return (
     <div>
       {notifications.map((n) => {
-        const icon = TYPE_ICONS[n.type] || "🔔";
+        const Icon = TYPE_ICONS[n.type] || BellIcon;
         const link = getNotificationLink(n);
         const requesterId = n.actor?.id ?? null;
         const handled = requesterId ? handledRequests[requesterId] : undefined;
@@ -159,8 +173,8 @@ export default function NotificationList({
                 )}
               </div>
             ) : (
-              <div className="w-10 h-10 rounded-full flex-shrink-0 flex items-center justify-center bg-bg-elevated text-lg">
-                {icon}
+              <div className="w-10 h-10 rounded-full flex-shrink-0 flex items-center justify-center bg-bg-elevated text-accent">
+                <Icon size={18} />
               </div>
             )}
 

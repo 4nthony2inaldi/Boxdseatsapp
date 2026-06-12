@@ -8,6 +8,7 @@ import {
 import Link from "next/link";
 import SectionLabel from "@/components/profile/SectionLabel";
 import SportIcon from "@/components/SportIcon";
+import { ListIcon } from "@/components/icons";
 
 export default async function ListsPage({
   searchParams,
@@ -92,7 +93,9 @@ export default async function ListsPage({
             </div>
           ) : (
             <div className="rounded-xl border border-border bg-bg-card p-8 text-center">
-              <div className="text-4xl mb-3">📋</div>
+              <div className="mb-3 flex justify-center text-text-muted">
+                <ListIcon size={40} />
+              </div>
               <div className="font-display text-lg text-text-primary tracking-wide mb-2">
                 No Lists Created Yet
               </div>
@@ -239,7 +242,9 @@ export default async function ListsPage({
         userLists.length === 0 &&
         followedLists.length === 0 && (
           <div className="rounded-xl border border-border bg-bg-card p-8 text-center">
-            <div className="text-4xl mb-3">📋</div>
+            <div className="mb-3 flex justify-center text-text-muted">
+              <ListIcon size={40} />
+            </div>
             <div className="font-display text-lg text-text-primary tracking-wide mb-2">
               No Lists Yet
             </div>
