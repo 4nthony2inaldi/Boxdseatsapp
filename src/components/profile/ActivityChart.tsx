@@ -1,39 +1,74 @@
+"use client";
+
+import { useEffect, useRef, useState, useCallback } from "react";
+import { useRouter } from "next/navigation";
 import type { ActivityMonth } from "@/lib/queries/profile";
 import SectionLabel from "./SectionLabel";
 
 type ActivityChartProps = {
   months: ActivityMonth[];
   total: number;
+  /** Own profile: bar taps open that month on /timeline */
+  linkToTimeline?: boolean;
 };
 
-export default function ActivityChart({ months, total }: ActivityChartProps) {
-  const max = Math.max(...months.map((m) => m.count), 1);
+const BAR_PX = 30; // per-bar footprint (width + gap) used for window math
+
+export default function ActivityChart({ months, total, linkToTimeline = false }: ActivityChartProps) {
+  const router = useRouter();
+  const scrollRef = useRef<HTMLDivElement>(null);
+  // Y-axis normalizes to the max within the visible window
+  const [winMax, setWinMax] = useState(1);
+
+  const recompute = useCallback(() => {
+    const el = scrollRef.current;
+    if (!el) return;
+    const first = Math.max(0, Math.floor(el.scrollLeft / BAR_PX));
+    const visible = Math.ceil(el.clientWidth / BAR_PX) + 1;
+    const slice = months.slice(first, first + visible);
+    setWinMax(Math.max(1, ...slice.map((m) => m.count)));
+  }, [months]);
+
+  useEffect(() => {
+    const el = scrollRef.current;
+    if (el) el.scrollLeft = el.scrollWidth; // start at the present
+    recompute();
+  }, [recompute]);
+
+  const raf = useRef(0);
+  function onScroll() {
+    cancelAnimationFrame(raf.current);
+    raf.current = requestAnimationFrame(recompute);
+  }
 
   return (
     <div className="px-4 mb-5">
       <div className="flex justify-between items-center mb-2.5">
         <SectionLabel>Activity</SectionLabel>
         <div className="text-[11px] text-text-secondary">
-          {total} events · past 12 mo
+          {total} {total === 1 ? "event" : "events"} all time
         </div>
       </div>
       <div className="bg-bg-card rounded-xl border border-border px-3 pt-3.5 pb-2">
-        <div className="flex items-end gap-1 h-20">
+        <div
+          ref={scrollRef}
+          onScroll={onScroll}
+          className="flex items-end gap-1.5 h-24 overflow-x-auto"
+          style={{ scrollbarWidth: "none" }}
+        >
           {months.map((m, i) => {
             const isCurrentMonth = i === months.length - 1;
-            const barHeight =
-              m.count > 0 ? `${(m.count / max) * 50}px` : "4px";
+            const isJanuary = m.month === "Jan";
+            const showYear = isJanuary || i === 0;
+            const barHeight = m.count > 0 ? `${Math.max(4, (m.count / winMax) * 50)}px` : "4px";
 
-            return (
-              <div
-                key={i}
-                className="flex-1 flex flex-col items-center gap-1"
-              >
-                <div className="text-[10px] text-text-muted font-display">
+            const bar = (
+              <>
+                <div className="text-[10px] text-text-muted font-display h-3.5">
                   {m.count > 0 ? m.count : ""}
                 </div>
                 <div
-                  className="w-full rounded-sm min-h-1"
+                  className="w-full rounded-sm min-h-1 transition-[height] duration-200"
                   style={{
                     height: barHeight,
                     background: isCurrentMonth
@@ -41,10 +76,35 @@ export default function ActivityChart({ months, total }: ActivityChartProps) {
                       : "linear-gradient(180deg, rgba(212, 135, 44, 0.53), rgba(123, 91, 58, 0.53))",
                   }}
                 />
-                <div className="text-[8px] text-text-muted font-display tracking-wider">
+                <div className="text-[8px] text-text-muted font-display tracking-wider uppercase">
                   {m.month}
                 </div>
-              </div>
+                <div
+                  className={`text-[7px] font-display tracking-wider h-2.5 ${
+                    showYear ? "text-text-secondary" : "text-transparent"
+                  }`}
+                >
+                  {showYear ? m.year : "·"}
+                </div>
+              </>
+            );
+
+            if (!linkToTimeline || m.count === 0) {
+              return (
+                <div key={m.ym} className="w-[24px] shrink-0 flex flex-col items-center gap-1">
+                  {bar}
+                </div>
+              );
+            }
+            return (
+              <button
+                key={m.ym}
+                onClick={() => router.push(`/timeline?month=${m.ym}`)}
+                className="w-[24px] shrink-0 flex flex-col items-center gap-1 bg-transparent border-none p-0 cursor-pointer"
+                aria-label={`View ${m.month} ${m.year} events`}
+              >
+                {bar}
+              </button>
             );
           })}
         </div>

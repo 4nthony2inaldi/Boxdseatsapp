@@ -34,7 +34,10 @@ export type BigFourItem = {
 };
 
 export type ActivityMonth = {
+  /** YYYY-MM key, used for timeline month links */
+  ym: string;
   month: string;
+  year: number;
   count: number;
 };
 
@@ -262,42 +265,49 @@ export async function fetchActivityChart(
   supabase: SupabaseClient,
   userId: string
 ): Promise<{ months: ActivityMonth[]; total: number }> {
+  // All-time, capped-pagination over event dates (Supabase returns max 1,000
+  // rows per request). The chart scrolls back to the user's first event.
+  const dates: string[] = [];
+  for (let from = 0; ; from += 1000) {
+    const { data } = await supabase
+      .from("event_logs")
+      .select("event_date")
+      .eq("user_id", userId)
+      .order("event_date", { ascending: true })
+      .range(from, from + 999);
+    if (!data || data.length === 0) break;
+    for (const r of data) dates.push(r.event_date);
+    if (data.length < 1000) break;
+  }
+
+  const counts = new Map<string, number>();
+  for (const d of dates) {
+    const ym = d.slice(0, 7);
+    counts.set(ym, (counts.get(ym) || 0) + 1);
+  }
+
   const now = new Date();
+  // Start at the user's first event month, but always show at least 12 months
+  const first = dates.length
+    ? new Date(Number(dates[0].slice(0, 4)), Number(dates[0].slice(5, 7)) - 1, 1)
+    : now;
+  const minStart = new Date(now.getFullYear(), now.getMonth() - 11, 1);
+  const start = first < minStart ? new Date(first.getFullYear(), first.getMonth(), 1) : minStart;
+
   const months: ActivityMonth[] = [];
-
-  // Build last 12 months
-  for (let i = 11; i >= 0; i--) {
-    const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
-    const monthLabel = d.toLocaleString("en-US", { month: "short" });
-    months.push({ month: monthLabel, count: 0 });
+  const cursor = new Date(start);
+  while (cursor <= now) {
+    const ym = `${cursor.getFullYear()}-${String(cursor.getMonth() + 1).padStart(2, "0")}`;
+    months.push({
+      ym,
+      month: cursor.toLocaleString("en-US", { month: "short" }),
+      year: cursor.getFullYear(),
+      count: counts.get(ym) || 0,
+    });
+    cursor.setMonth(cursor.getMonth() + 1);
   }
 
-  // Query event_logs for last 12 months
-  const startDate = new Date(now.getFullYear(), now.getMonth() - 11, 1);
-  const startStr = startDate.toISOString().split("T")[0];
-
-  const { data } = await supabase
-    .from("event_logs")
-    .select("event_date")
-    .eq("user_id", userId)
-    .gte("event_date", startStr)
-    .order("event_date", { ascending: true });
-
-  if (data) {
-    for (const log of data) {
-      const logDate = new Date(log.event_date);
-      const monthDiff =
-        (now.getFullYear() - logDate.getFullYear()) * 12 +
-        (now.getMonth() - logDate.getMonth());
-      const index = 11 - monthDiff;
-      if (index >= 0 && index < 12) {
-        months[index].count++;
-      }
-    }
-  }
-
-  const total = months.reduce((sum, m) => sum + m.count, 0);
-  return { months, total };
+  return { months, total: dates.length };
 }
 
 export async function fetchPinnedLists(
@@ -466,7 +476,8 @@ export async function fetchTimeline(
   userId: string,
   leagueFilter?: string,
   limit = 20,
-  offset = 0
+  offset = 0,
+  monthFilter?: string // YYYY-MM
 ): Promise<TimelinePage> {
   let query = supabase
     .from("event_logs")
@@ -490,6 +501,13 @@ export async function fetchTimeline(
     .eq("user_id", userId)
     .order("event_date", { ascending: false })
     .range(offset, offset + limit);
+
+  if (monthFilter && /^\d{4}-\d{2}$/.test(monthFilter)) {
+    const [y, mo] = monthFilter.split("-").map(Number);
+    const from = `${monthFilter}-01`;
+    const to = `${mo === 12 ? y + 1 : y}-${String(mo === 12 ? 1 : mo + 1).padStart(2, "0")}-01`;
+    query = query.gte("event_date", from).lt("event_date", to);
+  }
 
   if (leagueFilter && leagueFilter !== "All") {
     // Look up league id by slug
