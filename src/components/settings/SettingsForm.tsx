@@ -10,6 +10,7 @@ import AccountSecurity from "@/components/settings/AccountSecurity";
 import SportIcon from "@/components/SportIcon";
 import { SPORTS_LIST } from "@/lib/sportIcons";
 import { METROS } from "@/lib/metros";
+import { toastError } from "@/components/Toaster";
 
 type Props = {
   profile: SettingsProfile;
@@ -54,35 +55,21 @@ export default function SettingsForm({ profile, userEmail, availableLists }: Pro
   const [pinnedList2, setPinnedList2] = useState(profile.pinned_list_2_id);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
-  const [error, setError] = useState<string | null>(null);
   const [showLogout, setShowLogout] = useState(false);
   const router = useRouter();
   const supabase = createClient();
 
-  async function handleSave() {
+  // Autosave: every control persists on change (text fields on blur).
+  // Matches the instant-save contract of the feed's city chip.
+  async function autoSave(updates: Parameters<typeof updateProfile>[2]) {
     setSaving(true);
-    setError(null);
-    setSaved(false);
-
-    const result = await updateProfile(supabase, profile.id, {
-      display_name: displayName.trim() || null,
-      bio: bio.trim() || null,
-      fav_sport: favSport,
-      home_city: homeCity,
-      is_private: isPrivate,
-      default_privacy: defaultPrivacy,
-      comments_enabled: commentsEnabled,
-      pinned_list_1_id: pinnedList1,
-      pinned_list_2_id: pinnedList2,
-    });
-
+    const result = await updateProfile(supabase, profile.id, updates);
     setSaving(false);
-
     if ("error" in result) {
-      setError(result.error);
+      toastError("Couldn't save — check your connection.");
     } else {
       setSaved(true);
-      setTimeout(() => setSaved(false), 2000);
+      setTimeout(() => setSaved(false), 1500);
     }
   }
 
@@ -112,6 +99,7 @@ export default function SettingsForm({ profile, userEmail, availableLists }: Pro
             type="text"
             value={displayName}
             onChange={(e) => setDisplayName(e.target.value)}
+            onBlur={() => autoSave({ display_name: displayName.trim() || null })}
             placeholder="Your display name"
             className="w-full py-2 px-3 rounded-lg bg-bg-input border border-border text-text-primary text-sm outline-none focus:border-accent transition-colors"
           />
@@ -121,6 +109,7 @@ export default function SettingsForm({ profile, userEmail, availableLists }: Pro
           <textarea
             value={bio}
             onChange={(e) => setBio(e.target.value)}
+            onBlur={() => autoSave({ bio: bio.trim() || null })}
             placeholder="Tell us about yourself..."
             rows={2}
             maxLength={160}
@@ -134,7 +123,10 @@ export default function SettingsForm({ profile, userEmail, availableLists }: Pro
           <label className="text-xs text-text-muted block mb-1">Home City</label>
           <select
             value={homeCity || ""}
-            onChange={(e) => setHomeCity(e.target.value || null)}
+            onChange={(e) => {
+              setHomeCity(e.target.value || null);
+              autoSave({ home_city: e.target.value || null });
+            }}
             className="w-full py-2 px-3 rounded-lg bg-bg-input border border-border text-text-primary text-sm outline-none"
           >
             <option value="">Not set</option>
@@ -157,7 +149,11 @@ export default function SettingsForm({ profile, userEmail, availableLists }: Pro
               return (
                 <button
                   key={s.key}
-                  onClick={() => setFavSport(selected ? null : s.key)}
+                  onClick={() => {
+                    const next = selected ? null : s.key;
+                    setFavSport(next);
+                    autoSave({ fav_sport: next });
+                  }}
                   className="px-3 py-1.5 rounded-full text-xs transition-colors"
                   style={{
                     background: selected ? "rgba(212,135,44,0.15)" : "var(--color-bg-input)",
@@ -200,7 +196,10 @@ export default function SettingsForm({ profile, userEmail, availableLists }: Pro
           <label className="text-xs text-text-muted block mb-1">Pinned List 1</label>
           <select
             value={pinnedList1 || ""}
-            onChange={(e) => setPinnedList1(e.target.value || null)}
+            onChange={(e) => {
+              setPinnedList1(e.target.value || null);
+              autoSave({ pinned_list_1_id: e.target.value || null });
+            }}
             className="w-full py-2 px-3 rounded-lg bg-bg-input border border-border text-text-primary text-sm outline-none"
           >
             <option value="">None</option>
@@ -215,7 +214,10 @@ export default function SettingsForm({ profile, userEmail, availableLists }: Pro
           <label className="text-xs text-text-muted block mb-1">Pinned List 2</label>
           <select
             value={pinnedList2 || ""}
-            onChange={(e) => setPinnedList2(e.target.value || null)}
+            onChange={(e) => {
+              setPinnedList2(e.target.value || null);
+              autoSave({ pinned_list_2_id: e.target.value || null });
+            }}
             className="w-full py-2 px-3 rounded-lg bg-bg-input border border-border text-text-primary text-sm outline-none"
           >
             <option value="">None</option>
@@ -233,7 +235,10 @@ export default function SettingsForm({ profile, userEmail, availableLists }: Pro
       <div className="bg-bg-card border-y border-border">
         <SettingRow label="Private Profile">
           <button
-            onClick={() => setIsPrivate(!isPrivate)}
+            onClick={() => {
+              setIsPrivate(!isPrivate);
+              autoSave({ is_private: !isPrivate });
+            }}
             className="relative w-11 h-6 rounded-full transition-colors"
             style={{
               background: isPrivate ? "var(--color-accent)" : "var(--color-bg-input)",
@@ -251,7 +256,10 @@ export default function SettingsForm({ profile, userEmail, availableLists }: Pro
           <label className="text-xs text-text-muted block mb-1">Default Event Privacy</label>
           <select
             value={defaultPrivacy}
-            onChange={(e) => setDefaultPrivacy(e.target.value)}
+            onChange={(e) => {
+              setDefaultPrivacy(e.target.value);
+              autoSave({ default_privacy: e.target.value });
+            }}
             className="w-full py-2 px-3 rounded-lg bg-bg-input border border-border text-text-primary text-sm outline-none"
           >
             <option value="show_all">Public — show everything</option>
@@ -261,7 +269,10 @@ export default function SettingsForm({ profile, userEmail, availableLists }: Pro
         </div>
         <SettingRow label="Allow Comments">
           <button
-            onClick={() => setCommentsEnabled(!commentsEnabled)}
+            onClick={() => {
+              setCommentsEnabled(!commentsEnabled);
+              autoSave({ comments_enabled: !commentsEnabled });
+            }}
             className="relative w-11 h-6 rounded-full transition-colors"
             style={{
               background: commentsEnabled ? "var(--color-accent)" : "var(--color-bg-input)",
@@ -277,23 +288,13 @@ export default function SettingsForm({ profile, userEmail, availableLists }: Pro
         </SettingRow>
       </div>
 
-      {/* Save button */}
-      {error && (
-        <p className="text-loss text-sm px-4 mt-3">{error}</p>
-      )}
-      <div className="px-4 mt-4">
-        <button
-          onClick={handleSave}
-          disabled={saving}
-          className="w-full py-3.5 rounded-xl font-display text-base tracking-widest text-white disabled:opacity-50 transition-opacity"
-          style={{
-            background: saved
-              ? "var(--color-win)"
-              : "linear-gradient(135deg, var(--color-accent), var(--color-accent-brown))",
-          }}
-        >
-          {saving ? "SAVING..." : saved ? "SAVED" : "SAVE CHANGES"}
-        </button>
+      {/* Floating save status (autosave) */}
+      <div
+        className={`fixed top-16 right-4 z-50 px-3 py-1.5 rounded-full text-xs font-medium transition-opacity duration-300 pointer-events-none ${
+          saving || saved ? "opacity-100" : "opacity-0"
+        } ${saved ? "bg-win/15 text-win border border-win/40" : "bg-bg-elevated text-text-secondary border border-border"}`}
+      >
+        {saved ? "Saved ✓" : "Saving..."}
       </div>
 
       {/* Account */}

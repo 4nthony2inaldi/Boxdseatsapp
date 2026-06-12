@@ -292,7 +292,7 @@ function ListCard({
 
   return (
     <Link href={`/lists/${list.id}`} className="block">
-      <div className="rounded-xl border border-border bg-bg-card p-4 flex items-center gap-4 cursor-pointer hover:border-accent transition-colors">
+      <div className="rounded-xl border border-border bg-bg-card p-4 flex items-center gap-4 cursor-pointer hover:border-accent active:scale-[0.99] transition-[transform,border-color]">
         {showIcon && list.icon && <SportIcon src={list.icon} size={28} />}
         <div className="flex-1 min-w-0">
           <div className="font-display text-sm tracking-wider text-text-primary">

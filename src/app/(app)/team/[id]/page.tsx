@@ -1,6 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
 import Link from "next/link";
+import BackButton from "@/components/BackButton";
 import {
   fetchTeamDetail,
   fetchTeamVenues,
@@ -36,6 +37,7 @@ export default async function TeamDetailPage({
   if (!team) {
     return (
       <div className="px-4 py-8 max-w-lg mx-auto text-center">
+        <div className="px-4 pt-3 -mb-1 relative z-10"><BackButton fallback="/explore" /></div>
         <p className="text-text-muted">Team not found.</p>
       </div>
     );

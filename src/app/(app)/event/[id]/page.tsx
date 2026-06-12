@@ -18,14 +18,18 @@ import SportIcon from "@/components/SportIcon";
 import ShareButton from "@/components/sharing/ShareButton";
 import VerifiedBadge from "@/components/VerifiedBadge";
 import { CameraIcon } from "@/components/icons";
+import BackButton from "@/components/BackButton";
 import EventGallery from "@/components/event/EventGallery";
 
 export default async function EventDetailPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ id: string }>;
+  searchParams: Promise<{ log?: string }>;
 }) {
   const { id } = await params;
+  const { log: focusLogId } = await searchParams;
   const supabase = await createClient();
   const {
     data: { user },
@@ -68,6 +72,23 @@ export default async function EventDetailPage({
     ? await fetchEventComments(supabase, userLog.id)
     : [];
 
+  // Deep link from a feed card's comment icon: show that log's thread
+  let focusLog: { id: string; user_id: string; username: string; display_name: string | null } | null = null;
+  let focusComments: Awaited<ReturnType<typeof fetchEventComments>> = [];
+  if (focusLogId && focusLogId !== userLog?.id) {
+    const { data: fl } = await supabase
+      .from("event_logs")
+      .select("id, user_id, profiles!event_logs_user_id_fkey(username, display_name)")
+      .eq("id", focusLogId)
+      .eq("event_id", id)
+      .maybeSingle();
+    if (fl) {
+      const prof = fl.profiles as unknown as { username: string; display_name: string | null } | null;
+      focusLog = { id: fl.id, user_id: fl.user_id, username: prof?.username || "", display_name: prof?.display_name ?? null };
+      focusComments = await fetchEventComments(supabase, fl.id);
+    }
+  }
+
   const formattedDate = new Date(event.event_date + "T00:00:00").toLocaleDateString(
     "en-US",
     { weekday: "long", month: "long", day: "numeric", year: "numeric" }
@@ -80,6 +101,9 @@ export default async function EventDetailPage({
 
   return (
     <div className="px-4 pb-8 max-w-lg mx-auto">
+      <div className="flex items-center pt-3 -mb-1 relative z-10">
+        <BackButton fallback="/" />
+      </div>
       {/* Hero: Cover photo or league-colored gradient */}
       <div className="relative -mx-4 mb-5">
         {coverCredit ? (
@@ -182,6 +206,29 @@ export default async function EventDetailPage({
         >
           {event.venue_name}
         </Link>
+      </div>
+
+      {/* Log affordance — the page every "Were you there?" lands on */}
+      <div className="mb-6">
+        {userLog ? (
+          <Link
+            href={`/log?edit=${userLog.id}`}
+            className="flex items-center justify-center gap-2 w-full py-3 rounded-xl border border-win/40 bg-win/10 text-win text-sm font-medium active:opacity-80 transition-opacity"
+          >
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+              <polyline points="20 6 9 17 4 12" />
+            </svg>
+            You were there — view your log
+          </Link>
+        ) : (
+          <Link
+            href={`/log?eventId=${event.id}`}
+            className="flex items-center justify-center gap-2 w-full py-3.5 rounded-xl font-display text-base tracking-widest text-white active:opacity-80 transition-opacity"
+            style={{ background: "linear-gradient(135deg, var(--color-accent), var(--color-accent-brown))" }}
+          >
+            I WAS THERE — LOG IT
+          </Link>
+        )}
       </div>
 
       {/* Tournament Days Attendance */}
@@ -413,6 +460,21 @@ export default async function EventDetailPage({
             url={`https://boxdseats.com/e/${userLog.id}`}
             title={`${isMatch ? `${event.away_team_abbr || event.away_team_short} vs ${event.home_team_abbr || event.home_team_short}` : event.tournament_name || "Event"} — BoxdSeats`}
             text={`Check out this event on BoxdSeats`}
+          />
+        </div>
+      )}
+
+      {/* Deep-linked friend's comment thread */}
+      {focusLog && (
+        <div className="mb-6" id="comments">
+          <SectionLabel>
+            Comments on {focusLog.display_name || `@${focusLog.username}`}&apos;s log
+          </SectionLabel>
+          <CommentsSection
+            eventLogId={focusLog.id}
+            userId={user.id}
+            logOwnerId={focusLog.user_id}
+            initialComments={focusComments}
           />
         </div>
       )}

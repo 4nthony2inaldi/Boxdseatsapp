@@ -3,6 +3,7 @@ import { fetchFeed } from "@/lib/queries/social";
 import { fetchNearbyEvents, type NearbyPage } from "@/lib/queries/nearby";
 import FeedList from "@/components/feed/FeedList";
 import NearbySection from "@/components/feed/NearbySection";
+import PullToRefresh from "@/components/PullToRefresh";
 
 export default async function FeedPage() {
   const supabase = await createClient();
@@ -29,6 +30,7 @@ export default async function FeedPage() {
   }
 
   return (
+    <PullToRefresh>
     <div className="max-w-lg mx-auto">
       <div className="px-4 pt-2 mb-3">
         <h1 className="font-display text-[22px] text-text-primary tracking-wide">
@@ -45,5 +47,6 @@ export default async function FeedPage() {
       </div>
       <FeedList initialEntries={entries} initialHasMore={hasMore} userId={user.id} />
     </div>
+    </PullToRefresh>
   );
 }

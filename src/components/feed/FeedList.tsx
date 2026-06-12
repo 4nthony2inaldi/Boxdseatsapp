@@ -8,6 +8,7 @@ import { createClient } from "@/lib/supabase/client";
 import { toggleLike, type FeedEntry } from "@/lib/queries/social";
 import { useInfiniteScroll } from "@/hooks/useInfiniteScroll";
 import { UsersIcon } from "@/components/icons";
+import { toastError } from "@/components/Toaster";
 
 const PAGE_SIZE = 20;
 
@@ -46,6 +47,7 @@ export default function FeedList({ initialEntries, initialHasMore, userId }: Pro
     const result = await toggleLike(supabase, userId, entryId, entry.liked_by_me);
 
     if ("error" in result) {
+      toastError("Couldn't save your like — check your connection.");
       // Revert on error
       setEntries((prev) =>
         prev.map((e) =>
@@ -64,7 +66,8 @@ export default function FeedList({ initialEntries, initialHasMore, userId }: Pro
   const handleComment = (entryId: string) => {
     const entry = entries.find((e) => e.id === entryId);
     if (entry?.event_id) {
-      router.push(`/event/${entry.event_id}`);
+      // land on that log's comment thread, not just the event
+      router.push(`/event/${entry.event_id}?log=${entryId}#comments`);
     }
   };
 

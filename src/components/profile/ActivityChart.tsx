@@ -67,7 +67,7 @@ export default function ActivityChart({ months, total, timelineHref }: ActivityC
         <div
           ref={scrollRef}
           onScroll={onScroll}
-          className="flex items-end gap-1.5 h-24 overflow-x-auto"
+          className="flex items-end gap-1.5 h-24 overflow-x-auto scroll-fade-x"
           style={{ scrollbarWidth: "none" }}
         >
           {months.map((m, i) => {

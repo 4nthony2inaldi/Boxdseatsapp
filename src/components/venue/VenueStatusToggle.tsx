@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { createClient } from "@/lib/supabase/client";
+import { toastError } from "@/components/Toaster";
 import {
   upsertVenueVisit,
   removeVenueVisit,
@@ -36,13 +37,19 @@ export default function VenueStatusToggle({
       setStatus(null);
       setLoading(true);
       const result = await removeVenueVisit(supabase, userId, venueId);
-      if ("error" in result) setStatus(previous);
+      if ("error" in result) {
+        toastError("Couldn't save — check your connection.");
+        setStatus(previous);
+      }
     } else {
       // Set new status
       setStatus(target);
       setLoading(true);
       const result = await upsertVenueVisit(supabase, userId, venueId, target);
-      if ("error" in result) setStatus(previous);
+      if ("error" in result) {
+        toastError("Couldn't save — check your connection.");
+        setStatus(previous);
+      }
     }
     setLoading(false);
   };

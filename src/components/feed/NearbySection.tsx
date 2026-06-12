@@ -7,6 +7,7 @@ import { createClient } from "@/lib/supabase/client";
 import { METROS, metroFromKey } from "@/lib/metros";
 import { fetchNearbyEvents, type NearbyEvent, type NearbyPage } from "@/lib/queries/nearby";
 import SportIcon from "@/components/SportIcon";
+import { toastError } from "@/components/Toaster";
 
 type Props = {
   userId: string;
@@ -42,7 +43,7 @@ function NearbyCard({ ev }: { ev: NearbyEvent }) {
   return (
     <Link
       href={`/event/${ev.event_id}`}
-      className="block w-[150px] shrink-0 rounded-xl border border-border bg-bg-card overflow-hidden"
+      className="block w-[150px] shrink-0 rounded-xl border border-border bg-bg-card overflow-hidden active:scale-[0.98] transition-transform"
     >
       <div className="relative h-[84px] bg-bg-elevated">
         {photo && !imgFailed ? (
@@ -116,10 +117,11 @@ export default function NearbySection({ userId, initialCity, initialPage }: Prop
     setCity(key);
     setLoading(true);
     const supabase = createClient();
-    const [page] = await Promise.all([
+    const [page, saveRes] = await Promise.all([
       fetchNearbyEvents(supabase, key),
       supabase.from("profiles").update({ home_city: key }).eq("id", userId),
     ]);
+    if (saveRes.error) toastError("Couldn't save your city — it will reset next visit.");
     setEvents(page.events);
     setBefore(page.before);
     setLoading(false);
@@ -157,7 +159,7 @@ export default function NearbySection({ userId, initialCity, initialPage }: Prop
       <div className="px-4 flex items-center justify-between mb-2.5 relative">
         <button
           onClick={() => setPickerOpen(!pickerOpen)}
-          className="flex items-center gap-1.5 bg-transparent border-none p-0 cursor-pointer"
+          className="flex items-center gap-1.5 bg-transparent border-none p-2 -m-2 cursor-pointer"
         >
           <span className="font-display text-[13px] text-text-muted tracking-[1.5px] uppercase">
             Around {metro ? metro.label : "You"}
@@ -168,36 +170,45 @@ export default function NearbySection({ userId, initialCity, initialPage }: Prop
         </button>
 
         {pickerOpen && (
-          <div
-            ref={pickerRef}
-            className="absolute left-4 top-7 z-40 w-64 max-h-80 overflow-y-auto rounded-xl border border-border bg-bg-elevated shadow-xl"
-          >
-            <div className="p-2 sticky top-0 bg-bg-elevated">
-              <input
-                autoFocus
-                type="text"
-                value={filter}
-                onChange={(e) => setFilter(e.target.value)}
-                placeholder="Search cities..."
-                className="w-full py-2 px-3 rounded-lg bg-bg-input border border-border text-text-primary text-sm outline-none focus:border-accent"
-              />
+          <>
+            <button
+              aria-label="Close city picker"
+              onClick={() => setPickerOpen(false)}
+              className="fixed inset-0 z-[55] bg-black/50 border-none cursor-default"
+            />
+            <div
+              ref={pickerRef}
+              className="fixed inset-x-0 bottom-0 z-[60] max-h-[70dvh] flex flex-col rounded-t-2xl border-t border-x border-border bg-bg-elevated shadow-xl pb-[max(env(safe-area-inset-bottom),0.75rem)]"
+            >
+              <div className="mx-auto mt-2 mb-1 w-9 h-1 rounded-full bg-border" />
+              <div className="px-4 py-2">
+                <input
+                  type="text"
+                  value={filter}
+                  onChange={(e) => setFilter(e.target.value)}
+                  placeholder="Search cities..."
+                  className="w-full py-2.5 px-3 rounded-lg bg-bg-input border border-border text-text-primary text-sm outline-none focus:border-accent"
+                />
+              </div>
+              <div className="overflow-y-auto px-2">
+                {filtered.map((m) => (
+                  <button
+                    key={m.key}
+                    onClick={() => selectCity(m.key)}
+                    className={`w-full text-left px-3 py-3 rounded-lg text-sm bg-transparent border-none cursor-pointer active:bg-bg-card ${
+                      m.key === city ? "text-accent" : "text-text-primary"
+                    }`}
+                  >
+                    {m.label}
+                    {m.state ? <span className="text-text-muted text-xs"> · {m.state}</span> : null}
+                  </button>
+                ))}
+                {filtered.length === 0 && (
+                  <div className="px-3 py-3 text-sm text-text-muted">No matches</div>
+                )}
+              </div>
             </div>
-            {filtered.map((m) => (
-              <button
-                key={m.key}
-                onClick={() => selectCity(m.key)}
-                className={`w-full text-left px-3 py-2 text-sm bg-transparent border-none cursor-pointer hover:bg-bg-card ${
-                  m.key === city ? "text-accent" : "text-text-primary"
-                }`}
-              >
-                {m.label}
-                {m.state ? <span className="text-text-muted text-xs"> · {m.state}</span> : null}
-              </button>
-            ))}
-            {filtered.length === 0 && (
-              <div className="px-3 py-3 text-sm text-text-muted">No matches</div>
-            )}
-          </div>
+          </>
         )}
       </div>
 
@@ -230,7 +241,7 @@ export default function NearbySection({ userId, initialCity, initialPage }: Prop
         </div>
       ) : (
         <div
-          className="pl-4 pr-4 flex gap-3 overflow-x-auto pb-1"
+          className="pl-4 pr-4 flex gap-3 overflow-x-auto pb-1 scroll-fade-x"
           style={{ scrollbarWidth: "none" }}
           onScroll={(e) => onCarouselScroll(e.currentTarget)}
         >

@@ -82,6 +82,11 @@ function getNotificationLink(n: Notification): string | null {
   if (n.type === "like" || n.type === "comment" || n.type === "companion_tag") {
     return n.target_id ? `/event/${n.target_id}` : null;
   }
+  if (n.type === "badge_earned") return "/profile";
+  if (n.type === "progress_nudge") return "/lists";
+  if (n.type === "friend_activity" || n.type === "friend_milestone") {
+    return n.actor ? `/user/${n.actor.username}` : null;
+  }
   return null;
 }
 

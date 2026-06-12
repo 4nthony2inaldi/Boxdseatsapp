@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { followUser, unfollowUser } from "@/lib/queries/social";
+import { toastError } from "@/components/Toaster";
 
 type Props = {
   targetUserId: string;
@@ -37,6 +38,7 @@ export default function FollowButton({
 
       const result = await unfollowUser(supabase, currentUserId, targetUserId);
       if ("error" in result) {
+      toastError("Couldn't update follow — check your connection.");
         // Revert
         setIsFollowing(initialIsFollowing);
         setIsPending(initialIsPending);
@@ -46,6 +48,7 @@ export default function FollowButton({
       // Optimistic: follow
       const result = await followUser(supabase, currentUserId, targetUserId);
       if ("error" in result) {
+      toastError("Couldn't update follow — check your connection.");
         // Stay as-is
       } else {
         const newFollowing = result.status === "active";
