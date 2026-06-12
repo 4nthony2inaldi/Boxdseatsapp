@@ -5,13 +5,13 @@ import { useState, useRef, useEffect } from "react";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
 import { METROS, metroFromKey } from "@/lib/metros";
-import { fetchNearbyEvents, type NearbyEvent } from "@/lib/queries/nearby";
+import { fetchNearbyEvents, type NearbyEvent, type NearbyPage } from "@/lib/queries/nearby";
 import SportIcon from "@/components/SportIcon";
 
 type Props = {
   userId: string;
   initialCity: string | null;
-  initialEvents: NearbyEvent[];
+  initialPage: NearbyPage;
 };
 
 function dateChip(eventDate: string): { label: string; live: boolean } {
@@ -91,9 +91,11 @@ function NearbyCard({ ev }: { ev: NearbyEvent }) {
   );
 }
 
-export default function NearbySection({ userId, initialCity, initialEvents }: Props) {
+export default function NearbySection({ userId, initialCity, initialPage }: Props) {
   const [city, setCity] = useState<string | null>(initialCity);
-  const [events, setEvents] = useState<NearbyEvent[]>(initialEvents);
+  const [events, setEvents] = useState<NearbyEvent[]>(initialPage.events);
+  const [before, setBefore] = useState<string | null>(initialPage.before);
+  const [loadingMore, setLoadingMore] = useState(false);
   const [pickerOpen, setPickerOpen] = useState(false);
   const [filter, setFilter] = useState("");
   const [loading, setLoading] = useState(false);
@@ -114,12 +116,35 @@ export default function NearbySection({ userId, initialCity, initialEvents }: Pr
     setCity(key);
     setLoading(true);
     const supabase = createClient();
-    const [results] = await Promise.all([
+    const [page] = await Promise.all([
       fetchNearbyEvents(supabase, key),
       supabase.from("profiles").update({ home_city: key }).eq("id", userId),
     ]);
-    setEvents(results);
+    setEvents(page.events);
+    setBefore(page.before);
     setLoading(false);
+  }
+
+  async function loadMore() {
+    if (!city || !before || loadingMore) return;
+    setLoadingMore(true);
+    const page = await fetchNearbyEvents(createClient(), city, before);
+    setEvents((prev) => {
+      const ids = new Set(prev.map((e) => e.event_id));
+      const tids = new Set(prev.map((e) => e.tournament_id).filter(Boolean));
+      return [
+        ...prev,
+        ...page.events.filter(
+          (e) => !ids.has(e.event_id) && (!e.tournament_id || !tids.has(e.tournament_id))
+        ),
+      ];
+    });
+    setBefore(page.before);
+    setLoadingMore(false);
+  }
+
+  function onCarouselScroll(el: HTMLDivElement) {
+    if (el.scrollWidth - el.scrollLeft - el.clientWidth < 400) loadMore();
   }
 
   const metro = metroFromKey(city);
@@ -204,10 +229,17 @@ export default function NearbySection({ userId, initialCity, initialEvents }: Pr
           No events around {metro.label} right now.
         </div>
       ) : (
-        <div className="pl-4 pr-4 flex gap-3 overflow-x-auto pb-1" style={{ scrollbarWidth: "none" }}>
+        <div
+          className="pl-4 pr-4 flex gap-3 overflow-x-auto pb-1"
+          style={{ scrollbarWidth: "none" }}
+          onScroll={(e) => onCarouselScroll(e.currentTarget)}
+        >
           {events.map((ev) => (
             <NearbyCard key={ev.event_id} ev={ev} />
           ))}
+          {loadingMore && (
+            <div className="w-[150px] h-[150px] shrink-0 rounded-xl bg-bg-card border border-border animate-pulse" />
+          )}
         </div>
       )}
     </div>

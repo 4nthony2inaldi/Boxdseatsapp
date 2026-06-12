@@ -1,12 +1,18 @@
--- Around You: home city on profiles + nearby-events RPC over venue coordinates
+-- Around You: home city on profiles + nearby-events RPC (v2: cursor pagination)
+-- APPLIED TO PRODUCTION + STAGING via Management API.
+-- v2 drops the hard lookback bound: the feed carousel always fills (the
+-- nearest events regardless of age) and pages backward in time via in_before.
 ALTER TABLE profiles ADD COLUMN IF NOT EXISTS home_city text;
+
+DROP FUNCTION IF EXISTS events_near(double precision, double precision, double precision, date, date);
 
 CREATE OR REPLACE FUNCTION events_near(
   in_lat double precision,
   in_lng double precision,
   in_radius_m double precision,
-  in_from date,
-  in_to date
+  in_until date,                -- include events up to this date (future bound)
+  in_before date DEFAULT NULL,  -- cursor: only events strictly before this date
+  in_limit int DEFAULT 30
 )
 RETURNS TABLE (
   event_id uuid,
@@ -41,9 +47,10 @@ LANGUAGE sql STABLE AS $$
   LEFT JOIN teams at ON at.id = e.away_team_id
   WHERE v.location IS NOT NULL
     AND ST_DWithin(v.location, ST_SetSRID(ST_MakePoint(in_lng, in_lat), 4326)::geography, in_radius_m)
-    AND e.event_date BETWEEN in_from AND in_to
+    AND e.event_date <= in_until
+    AND (in_before IS NULL OR e.event_date < in_before)
   ORDER BY e.event_date DESC
-  LIMIT 60;
+  LIMIT LEAST(in_limit, 60);
 $$;
 
-GRANT EXECUTE ON FUNCTION events_near(double precision, double precision, double precision, date, date) TO authenticated, anon;
+GRANT EXECUTE ON FUNCTION events_near(double precision, double precision, double precision, date, date, int) TO authenticated, anon;

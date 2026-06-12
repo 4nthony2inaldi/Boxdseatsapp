@@ -1,6 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import { fetchFeed } from "@/lib/queries/social";
-import { fetchNearbyEvents, type NearbyEvent } from "@/lib/queries/nearby";
+import { fetchNearbyEvents, type NearbyPage } from "@/lib/queries/nearby";
 import FeedList from "@/components/feed/FeedList";
 import NearbySection from "@/components/feed/NearbySection";
 
@@ -23,7 +23,7 @@ export default async function FeedPage() {
     supabase.from("profiles").select("home_city").eq("id", user.id).single(),
   ]);
   const homeCity = profileRes.data?.home_city ?? null;
-  let nearby: NearbyEvent[] = [];
+  let nearby: NearbyPage = { events: [], before: null };
   if (homeCity) {
     nearby = await fetchNearbyEvents(supabase, homeCity);
   }
@@ -36,7 +36,7 @@ export default async function FeedPage() {
         </h1>
       </div>
 
-      <NearbySection userId={user.id} initialCity={homeCity} initialEvents={nearby} />
+      <NearbySection userId={user.id} initialCity={homeCity} initialPage={nearby} />
 
       <div className="px-4 mb-2.5">
         <span className="font-display text-[13px] text-text-muted tracking-[1.5px] uppercase">
