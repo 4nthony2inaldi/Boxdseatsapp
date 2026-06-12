@@ -9,6 +9,7 @@ import { SkeletonTimelineCard } from "../Skeleton";
 import { useInfiniteScroll } from "@/hooks/useInfiniteScroll";
 import { createClient } from "@/lib/supabase/client";
 import { toggleLike } from "@/lib/queries/social";
+import { StadiumIcon } from "@/components/icons";
 
 const PAGE_SIZE = 20;
 
@@ -289,7 +290,9 @@ export default function Timeline({ initialEntries, initialHasMore, userId, viewe
 
       {!loading && entries.length === 0 && (
         <div className="rounded-xl border border-border bg-bg-card p-8 text-center">
-          <div className="text-4xl mb-3">🏟️</div>
+          <div className="mb-3 flex justify-center text-text-muted">
+            <StadiumIcon size={40} />
+          </div>
           <div className="font-display text-lg text-text-primary tracking-wide mb-2">
             Log Your First Event
           </div>

@@ -7,6 +7,7 @@ import { SkeletonFeedCard } from "@/components/Skeleton";
 import { createClient } from "@/lib/supabase/client";
 import { toggleLike, type FeedEntry } from "@/lib/queries/social";
 import { useInfiniteScroll } from "@/hooks/useInfiniteScroll";
+import { UsersIcon } from "@/components/icons";
 
 const PAGE_SIZE = 20;
 
@@ -94,7 +95,9 @@ export default function FeedList({ initialEntries, initialHasMore, userId }: Pro
     return (
       <div className="px-4">
         <div className="rounded-xl border border-border bg-bg-card p-8 text-center">
-          <div className="text-4xl mb-3">👥</div>
+          <div className="mb-3 flex justify-center text-text-muted">
+            <UsersIcon size={40} />
+          </div>
           <div className="font-display text-lg text-text-primary tracking-wide mb-2">
             Find Fans to Follow
           </div>

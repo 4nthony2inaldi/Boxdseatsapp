@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
 import { LogoWithWordmark } from "@/components/Logo";
+import { MailCheckIcon } from "@/components/icons";
 
 /**
  * Two modes:
@@ -133,7 +134,9 @@ export default function ResetPasswordPage() {
 
         {mode === "request" && sent && (
           <div className="text-center">
-            <div className="text-4xl mb-4">📬</div>
+            <div className="mb-4 flex justify-center text-accent">
+              <MailCheckIcon size={44} />
+            </div>
             <h1 className="font-display text-2xl text-text-primary tracking-wide mb-2">
               Check Your Email
             </h1>

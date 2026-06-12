@@ -14,6 +14,7 @@ import {
 import type { BadgeData } from "@/lib/queries/badges";
 import { uploadEventPhoto, updateEventLogPhoto, removeEventLogPhoto, isPhotoVerified } from "@/lib/photos";
 import { ensureVotingWindow } from "@/lib/queries/coverPhotos";
+import { CelebrationIcon, CheckCircleIcon, TrashIcon } from "@/components/icons";
 import StepVenue from "./StepVenue";
 import StepDate from "./StepDate";
 import StepEvent, { type ManualEntryData } from "./StepEvent";
@@ -327,7 +328,9 @@ export default function LogFlow({ userId, prefillVenue, editLog }: LogFlowProps)
   if (deleted) {
     return (
       <div className="px-4 py-16 max-w-lg mx-auto text-center">
-        <div className="text-5xl mb-4">🗑️</div>
+        <div className="mb-4 flex justify-center text-text-muted">
+          <TrashIcon size={44} />
+        </div>
         <div className="font-display text-2xl text-text-primary tracking-wider mb-2">
           LOG DELETED
         </div>
@@ -343,7 +346,9 @@ export default function LogFlow({ userId, prefillVenue, editLog }: LogFlowProps)
     const daysLogged = multiDayEvents ? multiDayEvents.length : 1;
     return (
       <div className="px-4 py-16 max-w-lg mx-auto text-center">
-        <div className="text-5xl mb-4">{isEditMode ? "✅" : "🎉"}</div>
+        <div className="mb-4 flex justify-center text-accent">
+          {isEditMode ? <CheckCircleIcon size={48} /> : <CelebrationIcon size={48} />}
+        </div>
         <div className="font-display text-2xl text-text-primary tracking-wider mb-2">
           {isEditMode
             ? "EVENT UPDATED"

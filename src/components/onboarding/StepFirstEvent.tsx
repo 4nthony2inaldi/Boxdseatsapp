@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { StadiumIcon } from "@/components/icons";
 
 type Venue = {
   id: string;
@@ -39,10 +40,10 @@ export default function StepFirstEvent({
 
       <div className="bg-bg-card rounded-2xl border border-border p-5 mb-5 text-center">
         <div
-          className="w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4 text-[28px]"
+          className="w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4 text-accent"
           style={{ background: "rgba(212,135,44,0.12)" }}
         >
-          🏟️
+          <StadiumIcon size={30} />
         </div>
         <div className="font-display text-lg text-text-primary tracking-wide mb-5">
           What was the last game you went to?

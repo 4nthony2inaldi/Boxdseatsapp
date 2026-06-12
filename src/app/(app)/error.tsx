@@ -1,5 +1,7 @@
 "use client";
 
+import { AlertTriangleIcon } from "@/components/icons";
+
 export default function AppError({
   error,
   reset,
@@ -9,7 +11,9 @@ export default function AppError({
 }) {
   return (
     <div className="max-w-lg mx-auto px-4 py-16 text-center">
-      <div className="text-4xl mb-3">⚠️</div>
+      <div className="mb-3 flex justify-center text-loss">
+        <AlertTriangleIcon size={40} />
+      </div>
       <h2 className="font-display text-xl text-text-primary tracking-wide mb-2">
         Something Went Wrong
       </h2>
