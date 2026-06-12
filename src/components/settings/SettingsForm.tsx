@@ -7,6 +7,7 @@ import type { SettingsProfile } from "@/lib/queries/settings";
 import { updateProfile } from "@/lib/queries/settings";
 import AvatarUpload from "@/components/AvatarUpload";
 import AccountSecurity from "@/components/settings/AccountSecurity";
+import UsernameEditor from "@/components/settings/UsernameEditor";
 import SportIcon from "@/components/SportIcon";
 import { SPORTS_LIST } from "@/lib/sportIcons";
 import { METROS } from "@/lib/metros";
@@ -303,9 +304,7 @@ export default function SettingsForm({ profile, userEmail, availableLists }: Pro
         <SettingRow label="Email">
           <span className="text-sm text-text-muted">{userEmail}</span>
         </SettingRow>
-        <SettingRow label="Username">
-          <span className="text-sm text-text-muted">@{profile.username}</span>
-        </SettingRow>
+        <UsernameEditor userId={profile.id} currentUsername={profile.username} />
         <AccountSecurity />
         <button
           onClick={() => setShowLogout(!showLogout)}
