@@ -111,10 +111,100 @@ const KNOWN_VENUE_EQUIVALENTS = {
   10660: 'bercy arena', // "Accor Arena" == Bercy Arena, Paris
 };
 
+// ESPN's scoreboards carry NO venue for most pre-2006 NFL games, 2002-04 MLS,
+// a few defunct arenas (Compaq Center, Pyramid, Alamodome era), Cubs spring
+// 2014-16 (Sloan Park pre-dating its ESPN id), and spring 2021 at several
+// parks — the original backfill skipped all of those ("no venue in payload").
+// When the payload lacks a venue, resolve via the home team's era venue.
+// Values name the CANONICAL db venue row; nameAtTime preserves the era name.
+const SAINTS_2005 = {
+  '2005-09-19': { venue: 'Giants Stadium' },
+  '2005-10-02': { venue: 'Alamodome' }, '2005-10-16': { venue: 'Alamodome' },
+  '2005-12-24': { venue: 'Alamodome' },
+  '2005-10-30': { venue: 'Tiger Stadium (Baton Rouge)', nameAtTime: 'Tiger Stadium' },
+  '2005-11-06': { venue: 'Tiger Stadium (Baton Rouge)', nameAtTime: 'Tiger Stadium' },
+  '2005-12-04': { venue: 'Tiger Stadium (Baton Rouge)', nameAtTime: 'Tiger Stadium' },
+  '2005-12-18': { venue: 'Tiger Stadium (Baton Rouge)', nameAtTime: 'Tiger Stadium' },
+};
+const HOME_VENUE_FALLBACKS = {
+  nfl: {
+    'Arizona Cardinals': () => ({ venue: 'Sun Devil Stadium' }),
+    'Atlanta Falcons': () => ({ venue: 'Georgia Dome' }),
+    'Baltimore Ravens': () => ({ venue: 'M&T Bank Stadium' }),
+    'Buffalo Bills': () => ({ venue: 'Highmark Stadium', nameAtTime: 'Ralph Wilson Stadium' }),
+    'Carolina Panthers': (d) => ({ venue: 'Bank of America Stadium', nameAtTime: d < '2004-06-01' ? 'Ericsson Stadium' : null }),
+    'Chicago Bears': (d) => (d < '2003-06-01'
+      ? { venue: 'Memorial Stadium (Champaign)', nameAtTime: 'Memorial Stadium' }
+      : { venue: 'Soldier Field' }),
+    'Cincinnati Bengals': () => ({ venue: 'Paycor Stadium', nameAtTime: 'Paul Brown Stadium' }),
+    'Cleveland Browns': () => ({ venue: 'Huntington Bank Field', nameAtTime: 'Cleveland Browns Stadium' }),
+    'Dallas Cowboys': () => ({ venue: 'Texas Stadium' }),
+    'Denver Broncos': () => ({ venue: 'Empower Field at Mile High', nameAtTime: 'Invesco Field at Mile High' }),
+    'Detroit Lions': () => ({ venue: 'Ford Field' }),
+    'Green Bay Packers': () => ({ venue: 'Lambeau Field' }),
+    'Houston Texans': () => ({ venue: 'NRG Stadium', nameAtTime: 'Reliant Stadium' }),
+    'Indianapolis Colts': () => ({ venue: 'RCA Dome' }),
+    'Jacksonville Jaguars': () => ({ venue: 'EverBank Stadium', nameAtTime: 'Alltel Stadium' }),
+    'Kansas City Chiefs': () => ({ venue: 'GEHA Field at Arrowhead Stadium', nameAtTime: 'Arrowhead Stadium' }),
+    'Las Vegas Raiders': () => ({ venue: 'Oakland Coliseum', nameAtTime: 'Network Associates Coliseum' }),
+    'Los Angeles Chargers': () => ({ venue: 'SDCCU Stadium', nameAtTime: 'Qualcomm Stadium' }),
+    'Los Angeles Rams': () => ({ venue: "The Dome at America's Center", nameAtTime: 'Edward Jones Dome' }),
+    'Miami Dolphins': () => ({ venue: 'Hard Rock Stadium', nameAtTime: 'Pro Player Stadium' }),
+    'Minnesota Vikings': () => ({ venue: 'Metrodome' }),
+    'New England Patriots': () => ({ venue: 'Gillette Stadium' }),
+    'New Orleans Saints': (d) => SAINTS_2005[d] ?? { venue: 'Caesars Superdome', nameAtTime: 'Louisiana Superdome' },
+    'New York Giants': () => ({ venue: 'Giants Stadium' }),
+    'New York Jets': () => ({ venue: 'Giants Stadium' }),
+    'Philadelphia Eagles': (d) => (d < '2003-06-01' ? { venue: 'Veterans Stadium' } : { venue: 'Lincoln Financial Field' }),
+    'Pittsburgh Steelers': () => ({ venue: 'Acrisure Stadium', nameAtTime: 'Heinz Field' }),
+    'San Francisco 49ers': () => ({ venue: 'Candlestick Park' }),
+    'Seattle Seahawks': () => ({ venue: 'Lumen Field', nameAtTime: 'Seahawks Stadium' }),
+    'Tampa Bay Buccaneers': () => ({ venue: 'Raymond James Stadium' }),
+    'Tennessee Titans': () => ({ venue: 'Nissan Stadium', nameAtTime: 'The Coliseum' }),
+    'Washington Commanders': () => ({ venue: 'Northwest Stadium', nameAtTime: 'FedExField' }),
+  },
+  mls: {
+    'Chicago Fire FC': (d) => (d < '2003-11-01'
+      ? { venue: 'Cardinal Stadium (Naperville)', nameAtTime: 'Cardinal Stadium' }
+      : { venue: 'Soldier Field' }),
+    'Columbus Crew': () => ({ venue: 'Historic Crew Stadium', nameAtTime: 'Columbus Crew Stadium' }),
+    'D.C. United': () => ({ venue: 'RFK Stadium' }),
+    'New England Revolution': () => ({ venue: 'Gillette Stadium' }),
+    'New York Red Bulls': () => ({ venue: 'Giants Stadium' }),
+    'FC Dallas': () => ({ venue: 'Cotton Bowl' }),
+    'Sporting Kansas City': () => ({ venue: 'GEHA Field at Arrowhead Stadium', nameAtTime: 'Arrowhead Stadium' }),
+    'LA Galaxy': (d) => (d < '2003-06-01'
+      ? { venue: 'Rose Bowl' }
+      : { venue: 'Dignity Health Sports Park', nameAtTime: 'Home Depot Center' }),
+    'San Jose Earthquakes': () => ({ venue: 'Spartan Stadium' }),
+    'Colorado Rapids': () => ({ venue: 'Empower Field at Mile High', nameAtTime: 'Invesco Field at Mile High' }),
+  },
+  nba: {
+    'Houston Rockets': (d) => (d < '2003-09-01' ? { venue: 'Compaq Center' } : { venue: 'Toyota Center' }),
+    'Memphis Grizzlies': (d) => (d < '2004-09-01' ? { venue: 'Pyramid Arena' } : { venue: 'FedExForum' }),
+    'San Antonio Spurs': (d) => (d < '2002-10-01' ? { venue: 'Alamodome' } : { venue: 'Frost Bank Center' }),
+  },
+  mlb: {
+    'Chicago Cubs': (d, pre) => (pre && d >= '2014-01-01'
+      ? { venue: 'Sloan Park', nameAtTime: d < '2015-01-01' ? 'Cubs Park' : null }
+      : pre ? { venue: 'Hohokam Stadium' } : null),
+    'Chicago White Sox': (d, pre) => (pre ? { venue: 'Camelback Ranch - Glendale' } : null),
+    'Los Angeles Dodgers': (d, pre) => (pre ? { venue: 'Camelback Ranch - Glendale' } : null),
+    'St. Louis Cardinals': (d, pre) => (pre ? { venue: 'Roger Dean Chevrolet Stadium' } : null),
+    'Miami Marlins': (d, pre) => (pre ? { venue: 'Roger Dean Chevrolet Stadium' } : null),
+    'New York Mets': (d, pre) => (pre ? { venue: 'Clover Park' } : null),
+    'Houston Astros': (d, pre) => (pre && d >= '2017-01-01' ? { venue: 'CACTI Park of the Palm Beaches', nameAtTime: d < '2023-01-01' ? 'The Ballpark of the Palm Beaches' : null } : null),
+    'Washington Nationals': (d, pre) => (pre && d >= '2017-01-01' ? { venue: 'CACTI Park of the Palm Beaches', nameAtTime: d < '2023-01-01' ? 'The Ballpark of the Palm Beaches' : null } : null),
+    'Minnesota Twins': (d, pre) => (pre ? { venue: 'Lee Health Sports Complex', nameAtTime: d < '2024-01-01' ? 'Hammond Stadium' : null } : null),
+  },
+};
+
 // exhibition competitions to exclude (this is a "games you attended" app, but
 // all-star exhibitions pollute the teams table with fake franchises)
 const EXCLUDED_COMP_TYPES = new Set(['ALLSTAR', 'QRR']); // QRR = 4 Nations round robin
 const EXHIBITION_RE = /all-star|all star|pro bowl|4 nations|rising stars|celebrity|skills challenge/i;
+// 2000s Pro Bowls are named just "NFC at AFC" — catch conference pseudo-teams
+const CONFERENCE_TEAM_RE = /^(afc|nfc|east|west) (all-stars)?$/i;
 
 // ---------------------------------------------------------------------------
 // Small utilities
@@ -674,6 +764,11 @@ async function processEvent(ev, leagueSlug, leagueId, cfg, teamIndex, existingBy
   const home = ev.competitors.find((c) => c.homeAway === 'home');
   const away = ev.competitors.find((c) => c.homeAway === 'away');
   if (!home?.team?.id || !away?.team?.id) throw new Error('missing competitor team');
+  if (CONFERENCE_TEAM_RE.test(home.team.displayName ?? home.team.name ?? '') ||
+      CONFERENCE_TEAM_RE.test(away.team.displayName ?? away.team.name ?? '')) {
+    stats.eventsFiltered++; // Pro Bowl et al. under conference pseudo-team names
+    return;
+  }
 
   const homeScore = Number.parseInt(home.score, 10);
   const awayScore = Number.parseInt(away.score, 10);
@@ -705,10 +800,20 @@ async function processEvent(ev, leagueSlug, leagueId, cfg, teamIndex, existingBy
     return;
   }
 
-  if (!ev.venue?.fullName && !ev.venue?.id) throw new Error('no venue in payload');
-  const venueId = await resolveVenue(ev.venue, homeTeam.id, ev.neutralSite, stats);
-  const venueName = venueById.get(venueId)?.name;
-  const venueNameAtTime = ev.venue.fullName && ev.venue.fullName !== venueName ? ev.venue.fullName : null;
+  let venueId, venueNameAtTime;
+  if (!ev.venue?.fullName && !ev.venue?.id) {
+    const fb = HOME_VENUE_FALLBACKS[leagueSlug]?.[homeTeam.name]?.(eventDate, cls.isPreseason === true);
+    if (!fb) throw new Error('no venue in payload');
+    const entry = venueByName.get(normName(fb.venue))?.[0];
+    if (!entry) throw new Error(`fallback venue not in db: ${fb.venue}`);
+    venueId = entry.id;
+    venueNameAtTime = fb.nameAtTime ?? null;
+    stats.venuesMatched++;
+  } else {
+    venueId = await resolveVenue(ev.venue, homeTeam.id, ev.neutralSite, stats);
+    const venueName = venueById.get(venueId)?.name;
+    venueNameAtTime = ev.venue.fullName && ev.venue.fullName !== venueName ? ev.venue.fullName : null;
+  }
 
   const season = ev.season?.year;
   if (!Number.isFinite(season)) throw new Error('missing season year');
