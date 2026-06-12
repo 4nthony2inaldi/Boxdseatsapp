@@ -8,13 +8,13 @@ import SectionLabel from "./SectionLabel";
 type ActivityChartProps = {
   months: ActivityMonth[];
   total: number;
-  /** Own profile: bar taps open that month on /timeline */
-  linkToTimeline?: boolean;
+  /** Timeline route for this profile — bar taps open that month there */
+  timelineHref?: string;
 };
 
 const BAR_PX = 30; // per-bar footprint (width + gap) used for window math
 
-export default function ActivityChart({ months, total, linkToTimeline = false }: ActivityChartProps) {
+export default function ActivityChart({ months, total, timelineHref }: ActivityChartProps) {
   const router = useRouter();
   const scrollRef = useRef<HTMLDivElement>(null);
   // Y-axis normalizes to the max within the visible window
@@ -94,7 +94,7 @@ export default function ActivityChart({ months, total, linkToTimeline = false }:
               </>
             );
 
-            if (!linkToTimeline || m.count === 0) {
+            if (!timelineHref || m.count === 0) {
               return (
                 <div key={m.ym} className="w-[24px] shrink-0 flex flex-col items-center gap-1">
                   {bar}
@@ -104,7 +104,7 @@ export default function ActivityChart({ months, total, linkToTimeline = false }:
             return (
               <button
                 key={m.ym}
-                onClick={() => router.push(`/timeline?month=${m.ym}`)}
+                onClick={() => router.push(`${timelineHref}?month=${m.ym}`)}
                 className="w-[24px] shrink-0 flex flex-col items-center gap-1 bg-transparent border-none p-0 cursor-pointer"
                 aria-label={`View ${m.month} ${m.year} events`}
               >
