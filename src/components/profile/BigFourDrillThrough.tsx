@@ -19,6 +19,15 @@ import { LEAGUES_LIST } from "@/lib/sportIcons";
 
 const ALL_LEAGUES = LEAGUES_LIST;
 
+// Sports with no teams — the "team" slot for these leagues holds an
+// athlete (Sinner for ATP, Blaney for NASCAR, ...).
+const INDIVIDUAL_SPORTS = new Set(["tennis", "golf", "motorsports"]);
+
+function isIndividualLeague(slug: string | null): boolean {
+  const sport = leagueFromSlug(slug)?.sport;
+  return !!sport && INDIVIDUAL_SPORTS.has(sport);
+}
+
 type Props = {
   userId: string;
   category: "team" | "venue" | "athlete" | "event";
@@ -55,13 +64,25 @@ export default function BigFourDrillThrough({
     if (debounceRef.current) clearTimeout(debounceRef.current);
     debounceRef.current = setTimeout(async () => {
       let results: SearchResult[] = [];
+      const slugForRow = leagueSlugOverride ?? editingLeagueSlug;
       if (category === "team") {
-        const teams = await searchTeams(supabase, q);
-        results = teams.map((t) => ({
-          id: t.id,
-          label: t.name,
-          subtitle: t.league_name || undefined,
-        }));
+        if (isIndividualLeague(slugForRow)) {
+          // No teams in this league — offer its athletes instead
+          const sport = leagueFromSlug(slugForRow)?.sport ?? null;
+          const athletes = await searchAthletes(supabase, q, 10, sport);
+          results = athletes.map((a) => ({
+            id: a.id,
+            label: a.name,
+            subtitle: a.sport || undefined,
+          }));
+        } else {
+          const teams = await searchTeams(supabase, q, 10, slugForRow);
+          results = teams.map((t) => ({
+            id: t.id,
+            label: t.name,
+            subtitle: t.league_name || undefined,
+          }));
+        }
       } else if (category === "venue") {
         const venues = await searchVenuesForOnboarding(supabase, q);
         results = venues.map((v) => ({
@@ -71,8 +92,7 @@ export default function BigFourDrillThrough({
         }));
       } else if (category === "athlete") {
         // Scope results to the league row's sport (ATP row -> tennis, ...)
-        const slug = leagueSlugOverride ?? editingLeagueSlug;
-        const sport = leagueFromSlug(slug)?.sport ?? null;
+        const sport = leagueFromSlug(slugForRow)?.sport ?? null;
         const athletes = await searchAthletes(supabase, q, 10, sport);
         results = athletes.map((a) => ({
           id: a.id,
@@ -81,8 +101,7 @@ export default function BigFourDrillThrough({
         }));
       } else if (category === "event") {
         // Favorite events are picked from events you've logged
-        const slug = leagueSlugOverride ?? editingLeagueSlug;
-        const events = await fetchLoggedEventChoices(supabase, userId, slug, q);
+        const events = await fetchLoggedEventChoices(supabase, userId, slugForRow, q);
         results = events.map((e) => ({
           id: e.id,
           label: e.label,
@@ -105,12 +124,15 @@ export default function BigFourDrillThrough({
     if (!league) return;
 
     setSaving(true);
+    const pickKind =
+      category === "team" && isIndividualLeague(leagueSlug) ? "athlete" : category;
     const result = await upsertLeagueFavorite(
       supabase,
       userId,
       category,
       league.id,
-      pickId
+      pickId,
+      pickKind
     );
 
     if ("success" in result) {
@@ -167,7 +189,7 @@ export default function BigFourDrillThrough({
                   <div className="text-xs text-text-muted">No pick yet</div>
                 )}
               </div>
-              {fav && (
+              {fav && !(category === "team" && isIndividualLeague(league.slug)) && (
                 <button
                   onClick={() => handleSetFeatured(fav.pick_id)}
                   disabled={saving}
@@ -215,7 +237,11 @@ export default function BigFourDrillThrough({
                     placeholder={
                       category === "event"
                         ? "Filter your logged events..."
-                        : `Search ${category}s...`
+                        : category === "team" && isIndividualLeague(league.slug)
+                          ? leagueFromSlug(league.slug)?.sport === "motorsports"
+                            ? "Search drivers..."
+                            : "Search players..."
+                          : `Search ${category}s...`
                     }
                     autoFocus
                     className="w-full py-2.5 px-3 rounded-lg bg-bg-input border border-border text-text-primary text-sm outline-none focus:border-accent transition-colors"

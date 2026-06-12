@@ -68,14 +68,17 @@ export async function updateBigFourAndSport(
 export async function searchTeams(
   supabase: SupabaseClient,
   query: string,
-  limit = 10
+  limit = 10,
+  leagueSlug?: string | null
 ): Promise<{ id: string; name: string; short_name: string; league_name: string | null }[]> {
   const pattern = `%${query.trim()}%`;
-  const { data } = await supabase
+  let q = supabase
     .from("teams")
-    .select("id, name, short_name, leagues(name)")
+    .select("id, name, short_name, leagues!inner(name, slug)")
     .or(`name.ilike.${pattern},short_name.ilike.${pattern}`)
     .limit(limit);
+  if (leagueSlug) q = q.eq("leagues.slug", leagueSlug);
+  const { data } = await q;
 
   return (data || []).map((t) => {
     const league = t.leagues as unknown as { name: string } | null;

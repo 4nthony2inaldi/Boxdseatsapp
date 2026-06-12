@@ -1,4 +1,5 @@
 import { SupabaseClient } from "@supabase/supabase-js";
+import { getLeagueIconPath } from "@/lib/sportIcons";
 
 export type LeagueFavorite = {
   id: string;
@@ -8,15 +9,6 @@ export type LeagueFavorite = {
   league_icon: string;
   pick_name: string;
   pick_id: string;
-};
-
-const LEAGUE_ICONS: Record<string, string> = {
-  nfl: "/football.svg",
-  nba: "/basketball.svg",
-  mlb: "/baseball.svg",
-  nhl: "/hockey.svg",
-  mls: "/soccer.svg",
-  "pga-tour": "/golf.svg",
 };
 
 export async function fetchLeagueFavorites(
@@ -36,38 +28,42 @@ export async function fetchLeagueFavorites(
 
   if (!data || data.length === 0) return [];
 
-  // Batch all picks of this (homogeneous) category in one query
-  const ids = data
-    .map((f) => f.team_id || f.athlete_id || f.venue_id || f.event_id)
-    .filter((x): x is string => !!x);
+  // Batch picks per backing table. A category usually maps to one table,
+  // but individual-sport leagues store athletes in the "team" slot, so
+  // group by which id column is set rather than by category.
+  const teamIds = data.map((f) => f.team_id).filter((x): x is string => !!x);
+  const athleteIds = data.map((f) => f.athlete_id).filter((x): x is string => !!x);
+  const venueIds = data.map((f) => f.venue_id).filter((x): x is string => !!x);
+  const eventIds = data.map((f) => f.event_id).filter((x): x is string => !!x);
   const nameById = new Map<string, string>();
 
-  if (ids.length > 0) {
-    if (category === "team") {
-      const { data: rows } = await supabase.from("teams").select("id, name, short_name").in("id", ids);
-      for (const t of rows || []) nameById.set(t.id, t.short_name || t.name || "Unknown");
-    } else if (category === "athlete") {
-      const { data: rows } = await supabase.from("athletes").select("id, name").in("id", ids);
-      for (const a of rows || []) nameById.set(a.id, a.name || "Unknown");
-    } else if (category === "venue") {
-      const { data: rows } = await supabase.from("venues").select("id, name").in("id", ids);
-      for (const v of rows || []) nameById.set(v.id, v.name || "Unknown");
-    } else if (category === "event") {
-      const { data: rows } = await supabase
-        .from("events")
-        .select(`id, event_date, tournament_name,
-           home_team:teams!events_home_team_id_fkey(short_name, abbreviation),
-           away_team:teams!events_away_team_id_fkey(short_name, abbreviation)`)
-        .in("id", ids);
-      for (const event of rows || []) {
-        const home = event.home_team as unknown as { short_name: string; abbreviation: string } | null;
-        const away = event.away_team as unknown as { short_name: string; abbreviation: string } | null;
-        const homeAbbr = home?.abbreviation || home?.short_name;
-        const awayAbbr = away?.abbreviation || away?.short_name;
-        const d = new Date(event.event_date + "T00:00:00");
-        const dateStr = `${d.getMonth() + 1}/${d.getDate()}/${String(d.getFullYear()).slice(2)}`;
-        nameById.set(event.id, homeAbbr && awayAbbr ? `${awayAbbr} @ ${homeAbbr} ${dateStr}` : event.tournament_name || "Event");
-      }
+  if (teamIds.length > 0) {
+    const { data: rows } = await supabase.from("teams").select("id, name, short_name").in("id", teamIds);
+    for (const t of rows || []) nameById.set(t.id, t.short_name || t.name || "Unknown");
+  }
+  if (athleteIds.length > 0) {
+    const { data: rows } = await supabase.from("athletes").select("id, name").in("id", athleteIds);
+    for (const a of rows || []) nameById.set(a.id, a.name || "Unknown");
+  }
+  if (venueIds.length > 0) {
+    const { data: rows } = await supabase.from("venues").select("id, name").in("id", venueIds);
+    for (const v of rows || []) nameById.set(v.id, v.name || "Unknown");
+  }
+  if (eventIds.length > 0) {
+    const { data: rows } = await supabase
+      .from("events")
+      .select(`id, event_date, tournament_name,
+         home_team:teams!events_home_team_id_fkey(short_name, abbreviation),
+         away_team:teams!events_away_team_id_fkey(short_name, abbreviation)`)
+      .in("id", eventIds);
+    for (const event of rows || []) {
+      const home = event.home_team as unknown as { short_name: string; abbreviation: string } | null;
+      const away = event.away_team as unknown as { short_name: string; abbreviation: string } | null;
+      const homeAbbr = home?.abbreviation || home?.short_name;
+      const awayAbbr = away?.abbreviation || away?.short_name;
+      const d = new Date(event.event_date + "T00:00:00");
+      const dateStr = `${d.getMonth() + 1}/${d.getDate()}/${String(d.getFullYear()).slice(2)}`;
+      nameById.set(event.id, homeAbbr && awayAbbr ? `${awayAbbr} @ ${homeAbbr} ${dateStr}` : event.tournament_name || "Event");
     }
   }
 
@@ -83,7 +79,7 @@ export async function fetchLeagueFavorites(
       league_id: fav.league_id,
       league_name: league.name,
       league_slug: league.slug,
-      league_icon: LEAGUE_ICONS[league.slug] || "",
+      league_icon: getLeagueIconPath(league.slug) || "",
       pick_name: pickName,
       pick_id: pickId,
     });
@@ -97,8 +93,12 @@ export async function upsertLeagueFavorite(
   userId: string,
   category: "team" | "venue" | "athlete" | "event",
   leagueId: string,
-  pickId: string
+  pickId: string,
+  // Individual-sport leagues (ATP, NASCAR, ...) store an athlete in the
+  // "team" slot; pass pickKind to control which FK column gets the id.
+  pickKind?: "team" | "venue" | "athlete" | "event"
 ): Promise<{ success: boolean } | { error: string }> {
+  const kind = pickKind ?? category;
   const row: Record<string, unknown> = {
     user_id: userId,
     category,
@@ -109,10 +109,10 @@ export async function upsertLeagueFavorite(
     event_id: null,
   };
 
-  if (category === "team") row.team_id = pickId;
-  else if (category === "athlete") row.athlete_id = pickId;
-  else if (category === "venue") row.venue_id = pickId;
-  else if (category === "event") row.event_id = pickId;
+  if (kind === "team") row.team_id = pickId;
+  else if (kind === "athlete") row.athlete_id = pickId;
+  else if (kind === "venue") row.venue_id = pickId;
+  else if (kind === "event") row.event_id = pickId;
 
   const { error } = await supabase
     .from("user_league_favorites")
