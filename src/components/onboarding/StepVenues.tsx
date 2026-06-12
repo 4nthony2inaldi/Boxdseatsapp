@@ -19,6 +19,21 @@ type StepVenuesProps = {
   onNext: () => void;
 };
 
+const SPORT_FILTERS: { key: string; label: string }[] = [
+  { key: "baseball", label: "Baseball" },
+  { key: "basketball", label: "Basketball" },
+  { key: "football", label: "Football" },
+  { key: "hockey", label: "Hockey" },
+  { key: "soccer", label: "Soccer" },
+  { key: "golf", label: "Golf" },
+  { key: "tennis", label: "Tennis" },
+  { key: "motorsports", label: "Motorsports" },
+];
+
+// "Site"/Unknown placeholders (mostly tennis/golf event sites) sort last so
+// real stadiums lead the list.
+const isPlaceholder = (v: Venue) =>
+  / Site$/.test(v.name) || v.city === "Unknown" || !v.city;
 
 export default function StepVenues({
   allVenues,
@@ -28,26 +43,73 @@ export default function StepVenues({
   onNext,
 }: StepVenuesProps) {
   const [search, setSearch] = useState("");
+  const [sport, setSport] = useState<string | null>(null);
 
   const filtered = useMemo(() => {
-    if (!search.trim()) return allVenues;
     const q = search.trim().toLowerCase();
-    return allVenues.filter(
-      (v) =>
-        v.name.toLowerCase().includes(q) ||
-        v.city.toLowerCase().includes(q) ||
-        (v.state && v.state.toLowerCase().includes(q))
-    );
-  }, [allVenues, search]);
+    return allVenues
+      .filter((v) => {
+        if (sport && v.sport !== sport) return false;
+        if (!q) return true;
+        return (
+          v.name.toLowerCase().includes(q) ||
+          v.city.toLowerCase().includes(q) ||
+          (v.state && v.state.toLowerCase().includes(q))
+        );
+      })
+      .sort((a, b) => {
+        const am = markedVenueIds.includes(a.id) ? 0 : 1;
+        const bm = markedVenueIds.includes(b.id) ? 0 : 1;
+        if (am !== bm) return am - bm;
+        const ap = isPlaceholder(a) ? 1 : 0;
+        const bp = isPlaceholder(b) ? 1 : 0;
+        if (ap !== bp) return ap - bp;
+        return a.name.localeCompare(b.name);
+      });
+  }, [allVenues, search, sport, markedVenueIds]);
 
   return (
     <div>
       <h2 className="font-display text-[28px] text-text-primary tracking-wide leading-tight mb-1">
         Mark Your Venues
       </h2>
-      <p className="text-sm text-text-secondary mb-4">
+      <p className="text-sm text-text-secondary mb-3">
         Tap every venue you{"'"}ve been to. This seeds your venue map instantly.
       </p>
+
+      {/* Sport drill-down */}
+      <div className="flex gap-1.5 overflow-x-auto pb-2 mb-1 scroll-fade-x" style={{ scrollbarWidth: "none" }}>
+        <button
+          onClick={() => setSport(null)}
+          className="shrink-0 px-3 py-1.5 rounded-full text-xs transition-colors"
+          style={{
+            background: sport === null ? "rgba(212,135,44,0.15)" : "var(--color-bg-input)",
+            border: `1px solid ${sport === null ? "var(--color-accent)" : "var(--color-border)"}`,
+            color: sport === null ? "var(--color-accent)" : "var(--color-text-secondary)",
+            fontWeight: sport === null ? 600 : 400,
+          }}
+        >
+          All
+        </button>
+        {SPORT_FILTERS.map((s) => {
+          const active = sport === s.key;
+          return (
+            <button
+              key={s.key}
+              onClick={() => setSport(active ? null : s.key)}
+              className="shrink-0 flex items-center gap-1 px-3 py-1.5 rounded-full text-xs transition-colors"
+              style={{
+                background: active ? "rgba(212,135,44,0.15)" : "var(--color-bg-input)",
+                border: `1px solid ${active ? "var(--color-accent)" : "var(--color-border)"}`,
+                color: active ? "var(--color-accent)" : "var(--color-text-secondary)",
+                fontWeight: active ? 600 : 400,
+              }}
+            >
+              <SportIcon sport={s.key} size={13} /> {s.label}
+            </button>
+          );
+        })}
+      </div>
 
       {/* Running count */}
       {markedVenueIds.length > 0 && (

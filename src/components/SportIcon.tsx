@@ -1,5 +1,6 @@
 import Image from "next/image";
 import { getSportIconPath, getLeagueIconPath } from "@/lib/sportIcons";
+import { Logo } from "@/components/Logo";
 
 type SportIconProps = {
   /** Sport name (e.g. "basketball", "football") */
@@ -29,24 +30,14 @@ export default function SportIcon({
   const iconPath = src || getSportIconPath(sport) || getLeagueIconPath(league);
 
   if (!iconPath) {
-    // Fallback: generic stadium icon
+    // Fallback: the BoxdSeats mark, not a generic stadium glyph.
     return (
-      <svg
-        width={size}
-        height={size}
-        viewBox="0 0 24 24"
-        fill="none"
-        stroke="currentColor"
-        strokeWidth="1.5"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        className={className}
+      <span
+        className={`inline-flex items-center justify-center ${className}`}
+        style={{ width: size, height: size }}
       >
-        <path d="M2 12c0-4 4.5-7 10-7s10 3 10 7-4.5 7-10 7-10-3-10-7Z" />
-        <path d="M2 12c0 4 4.5 7 10 7s10-3 10-7" />
-        <path d="M12 5v14" />
-        <path d="M5.5 8.5c1.5 1.5 4 2.5 6.5 2.5s5-1 6.5-2.5" />
-      </svg>
+        <Logo size={size * 1.7} />
+      </span>
     );
   }
 
