@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
-import type { SettingsProfile } from "@/lib/queries/settings";
+import type { SettingsProfile, AvailableList } from "@/lib/queries/settings";
 import { updateProfile } from "@/lib/queries/settings";
 import AvatarUpload from "@/components/AvatarUpload";
 import AccountSecurity from "@/components/settings/AccountSecurity";
@@ -16,10 +16,18 @@ import { toastError } from "@/components/Toaster";
 type Props = {
   profile: SettingsProfile;
   userEmail: string;
-  availableLists: { id: string; name: string; sport: string | null; item_count: number }[];
+  availableLists: AvailableList[];
 };
 
 const SPORTS = SPORTS_LIST;
+
+// Forked lists copy the original name, so disambiguate user lists by owner.
+function listOptionLabel(list: AvailableList, currentUserId: string): string {
+  if (list.source === "system") return list.name;
+  if (list.created_by === currentUserId) return `${list.name} · yours`;
+  if (list.creator_username) return `${list.name} · @${list.creator_username}`;
+  return list.name;
+}
 
 function SectionHeader({ children }: { children: React.ReactNode }) {
   return (
@@ -206,7 +214,7 @@ export default function SettingsForm({ profile, userEmail, availableLists }: Pro
             <option value="">None</option>
             {availableLists.map((l) => (
               <option key={l.id} value={l.id}>
-                {l.name}
+                {listOptionLabel(l, profile.id)}
               </option>
             ))}
           </select>
@@ -224,7 +232,7 @@ export default function SettingsForm({ profile, userEmail, availableLists }: Pro
             <option value="">None</option>
             {availableLists.map((l) => (
               <option key={l.id} value={l.id}>
-                {l.name}
+                {listOptionLabel(l, profile.id)}
               </option>
             ))}
           </select>

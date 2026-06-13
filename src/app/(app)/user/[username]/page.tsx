@@ -168,7 +168,7 @@ export default async function UserProfilePage({ params }: Props) {
       />
       <BigFourSection items={bigFour} hrefBase={`/user/${username}/favorites`} />
       <ActivityChart months={activityData.months} total={activityData.total} timelineHref={`/user/${username}/timeline`} />
-      <PinnedLists lists={pinnedLists} />
+      <PinnedLists lists={pinnedLists} compareUserId={profile.id} />
       <BadgeSection badges={badges} tracked={trackedIncomplete} userId={profile.id} showTracked={pinnedLists.length === 0} />
       <LatestEvent entry={latestEvent} timelineHref={`/user/${username}/timeline`} viewerId={user.id} />
       <SummaryRows

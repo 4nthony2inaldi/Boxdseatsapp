@@ -54,14 +54,40 @@ export async function updateProfile(
   return { success: true };
 }
 
+export type AvailableList = {
+  id: string;
+  name: string;
+  sport: string | null;
+  item_count: number;
+  source: string;
+  created_by: string | null;
+  creator_username: string | null;
+};
+
 export async function fetchAvailableLists(
   supabase: SupabaseClient
-): Promise<{ id: string; name: string; sport: string | null; item_count: number }[]> {
+): Promise<AvailableList[]> {
+  // Any list can be pinned — system defaults, your own (created or forked),
+  // and lists owned by others you want to track progress toward. System
+  // lists are ordered first, then alphabetically.
   const { data } = await supabase
     .from("lists")
-    .select("id, name, sport, item_count")
-    .eq("source", "system")
+    .select(
+      "id, name, sport, item_count, source, created_by, profiles!lists_created_by_fkey(username)"
+    )
+    .order("source")
     .order("name");
 
-  return data || [];
+  return (data || []).map((l) => {
+    const creator = l.profiles as unknown as { username: string } | null;
+    return {
+      id: l.id,
+      name: l.name,
+      sport: l.sport,
+      item_count: l.item_count,
+      source: l.source,
+      created_by: l.created_by,
+      creator_username: creator?.username ?? null,
+    };
+  });
 }
