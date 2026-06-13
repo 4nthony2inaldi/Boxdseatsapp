@@ -64,7 +64,7 @@ export default async function ProfilePage() {
   return (
     <div className="max-w-lg mx-auto pb-5">
       <ProfileHeader profile={profile} stats={stats} />
-      <StatsRow stats={stats} />
+      <StatsRow stats={stats} eventsHref="/timeline" venuesHref="/venues" />
       <BigFourSection items={bigFour} />
       <ActivityChart months={activityData.months} total={activityData.total} timelineHref="/timeline" />
       <PinnedLists lists={pinnedLists} />

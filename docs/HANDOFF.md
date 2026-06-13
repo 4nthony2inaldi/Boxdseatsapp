@@ -2961,3 +2961,9 @@ Root cause of every per-venue gap: the original backfill skipped any ESPN game w
 - `profiles.fav_team_id` FKs to `teams`, so an athlete-backed #1 in the team slot can't be cached there — `fetchBigFour` reads the ranking directly and still renders the athlete (verified: Sinner ranked #1 → TEAM card shows "Jannik Sinner").
 - No DnD library; drag is hand-rolled with pointer events. Playwright `mouse.down/move/up` drives it for verification.
 - Temp verify user (claude-verify@example.com) had to be recreated via the auth admin API — the ephemeral container loses it between sessions.
+
+### Other-user profile parity (same session)
+- `StatsRow` gained `eventsHref`/`venuesHref` (Events/Venues KPIs now clickable). Own profile → `/timeline` + `/venues`; in-app other-user (`(app)/user/[username]`) → `/user/[u]/timeline` + `/user/[u]/venues`.
+- `BigFourSection` gained `hrefBase` (default `/profile/favorites`); other-user view passes `/user/[u]/favorites`, so the cards drill in.
+- New **read-only** drill-in: `src/app/(app)/user/[username]/favorites/[category]/page.tsx` — featured header + numbered stack ranking (no drag/edit), with private-account gating + blocked + own-profile redirect.
+- Activity chart already worked on `(app)/user/[username]` (it's passed `timelineHref`); the public share route `(public)/u/[username]` still has non-linkable KPIs/Big Four (logged-out surface, no public sub-routes) — left as a follow-up.
