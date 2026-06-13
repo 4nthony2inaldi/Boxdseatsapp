@@ -1,11 +1,11 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { useRouter } from "next/navigation";
 import Link from "next/link";
 import type { TimelineEntry } from "@/lib/queries/profile";
 import SectionLabel from "./SectionLabel";
 import TimelineCard from "../TimelineCard";
+import CommentSheet from "../event/CommentSheet";
 import { createClient } from "@/lib/supabase/client";
 import { toggleLike } from "@/lib/queries/social";
 import { toastError } from "@/components/Toaster";
@@ -24,10 +24,10 @@ export default function LatestEvent({
   canEdit = false,
   viewerId,
 }: LatestEventProps) {
-  const router = useRouter();
   // Local copy so the like count can update optimistically.
   const [current, setCurrent] = useState(entry);
   const [liked, setLiked] = useState(false);
+  const [commentsOpen, setCommentsOpen] = useState(false);
 
   // Keep local state in sync if the entry prop changes.
   useEffect(() => {
@@ -49,8 +49,9 @@ export default function LatestEvent({
 
   if (!current) return null;
 
-  const handleComment = (entryId: string) => {
-    if (current.event_id) router.push(`/event/${current.event_id}?log=${entryId}#comments`);
+  const handleComment = () => {
+    // Open the log's comment thread in a bottom sheet (no navigation).
+    if (viewerId) setCommentsOpen(true);
   };
 
   const handleLike = async (entryId: string) => {
@@ -93,6 +94,19 @@ export default function LatestEvent({
         onLike={viewerId ? handleLike : undefined}
         onComment={handleComment}
       />
+
+      {commentsOpen && viewerId && (
+        <CommentSheet
+          eventLogId={current.id}
+          userId={viewerId}
+          onClose={() => setCommentsOpen(false)}
+          onCountChange={(count) =>
+            setCurrent((prev) =>
+              prev ? { ...prev, comment_count: count } : prev
+            )
+          }
+        />
+      )}
     </div>
   );
 }
