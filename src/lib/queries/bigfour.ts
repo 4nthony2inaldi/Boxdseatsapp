@@ -9,6 +9,7 @@ export type LeagueFavorite = {
   league_icon: string;
   pick_name: string;
   pick_id: string;
+  rank: number;
 };
 
 export async function fetchLeagueFavorites(
@@ -19,12 +20,13 @@ export async function fetchLeagueFavorites(
   const { data } = await supabase
     .from("user_league_favorites")
     .select(
-      `id, league_id, category,
+      `id, league_id, category, rank,
        team_id, athlete_id, venue_id, event_id,
        leagues(name, slug)`
     )
     .eq("user_id", userId)
-    .eq("category", category);
+    .eq("category", category)
+    .order("rank", { ascending: true });
 
   if (!data || data.length === 0) return [];
 
@@ -82,6 +84,7 @@ export async function fetchLeagueFavorites(
       league_icon: getLeagueIconPath(league.slug) || "",
       pick_name: pickName,
       pick_id: pickId,
+      rank: fav.rank ?? 0,
     });
   }
 
@@ -99,53 +102,110 @@ export async function upsertLeagueFavorite(
   pickKind?: "team" | "venue" | "athlete" | "event"
 ): Promise<{ success: boolean } | { error: string }> {
   const kind = pickKind ?? category;
-  const row: Record<string, unknown> = {
-    user_id: userId,
-    category,
-    league_id: leagueId,
-    team_id: null,
-    athlete_id: null,
-    venue_id: null,
-    event_id: null,
-  };
+  const pickCols = { team_id: null, athlete_id: null, venue_id: null, event_id: null } as Record<string, string | null>;
+  if (kind === "team") pickCols.team_id = pickId;
+  else if (kind === "athlete") pickCols.athlete_id = pickId;
+  else if (kind === "venue") pickCols.venue_id = pickId;
+  else if (kind === "event") pickCols.event_id = pickId;
 
-  if (kind === "team") row.team_id = pickId;
-  else if (kind === "athlete") row.athlete_id = pickId;
-  else if (kind === "venue") row.venue_id = pickId;
-  else if (kind === "event") row.event_id = pickId;
-
-  const { error } = await supabase
+  // One row per (user, category, league). Replacing a league's pick keeps its
+  // existing rank; a brand-new pick is appended to the bottom of the ranking.
+  const { data: existing } = await supabase
     .from("user_league_favorites")
-    .upsert(row, { onConflict: "user_id,category,league_id" });
+    .select("id")
+    .eq("user_id", userId)
+    .eq("category", category)
+    .eq("league_id", leagueId)
+    .maybeSingle();
+
+  let error;
+  if (existing) {
+    ({ error } = await supabase
+      .from("user_league_favorites")
+      .update(pickCols)
+      .eq("id", existing.id));
+  } else {
+    const { data: maxRow } = await supabase
+      .from("user_league_favorites")
+      .select("rank")
+      .eq("user_id", userId)
+      .eq("category", category)
+      .order("rank", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    const nextRank = (maxRow?.rank ?? -1) + 1;
+    ({ error } = await supabase
+      .from("user_league_favorites")
+      .insert({ user_id: userId, category, league_id: leagueId, rank: nextRank, ...pickCols }));
+  }
 
   if (error) return { error: "Failed to save favorite." };
+  await syncFeaturedFromRanking(supabase, userId, category);
   return { success: true };
 }
 
+const FEATURED_COLUMN: Record<string, string> = {
+  team: "fav_team_id",
+  venue: "fav_venue_id",
+  athlete: "fav_athlete_id",
+  event: "fav_event_id",
+};
+
 /**
- * Set a league favorite's pick as the user's featured (overall) favorite
- * by updating the corresponding column on the profiles table.
+ * Keep profiles.fav_<category>_id pointing at the #1 (lowest-rank) pick, so
+ * the Big Four cards stay in sync as a cache. The team slot's FK requires a
+ * real team, so an athlete-backed #1 clears the column — fetchBigFour reads
+ * the ranking directly and still shows that athlete.
  */
-export async function setFeaturedFavorite(
+async function syncFeaturedFromRanking(
+  supabase: SupabaseClient,
+  userId: string,
+  category: "team" | "venue" | "athlete" | "event"
+): Promise<void> {
+  const { data: top } = await supabase
+    .from("user_league_favorites")
+    .select("team_id, athlete_id, venue_id, event_id")
+    .eq("user_id", userId)
+    .eq("category", category)
+    .order("rank", { ascending: true })
+    .limit(1)
+    .maybeSingle();
+
+  let pickId: string | null = null;
+  if (top) {
+    if (category === "team") pickId = top.team_id ?? null;
+    else if (category === "venue") pickId = top.venue_id ?? null;
+    else if (category === "athlete") pickId = top.athlete_id ?? null;
+    else if (category === "event") pickId = top.event_id ?? null;
+  }
+
+  await supabase
+    .from("profiles")
+    .update({ [FEATURED_COLUMN[category]]: pickId })
+    .eq("id", userId);
+}
+
+/**
+ * Persist a new ranking for a category. orderedIds is the list of favorite
+ * row ids in desired order; index becomes the rank. #1 becomes featured.
+ */
+export async function reorderLeagueFavorites(
   supabase: SupabaseClient,
   userId: string,
   category: "team" | "venue" | "athlete" | "event",
-  pickId: string
+  orderedIds: string[]
 ): Promise<{ success: boolean } | { error: string }> {
-  const columnMap: Record<string, string> = {
-    team: "fav_team_id",
-    venue: "fav_venue_id",
-    athlete: "fav_athlete_id",
-    event: "fav_event_id",
-  };
-
-  const column = columnMap[category];
-  const { error } = await supabase
-    .from("profiles")
-    .update({ [column]: pickId })
-    .eq("id", userId);
-
-  if (error) return { error: "Failed to update featured favorite." };
+  const results = await Promise.all(
+    orderedIds.map((id, i) =>
+      supabase
+        .from("user_league_favorites")
+        .update({ rank: i })
+        .eq("id", id)
+        .eq("user_id", userId)
+    )
+  );
+  if (results.some((r) => r.error)) return { error: "Failed to save order." };
+  await syncFeaturedFromRanking(supabase, userId, category);
   return { success: true };
 }
 
@@ -154,6 +214,13 @@ export async function deleteLeagueFavorite(
   favoriteId: string,
   userId: string
 ): Promise<{ success: boolean } | { error: string }> {
+  const { data: row } = await supabase
+    .from("user_league_favorites")
+    .select("category")
+    .eq("id", favoriteId)
+    .eq("user_id", userId)
+    .maybeSingle();
+
   const { error } = await supabase
     .from("user_league_favorites")
     .delete()
@@ -161,6 +228,13 @@ export async function deleteLeagueFavorite(
     .eq("user_id", userId);
 
   if (error) return { error: "Failed to remove favorite." };
+  if (row?.category) {
+    await syncFeaturedFromRanking(
+      supabase,
+      userId,
+      row.category as "team" | "venue" | "athlete" | "event"
+    );
+  }
   return { success: true };
 }
 

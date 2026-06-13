@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { createClient } from "@/lib/supabase/client";
 import type { LeagueFavorite } from "@/lib/queries/bigfour";
 import {
@@ -10,9 +10,12 @@ import {
 } from "@/lib/queries/onboarding";
 import {
   upsertLeagueFavorite,
-  setFeaturedFavorite,
+  reorderLeagueFavorites,
+  deleteLeagueFavorite,
+  fetchLeagueFavorites,
   fetchLoggedEventChoices,
 } from "@/lib/queries/bigfour";
+import { toastError } from "@/components/Toaster";
 import SportIcon from "@/components/SportIcon";
 import { leagueFromSlug } from "@/lib/constants";
 import { LEAGUES_LIST } from "@/lib/sportIcons";
@@ -32,30 +35,91 @@ type Props = {
   userId: string;
   category: "team" | "venue" | "athlete" | "event";
   initialFavorites: LeagueFavorite[];
-  featuredPickId: string | null;
 };
 
 type SearchResult = { id: string; label: string; subtitle?: string };
+
+const CATEGORY_NOUN: Record<Props["category"], string> = {
+  team: "team",
+  venue: "venue",
+  athlete: "athlete",
+  event: "event",
+};
 
 export default function BigFourDrillThrough({
   userId,
   category,
   initialFavorites,
-  featuredPickId,
 }: Props) {
-  const [favorites, setFavorites] = useState(initialFavorites);
-  const [featuredId, setFeaturedId] = useState(featuredPickId);
+  const [favorites, setFavorites] = useState(
+    [...initialFavorites].sort((a, b) => a.rank - b.rank)
+  );
   const [editingLeagueSlug, setEditingLeagueSlug] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [searchResults, setSearchResults] = useState<SearchResult[]>([]);
   const [searching, setSearching] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [dragIndex, setDragIndex] = useState<number | null>(null);
   const debounceRef = useRef<ReturnType<typeof setTimeout>>(undefined);
+  const rowRefs = useRef<(HTMLDivElement | null)[]>([]);
+  const favoritesRef = useRef(favorites);
+  const dragIndexRef = useRef(dragIndex);
+  favoritesRef.current = favorites;
+  dragIndexRef.current = dragIndex;
   const supabase = createClient();
+
+  const pickedSlugs = new Set(favorites.map((f) => f.league_slug));
+  const unpickedLeagues = ALL_LEAGUES.filter((l) => !pickedSlugs.has(l.slug));
+
+  // ── Drag-to-reorder (pointer based, works on touch + mouse) ──
+  useEffect(() => {
+    if (dragIndex === null) return;
+
+    function onMove(e: PointerEvent) {
+      const from = dragIndexRef.current;
+      if (from === null) return;
+      const y = e.clientY;
+      const list = favoritesRef.current;
+      let target = from;
+      for (let i = 0; i < list.length; i++) {
+        const el = rowRefs.current[i];
+        if (!el) continue;
+        const r = el.getBoundingClientRect();
+        if (y < r.top + r.height / 2) {
+          target = i;
+          break;
+        }
+        target = i;
+      }
+      if (target !== from) {
+        setFavorites((prev) => {
+          const next = [...prev];
+          const [moved] = next.splice(from, 1);
+          next.splice(target, 0, moved);
+          return next;
+        });
+        setDragIndex(target);
+      }
+    }
+
+    async function onUp() {
+      const order = favoritesRef.current.map((f) => f.id);
+      setDragIndex(null);
+      const result = await reorderLeagueFavorites(supabase, userId, category, order);
+      if ("error" in result) toastError(result.error);
+    }
+
+    window.addEventListener("pointermove", onMove);
+    window.addEventListener("pointerup", onUp);
+    return () => {
+      window.removeEventListener("pointermove", onMove);
+      window.removeEventListener("pointerup", onUp);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [dragIndex]);
 
   async function handleSearch(q: string, leagueSlugOverride?: string) {
     setSearchQuery(q);
-    // Event favorites list your logged events, so an empty query is valid
     if (!q.trim() && category !== "event") {
       setSearchResults([]);
       return;
@@ -67,21 +131,12 @@ export default function BigFourDrillThrough({
       const slugForRow = leagueSlugOverride ?? editingLeagueSlug;
       if (category === "team") {
         if (isIndividualLeague(slugForRow)) {
-          // No teams in this league — offer its athletes instead
           const sport = leagueFromSlug(slugForRow)?.sport ?? null;
           const athletes = await searchAthletes(supabase, q, 10, sport);
-          results = athletes.map((a) => ({
-            id: a.id,
-            label: a.name,
-            subtitle: a.sport || undefined,
-          }));
+          results = athletes.map((a) => ({ id: a.id, label: a.name, subtitle: a.sport || undefined }));
         } else {
           const teams = await searchTeams(supabase, q, 10, slugForRow);
-          results = teams.map((t) => ({
-            id: t.id,
-            label: t.name,
-            subtitle: t.league_name || undefined,
-          }));
+          results = teams.map((t) => ({ id: t.id, label: t.name, subtitle: t.league_name || undefined }));
         }
       } else if (category === "venue") {
         const venues = await searchVenuesForOnboarding(supabase, q);
@@ -91,36 +146,42 @@ export default function BigFourDrillThrough({
           subtitle: `${v.city}${v.state ? `, ${v.state}` : ""}`,
         }));
       } else if (category === "athlete") {
-        // Scope results to the league row's sport (ATP row -> tennis, ...)
         const sport = leagueFromSlug(slugForRow)?.sport ?? null;
         const athletes = await searchAthletes(supabase, q, 10, sport);
-        results = athletes.map((a) => ({
-          id: a.id,
-          label: a.name,
-          subtitle: a.sport || undefined,
-        }));
+        results = athletes.map((a) => ({ id: a.id, label: a.name, subtitle: a.sport || undefined }));
       } else if (category === "event") {
-        // Favorite events are picked from events you've logged
         const events = await fetchLoggedEventChoices(supabase, userId, slugForRow, q);
-        results = events.map((e) => ({
-          id: e.id,
-          label: e.label,
-          subtitle: e.subtitle,
-        }));
+        results = events.map((e) => ({ id: e.id, label: e.label, subtitle: e.subtitle }));
       }
       setSearchResults(results);
       setSearching(false);
     }, 300);
   }
 
-  async function handleSelect(leagueSlug: string, pickId: string, pickName: string) {
-    // Find the league ID
+  function openEditor(leagueSlug: string) {
+    setEditingLeagueSlug(leagueSlug);
+    setSearchQuery("");
+    setSearchResults([]);
+    if (category === "event") handleSearch("", leagueSlug);
+  }
+
+  function closeEditor() {
+    setEditingLeagueSlug(null);
+    setSearchQuery("");
+    setSearchResults([]);
+  }
+
+  async function refresh() {
+    const next = await fetchLeagueFavorites(supabase, userId, category);
+    setFavorites([...next].sort((a, b) => a.rank - b.rank));
+  }
+
+  async function handleSelect(leagueSlug: string, pickId: string) {
     const { data: league } = await supabase
       .from("leagues")
       .select("id")
       .eq("slug", leagueSlug)
       .single();
-
     if (!league) return;
 
     setSaving(true);
@@ -134,155 +195,183 @@ export default function BigFourDrillThrough({
       pickId,
       pickKind
     );
-
-    if ("success" in result) {
-      // Update local state
-      setFavorites((prev) => {
-        const filtered = prev.filter((f) => f.league_slug !== leagueSlug);
-        return [
-          ...filtered,
-          {
-            id: `temp-${Date.now()}`,
-            league_id: league.id,
-            league_name: ALL_LEAGUES.find((l) => l.slug === leagueSlug)?.name || "",
-            league_slug: leagueSlug,
-            league_icon: ALL_LEAGUES.find((l) => l.slug === leagueSlug)?.icon || "",
-            pick_name: pickName,
-            pick_id: pickId,
-          },
-        ];
-      });
-    }
-
+    if ("error" in result) toastError(result.error);
+    else await refresh();
     setSaving(false);
-    setEditingLeagueSlug(null);
-    setSearchQuery("");
-    setSearchResults([]);
+    closeEditor();
   }
 
-  async function handleSetFeatured(pickId: string) {
+  async function handleRemove(favoriteId: string) {
     setSaving(true);
-    const result = await setFeaturedFavorite(supabase, userId, category, pickId);
-    if ("success" in result) {
-      setFeaturedId(pickId);
-    }
+    const result = await deleteLeagueFavorite(supabase, favoriteId, userId);
+    if ("error" in result) toastError(result.error);
+    else await refresh();
     setSaving(false);
+  }
+
+  const noun = CATEGORY_NOUN[category];
+
+  function SearchBox({ leagueSlug, leagueName }: { leagueSlug: string; leagueName: string }) {
+    const individual = category === "team" && isIndividualLeague(leagueSlug);
+    const placeholder =
+      category === "event"
+        ? "Filter your logged events..."
+        : individual
+          ? leagueFromSlug(leagueSlug)?.sport === "motorsports"
+            ? "Search drivers..."
+            : "Search players..."
+          : `Search ${noun}s...`;
+    return (
+      <div className="px-4 pb-3 border-t border-border pt-3">
+        <div className="relative">
+          <input
+            type="text"
+            value={searchQuery}
+            onChange={(e) => handleSearch(e.target.value)}
+            placeholder={placeholder}
+            autoFocus
+            className="w-full py-2.5 px-3 rounded-lg bg-bg-input border border-border text-text-primary text-sm outline-none focus:border-accent transition-colors"
+          />
+          {searching && (
+            <div className="absolute right-3 top-1/2 -translate-y-1/2">
+              <div className="w-3.5 h-3.5 border-2 border-text-muted border-t-accent rounded-full animate-spin" />
+            </div>
+          )}
+        </div>
+        {category === "event" && !searching && searchResults.length === 0 && (
+          <p className="mt-2 text-xs text-text-muted">
+            {searchQuery.trim()
+              ? "No logged events match."
+              : `No logged ${leagueName} events yet — favorite events are picked from events you've logged.`}
+          </p>
+        )}
+        {searchResults.length > 0 && (
+          <div className="mt-1.5 rounded-lg bg-bg-elevated border border-border max-h-40 overflow-y-auto">
+            {searchResults.map((r) => (
+              <button
+                key={r.id}
+                onClick={() => handleSelect(leagueSlug, r.id)}
+                disabled={saving}
+                className="w-full text-left px-3 py-2 hover:bg-bg-input transition-colors border-b border-border last:border-b-0 disabled:opacity-50"
+              >
+                <div className="text-sm text-text-primary truncate">{r.label}</div>
+                {r.subtitle && (
+                  <div className="text-xs text-text-muted truncate">{r.subtitle}</div>
+                )}
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
+    );
   }
 
   return (
-    <div className="space-y-2">
-      {ALL_LEAGUES.map((league) => {
-        const fav = favorites.find((f) => f.league_slug === league.slug);
-        const isEditing = editingLeagueSlug === league.slug;
-
-        return (
-          <div key={league.slug} className="bg-bg-card rounded-xl border border-border overflow-hidden">
-            <div className="flex items-center gap-3 px-4 py-3">
-              <SportIcon league={league.slug} size={24} />
-              <div className="flex-1 min-w-0">
-                <div className="text-sm text-text-primary font-medium">
-                  {league.name}
-                </div>
-                {fav ? (
-                  <div className="text-xs text-accent truncate">{fav.pick_name}</div>
-                ) : (
-                  <div className="text-xs text-text-muted">No pick yet</div>
-                )}
-              </div>
-              {fav && !(category === "team" && isIndividualLeague(league.slug)) && (
-                <button
-                  onClick={() => handleSetFeatured(fav.pick_id)}
-                  disabled={saving}
-                  title={featuredId === fav.pick_id ? "Featured favorite" : "Set as featured"}
-                  className="p-2.5 -m-1.5 transition-colors disabled:opacity-50"
-                >
-                  <svg
-                    width="16"
-                    height="16"
-                    viewBox="0 0 24 24"
-                    fill={featuredId === fav.pick_id ? "#D4872C" : "transparent"}
-                    stroke={featuredId === fav.pick_id ? "#D4872C" : "#5A5F72"}
-                    strokeWidth="1.5"
-                  >
-                    <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
-                  </svg>
-                </button>
-              )}
-              <button
-                onClick={() => {
-                  if (isEditing) {
-                    setEditingLeagueSlug(null);
-                    setSearchQuery("");
-                    setSearchResults([]);
-                  } else {
-                    setEditingLeagueSlug(league.slug);
-                    if (category === "event") {
-                      handleSearch("", league.slug);
-                    }
-                  }
-                }}
-                className="text-xs text-text-muted hover:text-accent transition-colors px-2 py-1"
+    <div className="space-y-5">
+      {/* Ranking */}
+      {favorites.length > 0 && (
+        <div className="space-y-2">
+          {favorites.map((fav, i) => {
+            const isEditing = editingLeagueSlug === fav.league_slug;
+            const dragging = dragIndex === i;
+            return (
+              <div
+                key={fav.id}
+                ref={(el) => { rowRefs.current[i] = el; }}
+                className={`bg-bg-card rounded-xl border overflow-hidden transition-shadow ${
+                  dragging ? "border-accent shadow-lg shadow-black/30 opacity-90" : "border-border"
+                }`}
               >
-                {isEditing ? "Cancel" : fav ? "Edit" : "Add"}
-              </button>
-            </div>
-
-            {isEditing && (
-              <div className="px-4 pb-3 border-t border-border pt-3">
-                <div className="relative">
-                  <input
-                    type="text"
-                    value={searchQuery}
-                    onChange={(e) => handleSearch(e.target.value)}
-                    placeholder={
-                      category === "event"
-                        ? "Filter your logged events..."
-                        : category === "team" && isIndividualLeague(league.slug)
-                          ? leagueFromSlug(league.slug)?.sport === "motorsports"
-                            ? "Search drivers..."
-                            : "Search players..."
-                          : `Search ${category}s...`
-                    }
-                    autoFocus
-                    className="w-full py-2.5 px-3 rounded-lg bg-bg-input border border-border text-text-primary text-sm outline-none focus:border-accent transition-colors"
-                  />
-                  {searching && (
-                    <div className="absolute right-3 top-1/2 -translate-y-1/2">
-                      <div className="w-3.5 h-3.5 border-2 border-text-muted border-t-accent rounded-full animate-spin" />
-                    </div>
-                  )}
-                </div>
-                {category === "event" &&
-                  !searching &&
-                  searchResults.length === 0 && (
-                    <p className="mt-2 text-xs text-text-muted">
-                      {searchQuery.trim()
-                        ? "No logged events match."
-                        : `No logged ${league.name} events yet — your favorite event is picked from events you've logged.`}
-                    </p>
-                  )}
-                {searchResults.length > 0 && (
-                  <div className="mt-1.5 rounded-lg bg-bg-elevated border border-border max-h-40 overflow-y-auto">
-                    {searchResults.map((r) => (
-                      <button
-                        key={r.id}
-                        onClick={() => handleSelect(league.slug, r.id, r.label)}
-                        disabled={saving}
-                        className="w-full text-left px-3 py-2 hover:bg-bg-input transition-colors border-b border-border last:border-b-0 disabled:opacity-50"
-                      >
-                        <div className="text-sm text-text-primary truncate">{r.label}</div>
-                        {r.subtitle && (
-                          <div className="text-xs text-text-muted truncate">{r.subtitle}</div>
-                        )}
-                      </button>
-                    ))}
+                <div className="flex items-center gap-2.5 px-3 py-3">
+                  {/* Drag handle */}
+                  <button
+                    aria-label="Drag to reorder"
+                    onPointerDown={(e) => {
+                      e.preventDefault();
+                      (e.currentTarget as HTMLElement).setPointerCapture?.(e.pointerId);
+                      setDragIndex(i);
+                    }}
+                    className="touch-none cursor-grab active:cursor-grabbing text-text-muted hover:text-text-secondary p-1 -ml-1"
+                  >
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                      <circle cx="9" cy="6" r="1.6" /><circle cx="15" cy="6" r="1.6" />
+                      <circle cx="9" cy="12" r="1.6" /><circle cx="15" cy="12" r="1.6" />
+                      <circle cx="9" cy="18" r="1.6" /><circle cx="15" cy="18" r="1.6" />
+                    </svg>
+                  </button>
+                  {/* Rank badge */}
+                  <div
+                    className={`flex-shrink-0 w-6 h-6 rounded-full flex items-center justify-center text-xs font-semibold ${
+                      i === 0 ? "bg-accent text-white" : "bg-bg-elevated text-text-secondary"
+                    }`}
+                  >
+                    {i + 1}
                   </div>
-                )}
+                  <SportIcon league={fav.league_slug} size={22} />
+                  <div className="flex-1 min-w-0">
+                    <div className="text-sm text-text-primary font-medium truncate">
+                      {fav.pick_name}
+                    </div>
+                    <div className="text-xs text-text-muted truncate">
+                      {fav.league_name}
+                      {i === 0 && <span className="text-accent"> · Featured</span>}
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => (isEditing ? closeEditor() : openEditor(fav.league_slug))}
+                    className="text-xs text-text-muted hover:text-accent transition-colors px-1.5 py-1"
+                  >
+                    {isEditing ? "Cancel" : "Edit"}
+                  </button>
+                  <button
+                    onClick={() => handleRemove(fav.id)}
+                    disabled={saving}
+                    aria-label="Remove pick"
+                    className="text-text-muted hover:text-loss transition-colors p-1 disabled:opacity-50"
+                  >
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+                      <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
+                    </svg>
+                  </button>
+                </div>
+                {isEditing && <SearchBox leagueSlug={fav.league_slug} leagueName={fav.league_name} />}
               </div>
-            )}
+            );
+          })}
+        </div>
+      )}
+
+      {/* Add by league */}
+      {unpickedLeagues.length > 0 && (
+        <div>
+          <div className="font-display text-[11px] text-text-muted tracking-[1.5px] uppercase mb-2">
+            {favorites.length > 0 ? "Add another" : "Add a pick"}
           </div>
-        );
-      })}
+          <div className="space-y-2">
+            {unpickedLeagues.map((league) => {
+              const isEditing = editingLeagueSlug === league.slug;
+              return (
+                <div key={league.slug} className="bg-bg-card rounded-xl border border-border overflow-hidden">
+                  <div className="flex items-center gap-3 px-4 py-3">
+                    <SportIcon league={league.slug} size={22} />
+                    <div className="flex-1 min-w-0">
+                      <div className="text-sm text-text-primary font-medium">{league.name}</div>
+                      <div className="text-xs text-text-muted">No pick yet</div>
+                    </div>
+                    <button
+                      onClick={() => (isEditing ? closeEditor() : openEditor(league.slug))}
+                      className="text-xs text-text-muted hover:text-accent transition-colors px-2 py-1"
+                    >
+                      {isEditing ? "Cancel" : "Add"}
+                    </button>
+                  </div>
+                  {isEditing && <SearchBox leagueSlug={league.slug} leagueName={league.name} />}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

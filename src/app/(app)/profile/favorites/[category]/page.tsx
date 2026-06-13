@@ -43,15 +43,6 @@ export default async function BigFourCategoryPage({
 
   const mainFavorite = bigFour.find((b) => b.category === cat);
 
-  // Get the current featured pick ID from the profile
-  const featuredPickIdMap: Record<Category, string | null> = {
-    team: profile.fav_team_id,
-    venue: profile.fav_venue_id,
-    athlete: profile.fav_athlete_id,
-    event: profile.fav_event_id,
-  };
-  const featuredPickId = featuredPickIdMap[cat];
-
   return (
     <div className="max-w-lg mx-auto pb-5">
       {/* Back header */}
@@ -88,20 +79,19 @@ export default async function BigFourCategoryPage({
       {/* Hint */}
       <div className="px-4 pt-1 pb-1">
         <p className="text-xs text-text-muted">
-          Tap the star to set which pick is featured on your profile.
+          Drag to rank your picks — your #1 is featured on your profile.
         </p>
       </div>
 
-      {/* Per-league favorites */}
+      {/* Ranked picks */}
       <div className="px-4 pt-3">
         <div className="font-display text-[11px] text-text-muted tracking-[1.5px] uppercase mb-3">
-          By League
+          Your Ranking
         </div>
         <BigFourDrillThrough
           userId={user.id}
           category={cat}
           initialFavorites={leagueFavorites}
-          featuredPickId={featuredPickId}
         />
       </div>
     </div>

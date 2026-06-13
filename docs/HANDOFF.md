@@ -2948,3 +2948,16 @@ Root cause of every per-venue gap: the original backfill skipped any ESPN game w
 - Soccer: ~hundreds of older Ligue1/other matches skipped on missing ESPN venue payloads — recoverable via a soccer HOME_VENUE_FALLBACKS map.
 - Full college regular seasons (FBS football + D1 basketball) = the big "college vertical" if alumni acquisition is pursued.
 - Still open from before: the stadium MAP + share CARD (the two growth swings), Apple Business Connect email logo, photo-height bump.
+
+---
+
+## Session 15 — Favorites pickers fix + stack-rank featured
+
+### Shipped
+- **Picker fix** (PR #46): league-scoped team search (`searchTeams` takes a slug, `leagues!inner` + `.eq("leagues.slug")`); individual-sport leagues (tennis/golf/motorsports) search **athletes** in the Team tab and store the pick in `athlete_id` under category `team` via a `pickKind` override on `upsertLeagueFavorite`. Migration `012-team-slot-athletes.sql` relaxed `check_category_fk` so the team slot holds exactly one of `team_id`/`athlete_id`. `fetchLeagueFavorites` resolves picks by which id column is set, not one-table-per-category.
+- **Stack-rank featured** (replaces the per-category star): `user_league_favorites.rank` column (migration `014-favorite-ranking.sql`, backfilled so each user's existing `fav_*_id` pick became rank 0). `BigFourDrillThrough` is now a drag-to-reorder list (pointer events, window-level move/up listeners, refs for latest state) with rank badges; #1 shows "· Featured". Below it, an "Add another / Add a pick" section lists unpicked leagues. `reorderLeagueFavorites(userId, category, orderedIds)` writes rank=index then `syncFeaturedFromRanking` updates `profiles.fav_<cat>_id` to the #1 pick (team slot: real team only; athlete-backed #1 clears the column). `fetchBigFour` now derives the featured pick per category from the #1 ranked favorite (resolving team OR athlete for the team card), falling back to `profiles.fav_*_id` for users with no ranked picks. `setFeaturedFavorite` removed.
+
+### Gotchas
+- `profiles.fav_team_id` FKs to `teams`, so an athlete-backed #1 in the team slot can't be cached there — `fetchBigFour` reads the ranking directly and still renders the athlete (verified: Sinner ranked #1 → TEAM card shows "Jannik Sinner").
+- No DnD library; drag is hand-rolled with pointer events. Playwright `mouse.down/move/up` drives it for verification.
+- Temp verify user (claude-verify@example.com) had to be recreated via the auth admin API — the ephemeral container loses it between sessions.
