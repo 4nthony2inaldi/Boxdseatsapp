@@ -81,7 +81,7 @@ export default function CommentSheet({
   }, [eventLogId]);
 
   return (
-    <div className="fixed inset-0 z-50 flex flex-col justify-end">
+    <div className="fixed inset-0 z-[60] flex flex-col justify-end">
       {/* Backdrop */}
       <div
         onClick={handleClose}
@@ -92,7 +92,7 @@ export default function CommentSheet({
 
       {/* Panel */}
       <div
-        className={`relative bg-bg-elevated rounded-t-2xl border-t border-border h-[80vh] flex flex-col transition-transform duration-200 ${
+        className={`relative bg-bg-elevated rounded-t-2xl border-t border-border h-[80vh] flex flex-col transition-transform duration-200 pb-[env(safe-area-inset-bottom)] ${
           visible ? "translate-y-0" : "translate-y-full"
         }`}
       >
