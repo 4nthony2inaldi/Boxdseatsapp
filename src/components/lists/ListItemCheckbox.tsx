@@ -11,6 +11,8 @@ type ListItemCheckboxProps = {
     venue_id: string | null;
     event_tag?: string | null;
     display_name: string;
+    city?: string | null;
+    state?: string | null;
   };
   initialVisited: boolean;
   userId: string;
@@ -27,6 +29,13 @@ export default function ListItemCheckbox({
   // Event-tag items complete by logging a matching event, not by checking
   // a box — their rows link to the venue (where the Log CTA lives).
   const isEventItem = !!item.event_tag;
+
+  // "City, ST" shown beneath the name, mirroring search results.
+  const location = item.city
+    ? item.state
+      ? `${item.city}, ${item.state}`
+      : item.city
+    : null;
 
   const handleMarkVisited = async () => {
     if (visited || !item.venue_id || loading || isEventItem) return;
@@ -90,6 +99,11 @@ export default function ListItemCheckbox({
         >
           {item.display_name}
         </span>
+        {location && (
+          <span className="text-xs text-text-muted block mt-0.5">
+            {location}
+          </span>
+        )}
         {isEventItem && !visited && (
           <span className="text-[11px] text-text-muted/70 block mt-0.5">
             Log an event at this tournament to check it off

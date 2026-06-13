@@ -37,6 +37,8 @@ export type ListVenueItem = {
   display_name: string;
   display_order: number;
   visited: boolean;
+  city: string | null;
+  state: string | null;
 };
 
 
@@ -167,6 +169,22 @@ export async function fetchListItems(
 
   if (!items || items.length === 0) return [];
 
+  // Fetch location (city/state) for any venues referenced by these items, so
+  // rows can show "City, ST" beneath the name like search results do.
+  const fetchVenueLocations = async (venueIds: string[]) => {
+    const map = new Map<string, { city: string | null; state: string | null }>();
+    const ids = [...new Set(venueIds.filter(Boolean))];
+    if (ids.length === 0) return map;
+    const { data: venues } = await supabase
+      .from("venues")
+      .select("id, city, state")
+      .in("id", ids);
+    for (const v of venues || []) {
+      map.set(v.id, { city: v.city ?? null, state: v.state ?? null });
+    }
+    return map;
+  };
+
   if (listType === "venue") {
     // Get user's visited venue IDs
     const venueIds = items.map((i) => i.venue_id).filter(Boolean) as string[];
@@ -178,6 +196,7 @@ export async function fetchListItems(
       .in("venue_id", venueIds);
 
     const visitedSet = new Set((visits || []).map((v) => v.venue_id));
+    const locationMap = await fetchVenueLocations(venueIds);
 
     return items.map((item) => ({
       id: item.id,
@@ -186,6 +205,8 @@ export async function fetchListItems(
       display_name: item.display_name,
       display_order: item.display_order,
       visited: item.venue_id ? visitedSet.has(item.venue_id) : false,
+      city: item.venue_id ? locationMap.get(item.venue_id)?.city ?? null : null,
+      state: item.venue_id ? locationMap.get(item.venue_id)?.state ?? null : null,
     }));
   } else if (listType === "event") {
     // Resolve each tag to the venue of its most recent event, so unchecked
@@ -208,19 +229,32 @@ export async function fetchListItems(
     // Get user's event tags (paginated, see fetchUserEventTags)
     const userTags = await fetchUserEventTags(supabase, userId);
 
-    return items.map((item) => ({
-      id: item.id,
-      venue_id: item.venue_id ?? (item.event_tag ? tagVenue.get(item.event_tag) ?? null : null),
-      event_tag: item.event_tag,
-      display_name: item.display_name,
-      display_order: item.display_order,
-      visited: item.event_tag ? userTags.has(item.event_tag) : false,
-    }));
+    const resolvedVenueId = (item: (typeof items)[number]) =>
+      item.venue_id ?? (item.event_tag ? tagVenue.get(item.event_tag) ?? null : null);
+    const locationMap = await fetchVenueLocations(
+      items.map(resolvedVenueId).filter(Boolean) as string[]
+    );
+
+    return items.map((item) => {
+      const venueId = resolvedVenueId(item);
+      return {
+        id: item.id,
+        venue_id: venueId,
+        event_tag: item.event_tag,
+        display_name: item.display_name,
+        display_order: item.display_order,
+        visited: item.event_tag ? userTags.has(item.event_tag) : false,
+        city: venueId ? locationMap.get(venueId)?.city ?? null : null,
+        state: venueId ? locationMap.get(venueId)?.state ?? null : null,
+      };
+    });
   }
 
   return items.map((item) => ({
     ...item,
     visited: false,
+    city: null,
+    state: null,
   }));
 }
 
