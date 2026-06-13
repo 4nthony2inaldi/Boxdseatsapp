@@ -4,14 +4,18 @@ import Link from "next/link";
 import SectionLabel from "@/components/profile/SectionLabel";
 import ListActions from "@/components/lists/ListActions";
 import ListItemsSection from "@/components/lists/ListItemsSection";
+import ListComparison from "@/components/lists/ListComparison";
 import SportIcon from "@/components/SportIcon";
 
 export default async function ListDetailPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ id: string }>;
+  searchParams: Promise<{ compare?: string }>;
 }) {
   const { id } = await params;
+  const { compare } = await searchParams;
   const supabase = await createClient();
   const {
     data: { user },
@@ -34,20 +38,58 @@ export default async function ListDetailPage({
     );
   }
 
-  const [items, isFollowing, forkedFromList] = await Promise.all([
-    fetchListItems(supabase, id, user.id, list.list_type),
-    checkListFollow(supabase, user.id, id),
-    list.forked_from
-      ? supabase
-          .from("lists")
-          .select("id, name")
-          .eq("id", list.forked_from)
-          .maybeSingle()
-          .then(({ data }) => data)
-      : Promise.resolve(null),
-  ]);
+  // Comparison mode: viewing another user's progress alongside your own.
+  const compareUserId = compare && compare !== user.id ? compare : null;
+
+  const [items, isFollowing, forkedFromList, ownerItems, ownerProfile] =
+    await Promise.all([
+      fetchListItems(supabase, id, user.id, list.list_type),
+      checkListFollow(supabase, user.id, id),
+      list.forked_from
+        ? supabase
+            .from("lists")
+            .select("id, name")
+            .eq("id", list.forked_from)
+            .maybeSingle()
+            .then(({ data }) => data)
+        : Promise.resolve(null),
+      compareUserId
+        ? fetchListItems(supabase, id, compareUserId, list.list_type)
+        : Promise.resolve(null),
+      compareUserId
+        ? supabase
+            .from("profiles")
+            .select("username, display_name")
+            .eq("id", compareUserId)
+            .maybeSingle()
+            .then(({ data }) => data)
+        : Promise.resolve(null),
+    ]);
 
   const isOwner = list.created_by === user.id;
+
+  // Merge the two users' visited status per item for the comparison view.
+  const comparison =
+    ownerItems && ownerProfile
+      ? (() => {
+          const ownerVisited = new Map(
+            ownerItems.map((i) => [i.id, i.visited] as const)
+          );
+          return {
+            ownerName:
+              ownerProfile.display_name || `@${ownerProfile.username}`,
+            items: items.map((i) => ({
+              id: i.id,
+              venue_id: i.venue_id,
+              display_name: i.display_name,
+              city: i.city,
+              state: i.state,
+              viewerVisited: i.visited,
+              ownerVisited: ownerVisited.get(i.id) ?? false,
+            })),
+          };
+        })()
+      : null;
 
   const visitedItems = items.filter((i) => i.visited);
   const remainingItems = items.filter((i) => !i.visited);
@@ -128,6 +170,14 @@ export default async function ListDetailPage({
         </div>
       )}
 
+      {comparison ? (
+        <ListComparison
+          items={comparison.items}
+          totalItems={totalItems}
+          ownerName={comparison.ownerName}
+        />
+      ) : (
+        <>
       {/* Progress card */}
       <div className="bg-bg-card rounded-xl border border-border p-4 mb-6">
         <div className="flex items-end justify-between mb-3">
@@ -177,6 +227,8 @@ export default async function ListDetailPage({
             visited={false}
           />
         </div>
+      )}
+        </>
       )}
     </div>
   );

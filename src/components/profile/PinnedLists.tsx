@@ -1,12 +1,18 @@
+import Link from "next/link";
 import type { PinnedListData } from "@/lib/queries/profile";
 import SportIcon from "@/components/SportIcon";
 import SectionLabel from "./SectionLabel";
 
 type PinnedListsProps = {
   lists: PinnedListData[];
+  /**
+   * When viewing another user's profile, their id. Pinned lists then link to
+   * a comparison view (their progress vs. yours) instead of the plain list.
+   */
+  compareUserId?: string;
 };
 
-export default function PinnedLists({ lists }: PinnedListsProps) {
+export default function PinnedLists({ lists, compareUserId }: PinnedListsProps) {
   if (lists.length === 0) return null;
 
   return (
@@ -17,11 +23,15 @@ export default function PinnedLists({ lists }: PinnedListsProps) {
           list.item_count > 0
             ? Math.round((list.visited / list.item_count) * 100)
             : 0;
+        const href = compareUserId
+          ? `/lists/${list.id}?compare=${compareUserId}`
+          : `/lists/${list.id}`;
 
         return (
-          <div
+          <Link
             key={list.id}
-            className="bg-bg-card rounded-xl border border-border px-3.5 py-3 mb-2"
+            href={href}
+            className="block bg-bg-card rounded-xl border border-border px-3.5 py-3 mb-2 hover:border-accent/50 transition-colors"
           >
             <div className="flex justify-between items-center mb-2">
               <div className="flex items-center gap-2">
@@ -44,7 +54,7 @@ export default function PinnedLists({ lists }: PinnedListsProps) {
                 }}
               />
             </div>
-          </div>
+          </Link>
         );
       })}
     </div>
