@@ -2967,3 +2967,17 @@ Root cause of every per-venue gap: the original backfill skipped any ESPN game w
 - `BigFourSection` gained `hrefBase` (default `/profile/favorites`); other-user view passes `/user/[u]/favorites`, so the cards drill in.
 - New **read-only** drill-in: `src/app/(app)/user/[username]/favorites/[category]/page.tsx` — featured header + numbered stack ranking (no drag/edit), with private-account gating + blocked + own-profile redirect.
 - Activity chart already worked on `(app)/user/[username]` (it's passed `timelineHref`); the public share route `(public)/u/[username]` still has non-linkable KPIs/Big Four (logged-out surface, no public sub-routes) — left as a follow-up.
+
+### Companion tag consent + co-logging (same session)
+Migration `015-companion-consent-colog.sql` (applied to prod). Turns the always-on companion tag into a consented, optionally shared, log.
+
+- **`companion_tags.status`** (`pending`/`accepted`/`declined`), default `pending`; a `BEFORE INSERT` trigger auto-accepts free-text companions (no user to confirm). Existing rows grandfathered to `accepted`. Unique index `(event_log_id, tagged_user_id)` makes a re-tag idempotent. `notify_on_companion_tag` now only pings fresh `pending` real-account tags.
+- **`event_logs.memory_id`** links co-attendees' logs for one shared outing.
+- **RLS:** new policy lets the tagged user read their own tags (even pending / on hidden logs) so they can act.
+- **RPCs (SECURITY DEFINER):** `my_companion_tags()` (resolves my tags incl. owner+event for the notif UI, bypassing the owner-log RLS join), `respond_to_companion_tag(tag, 'accept'|'decline')` (decline deletes the row), `accept_companion_and_colog(tag)` → accepts, anchors `memory_id` on the owner's log, and creates the caller's own linked log (neutral/unrated, `show_all`); idempotent (returns the already-linked log); links an existing independent log instead of duplicating.
+- **Notifications UI** (`NotificationList.tsx`): pending companion tags render **Add to profile / Accept / Decline**. "Add to profile" routes to `/log?edit={newLogId}` to finish rooting/rating. Enrichment in `fetchNotifications` attaches `{id,status}` keyed by `${owner}:${event_id}`.
+- **Display:** `fetchUserEventLog` returns only free-text + `accepted` real-account companions, with username/avatar; the event page renders accepted accounts as **clickable `@username` chips** (→ `/user/[username]`), still gated on `privacy === show_all`.
+- **Owner edits** (`updateEventLog`): companion sync is now status-preserving — adds new (pending), deletes dropped, leaves kept tags untouched (no re-ping / no reset of an accepted friend); free-text replaced wholesale.
+- **fan record / stats:** the co-log is a normal `event_logs` row owned by the tagged user, so it counts everywhere; starts neutral (excluded from W/L) until they set rooting in the editor. The `auto_visit_venue` trigger records their venue visit.
+
+**Deferred (Phase 3):** true multi-photo-per-log (today: one `photo_url`/log; the event-level gallery already pools co-attendees' photos by `event_id`, so a shared album reads correctly). Also: distinguishing free-text vs real-account chips in the log editor; a stale duplicate companion notification can show buttons mapping to the same live tag (harmless — both act on it).

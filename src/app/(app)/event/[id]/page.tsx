@@ -386,12 +386,27 @@ export default async function EventDetailPage({
                   <path d="M23 21v-2a4 4 0 0 0-3-3.87" />
                   <path d="M16 3.13a4 4 0 0 1 0 7.75" />
                 </svg>
-                {userLog.companions.map((c, i) => (
-                  <span key={i} className="text-xs text-text-muted">
-                    {c.display_name}
-                    {i < userLog.companions.length - 1 ? "," : ""}
-                  </span>
-                ))}
+                {userLog.companions.map((c, i) =>
+                  c.username ? (
+                    <Link
+                      key={i}
+                      href={`/user/${c.username}`}
+                      className="inline-flex items-center gap-1 text-xs text-accent hover:opacity-80 transition-opacity"
+                    >
+                      {c.avatar_url ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img src={c.avatar_url} alt="" className="w-4 h-4 rounded-full object-cover" />
+                      ) : null}
+                      @{c.username}
+                      {i < userLog.companions.length - 1 ? "," : ""}
+                    </Link>
+                  ) : (
+                    <span key={i} className="text-xs text-text-muted">
+                      {c.display_name}
+                      {i < userLog.companions.length - 1 ? "," : ""}
+                    </span>
+                  )
+                )}
               </div>
             )}
           </div>

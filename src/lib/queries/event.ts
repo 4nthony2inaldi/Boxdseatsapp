@@ -52,7 +52,12 @@ export type UserEventLog = {
   manual_title: string | null;
   photo_url: string | null;
   photo_is_verified: boolean;
-  companions: { display_name: string; tagged_user_id: string | null }[];
+  companions: {
+    display_name: string;
+    tagged_user_id: string | null;
+    username: string | null;
+    avatar_url: string | null;
+  }[];
 };
 
 export type EventAttendee = {
@@ -163,15 +168,42 @@ export async function fetchUserEventLog(
 
   if (!data) return null;
 
-  // Fetch companions for this log
-  const { data: companions } = await supabase
+  // Companions: free-text always shows; a real-account tag shows only once
+  // accepted. Accepted accounts resolve to a clickable profile chip.
+  const { data: rawCompanions } = await supabase
     .from("companion_tags")
-    .select("display_name, tagged_user_id")
+    .select("display_name, tagged_user_id, status")
     .eq("event_log_id", data.id);
+
+  const visible = (rawCompanions || []).filter(
+    (c) => c.tagged_user_id === null || c.status === "accepted"
+  );
+
+  const taggedIds = visible
+    .map((c) => c.tagged_user_id)
+    .filter((x): x is string => !!x);
+  const profileMap = new Map<string, { username: string; avatar_url: string | null }>();
+  if (taggedIds.length > 0) {
+    const { data: profiles } = await supabase
+      .from("profiles")
+      .select("id, username, avatar_url")
+      .in("id", taggedIds);
+    for (const p of profiles || []) profileMap.set(p.id, { username: p.username, avatar_url: p.avatar_url });
+  }
+
+  const companions = visible.map((c) => {
+    const prof = c.tagged_user_id ? profileMap.get(c.tagged_user_id) : null;
+    return {
+      display_name: c.display_name,
+      tagged_user_id: c.tagged_user_id,
+      username: prof?.username ?? null,
+      avatar_url: prof?.avatar_url ?? null,
+    };
+  });
 
   return {
     ...data,
-    companions: companions || [],
+    companions,
   };
 }
 

@@ -3,12 +3,18 @@
 import { useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import type { Notification } from "@/lib/queries/notifications";
 import { createClient } from "@/lib/supabase/client";
 import {
   acceptFollowRequest,
   declineFollowRequest,
 } from "@/lib/queries/social";
+import {
+  respondToCompanionTag,
+  acceptCompanionAndColog,
+} from "@/lib/queries/companions";
+import { toastError } from "@/components/Toaster";
 import {
   BellIcon,
   CheckCircleIcon,
@@ -95,11 +101,51 @@ export default function NotificationList({
   currentUserId,
   pendingRequesterIds = [],
 }: Props) {
+  const router = useRouter();
   // requesterId -> 'accepted' | 'declined' once handled in this session
   const [handledRequests, setHandledRequests] = useState<
     Record<string, "accepted" | "declined">
   >({});
   const [processingId, setProcessingId] = useState<string | null>(null);
+  // companion tag id -> outcome once handled in this session
+  const [handledTags, setHandledTags] = useState<
+    Record<string, "accepted" | "declined" | "added">
+  >({});
+
+  async function handleCompanion(
+    tagId: string,
+    action: "accept" | "add" | "decline"
+  ) {
+    if (processingId) return;
+    setProcessingId(tagId);
+    const supabase = createClient();
+    if (action === "add") {
+      const result = await acceptCompanionAndColog(supabase, tagId);
+      if ("error" in result) {
+        toastError(result.error);
+        setProcessingId(null);
+        return;
+      }
+      setHandledTags((prev) => ({ ...prev, [tagId]: "added" }));
+      setProcessingId(null);
+      router.push(`/log?edit=${result.logId}`);
+      return;
+    }
+    const result = await respondToCompanionTag(
+      supabase,
+      tagId,
+      action === "accept" ? "accept" : "decline"
+    );
+    if ("error" in result) {
+      toastError(result.error);
+    } else {
+      setHandledTags((prev) => ({
+        ...prev,
+        [tagId]: action === "accept" ? "accepted" : "declined",
+      }));
+    }
+    setProcessingId(null);
+  }
 
   async function handleRequest(
     requesterId: string,
@@ -235,6 +281,53 @@ export default function NotificationList({
                     : "Request declined"}
                 </p>
               )}
+
+              {/* Companion tag: accept / add to profile / decline */}
+              {(() => {
+                const tag = n.companionTag;
+                if (!tag) return null;
+                const tagHandled = handledTags[tag.id];
+                const showActions = tag.status === "pending" && !tagHandled;
+                if (showActions) {
+                  return (
+                    <div className="flex flex-wrap gap-2 mt-2">
+                      <button
+                        onClick={(e) => { e.preventDefault(); handleCompanion(tag.id, "add"); }}
+                        disabled={processingId === tag.id}
+                        className="px-3 py-1.5 rounded-lg text-xs font-semibold text-white disabled:opacity-50 transition-opacity"
+                        style={{ background: "linear-gradient(135deg, var(--color-accent), var(--color-accent-brown))" }}
+                      >
+                        Add to profile
+                      </button>
+                      <button
+                        onClick={(e) => { e.preventDefault(); handleCompanion(tag.id, "accept"); }}
+                        disabled={processingId === tag.id}
+                        className="px-3 py-1.5 rounded-lg text-xs font-semibold text-text-secondary bg-bg-input border border-border disabled:opacity-50 hover:text-text-primary transition-colors"
+                      >
+                        Accept
+                      </button>
+                      <button
+                        onClick={(e) => { e.preventDefault(); handleCompanion(tag.id, "decline"); }}
+                        disabled={processingId === tag.id}
+                        className="px-3 py-1.5 rounded-lg text-xs font-semibold text-text-secondary bg-bg-input border border-border disabled:opacity-50 hover:text-loss transition-colors"
+                      >
+                        Decline
+                      </button>
+                    </div>
+                  );
+                }
+                const outcome = tagHandled ?? (tag.status === "accepted" ? "accepted" : null);
+                if (!outcome) return null;
+                return (
+                  <p className={`text-xs mt-2 ${outcome === "declined" ? "text-text-muted" : "text-win"}`}>
+                    {outcome === "added"
+                      ? "Added to your profile — finish your log"
+                      : outcome === "accepted"
+                        ? "Tag accepted"
+                        : "Tag declined"}
+                  </p>
+                );
+              })()}
             </div>
 
             {!n.is_read && (
