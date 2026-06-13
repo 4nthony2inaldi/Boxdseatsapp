@@ -69,7 +69,7 @@ export default async function ProfilePage() {
       <ActivityChart months={activityData.months} total={activityData.total} timelineHref="/timeline" />
       <PinnedLists lists={pinnedLists} />
       <BadgeSection badges={badges} tracked={trackedIncomplete} userId={user.id} showTracked={pinnedLists.length === 0} />
-      <LatestEvent entry={latestEvent} canEdit />
+      <LatestEvent entry={latestEvent} canEdit viewerId={user.id} />
       <SummaryRows counts={summaryCounts} />
       {/* Share Profile */}
       <div className="px-4 mt-4">
