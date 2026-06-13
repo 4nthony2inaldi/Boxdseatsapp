@@ -14,6 +14,8 @@ export type Notification = {
   } | null;
   target_id: string | null;
   target_type: string | null;
+  /** For companion_tag notifications: the underlying tag id + its status. */
+  companionTag?: { id: string; status: "pending" | "accepted" | "declined" } | null;
 };
 
 export async function fetchNotifications(
@@ -51,6 +53,21 @@ export async function fetchNotifications(
     }
   }
 
+  // Enrich companion_tag notifications with their tag id + status so the UI
+  // can offer accept / add-to-profile / decline. The notification only stores
+  // the event id, so we match on (owner = actor, event = target) via a
+  // SECURITY DEFINER RPC that can see the owner's (possibly hidden) log.
+  const tagMap = new Map<string, { id: string; status: "pending" | "accepted" | "declined" }>();
+  if (data.some((n) => n.type === "companion_tag")) {
+    const { data: myTags } = await supabase.rpc("my_companion_tags");
+    for (const t of (myTags as { tag_id: string; owner_id: string; event_id: string | null; status: string }[]) || []) {
+      tagMap.set(`${t.owner_id}:${t.event_id ?? "null"}`, {
+        id: t.tag_id,
+        status: t.status as "pending" | "accepted" | "declined",
+      });
+    }
+  }
+
   return data.map((n) => ({
     id: n.id,
     type: n.type,
@@ -60,6 +77,10 @@ export async function fetchNotifications(
     actor: n.actor_id ? actorMap.get(n.actor_id) || null : null,
     target_id: n.target_id,
     target_type: n.target_type,
+    companionTag:
+      n.type === "companion_tag" && n.actor_id
+        ? tagMap.get(`${n.actor_id}:${n.target_id ?? "null"}`) || null
+        : null,
   }));
 }
 

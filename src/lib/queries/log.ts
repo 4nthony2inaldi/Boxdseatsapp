@@ -801,16 +801,45 @@ export async function updateEventLog(
     return { error: friendlyError(error.message) };
   }
 
-  // Replace companion tags: delete old, insert new
-  await supabase.from("companion_tags").delete().eq("event_log_id", logId);
+  // Sync companion tags WITHOUT clobbering accept/decline state:
+  //  • real-account tags: add the new ones (pending), remove the ones the
+  //    owner dropped, leave kept ones untouched so we don't re-ping or reset
+  //    an already-accepted friend.
+  //  • free-text companions carry no state, so replace them wholesale.
+  const inputReal = input.companions.filter((c) => c.tagged_user_id);
+  const inputFree = input.companions.filter((c) => !c.tagged_user_id);
 
-  if (input.companions.length > 0) {
-    const companionRows = input.companions.map((c) => ({
-      event_log_id: logId,
-      tagged_user_id: c.tagged_user_id,
-      display_name: c.display_name,
-    }));
-    await supabase.from("companion_tags").insert(companionRows);
+  const { data: existing } = await supabase
+    .from("companion_tags")
+    .select("id, tagged_user_id")
+    .eq("event_log_id", logId);
+
+  const existingReal = (existing || []).filter((c) => c.tagged_user_id);
+  const inputRealIds = new Set(inputReal.map((c) => c.tagged_user_id));
+  const existingRealIds = new Set(existingReal.map((c) => c.tagged_user_id));
+
+  const toInsert = inputReal.filter((c) => !existingRealIds.has(c.tagged_user_id));
+  const toDeleteIds = existingReal
+    .filter((c) => !inputRealIds.has(c.tagged_user_id))
+    .map((c) => c.id);
+
+  if (toDeleteIds.length > 0) {
+    await supabase.from("companion_tags").delete().in("id", toDeleteIds);
+  }
+  // Replace free-text companions
+  await supabase
+    .from("companion_tags")
+    .delete()
+    .eq("event_log_id", logId)
+    .is("tagged_user_id", null);
+
+  const newRows = [...toInsert, ...inputFree].map((c) => ({
+    event_log_id: logId,
+    tagged_user_id: c.tagged_user_id,
+    display_name: c.display_name,
+  }));
+  if (newRows.length > 0) {
+    await supabase.from("companion_tags").insert(newRows);
   }
 
   return { id: logId };

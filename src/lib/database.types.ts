@@ -220,6 +220,7 @@ export type Database = {
           display_name: string
           event_log_id: string
           id: string
+          status: string
           tagged_user_id: string | null
         }
         Insert: {
@@ -227,6 +228,7 @@ export type Database = {
           display_name: string
           event_log_id: string
           id?: string
+          status?: string
           tagged_user_id?: string | null
         }
         Update: {
@@ -234,6 +236,7 @@ export type Database = {
           display_name?: string
           event_log_id?: string
           id?: string
+          status?: string
           tagged_user_id?: string | null
         }
         Relationships: [
@@ -322,6 +325,7 @@ export type Database = {
           like_count: number
           manual_description: string | null
           manual_title: string | null
+          memory_id: string | null
           notes: string | null
           outcome: Database["public"]["Enums"]["outcome_type"] | null
           photo_capture_method: string | null
@@ -352,6 +356,7 @@ export type Database = {
           like_count?: number
           manual_description?: string | null
           manual_title?: string | null
+          memory_id?: string | null
           notes?: string | null
           outcome?: Database["public"]["Enums"]["outcome_type"] | null
           photo_capture_method?: string | null
@@ -382,6 +387,7 @@ export type Database = {
           like_count?: number
           manual_description?: string | null
           manual_title?: string | null
+          memory_id?: string | null
           notes?: string | null
           outcome?: Database["public"]["Enums"]["outcome_type"] | null
           photo_capture_method?: string | null
@@ -1588,6 +1594,23 @@ export type Database = {
       }
     }
     Functions: {
+      accept_companion_and_colog: {
+        Args: { p_tag_id: string }
+        Returns: string
+      }
+      respond_to_companion_tag: {
+        Args: { p_tag_id: string; p_action: string }
+        Returns: undefined
+      }
+      my_companion_tags: {
+        Args: never
+        Returns: {
+          tag_id: string
+          owner_id: string
+          event_id: string | null
+          status: string
+        }[]
+      }
       _postgis_deprecate: {
         Args: { newname: string; oldname: string; version: string }
         Returns: undefined
