@@ -10,9 +10,13 @@ type Props = {
   userId: string;
   logOwnerId: string;
   initialComments: EventComment[];
+  /** Fires with the new total whenever a comment is posted or deleted. */
+  onCountChange?: (count: number) => void;
+  /** Sheet layout: list scrolls, input pinned to the bottom. */
+  stickyInput?: boolean;
 };
 
-export default function CommentsSection({ eventLogId, userId, logOwnerId, initialComments }: Props) {
+export default function CommentsSection({ eventLogId, userId, logOwnerId, initialComments, onCountChange, stickyInput }: Props) {
   const [comments, setComments] = useState<EventComment[]>(initialComments);
   const [body, setBody] = useState("");
   const [posting, setPosting] = useState(false);
@@ -65,6 +69,7 @@ export default function CommentsSection({ eventLogId, userId, logOwnerId, initia
           };
         })
       );
+      onCountChange?.(data.length);
     }
 
     setBody("");
@@ -80,7 +85,11 @@ export default function CommentsSection({ eventLogId, userId, logOwnerId, initia
       return;
     }
 
-    setComments((prev) => prev.filter((c) => c.id !== commentId));
+    setComments((prev) => {
+      const next = prev.filter((c) => c.id !== commentId);
+      onCountChange?.(next.length);
+      return next;
+    });
   };
 
   const formatTime = (dateStr: string) => {
@@ -98,12 +107,9 @@ export default function CommentsSection({ eventLogId, userId, logOwnerId, initia
     return date.toLocaleDateString("en-US", { month: "short", day: "numeric" });
   };
 
-  return (
-    <div>
-      {/* Existing comments */}
-      {comments.length > 0 && (
-        <div className="space-y-3 mb-4">
-          {comments.map((comment) => (
+  const commentItems = (
+    <>
+      {comments.map((comment) => (
             <div
               key={comment.id}
               className="bg-bg-card rounded-xl border border-border px-4 py-3"
@@ -150,42 +156,65 @@ export default function CommentsSection({ eventLogId, userId, logOwnerId, initia
               </div>
             </div>
           ))}
-        </div>
-      )}
+    </>
+  );
 
-      {/* Comment input */}
-      <div className="flex items-center gap-2">
-        <input
-          type="text"
-          value={body}
-          onChange={(e) => setBody(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key === "Enter" && !e.shiftKey) {
-              e.preventDefault();
-              handlePost();
-            }
-          }}
-          placeholder="Add a comment..."
-          className="flex-1 bg-bg-input rounded-lg border border-border px-3 py-2.5 text-sm text-text-primary placeholder:text-text-muted focus:outline-none focus:border-accent transition-colors"
-        />
-        <button
-          onClick={handlePost}
-          disabled={posting || !body.trim()}
-          className="bg-accent rounded-lg px-4 py-2.5 text-sm text-white font-display tracking-wider uppercase disabled:opacity-40 hover:opacity-90 transition-opacity cursor-pointer disabled:cursor-not-allowed"
-        >
-          {posting ? "..." : "Post"}
-        </button>
+  const emptyState = (
+    <div className="text-xs text-text-muted text-center mt-3">
+      No comments yet. Be the first!
+    </div>
+  );
+
+  const inputRow = (
+    <div className="flex items-center gap-2">
+      <input
+        type="text"
+        value={body}
+        onChange={(e) => setBody(e.target.value)}
+        onKeyDown={(e) => {
+          if (e.key === "Enter" && !e.shiftKey) {
+            e.preventDefault();
+            handlePost();
+          }
+        }}
+        placeholder="Add a comment..."
+        className="flex-1 bg-bg-input rounded-lg border border-border px-3 py-2.5 text-sm text-text-primary placeholder:text-text-muted focus:outline-none focus:border-accent transition-colors"
+      />
+      <button
+        onClick={handlePost}
+        disabled={posting || !body.trim()}
+        className="bg-accent rounded-lg px-4 py-2.5 text-sm text-white font-display tracking-wider uppercase disabled:opacity-40 hover:opacity-90 transition-opacity cursor-pointer disabled:cursor-not-allowed"
+      >
+        {posting ? "..." : "Post"}
+      </button>
+    </div>
+  );
+
+  const errorEl = error ? <div className="text-xs text-loss mt-2">{error}</div> : null;
+
+  // Sheet layout: scrollable list above a pinned input.
+  if (stickyInput) {
+    return (
+      <div className="flex flex-col h-full min-h-0">
+        <div className="flex-1 overflow-y-auto min-h-0 space-y-3">
+          {comments.length > 0 ? commentItems : emptyState}
+        </div>
+        <div className="shrink-0 pt-3 mt-3 border-t border-border">
+          {inputRow}
+          {errorEl}
+        </div>
       </div>
+    );
+  }
 
-      {error && (
-        <div className="text-xs text-loss mt-2">{error}</div>
+  return (
+    <div>
+      {comments.length > 0 && (
+        <div className="space-y-3 mb-4">{commentItems}</div>
       )}
-
-      {comments.length === 0 && !error && (
-        <div className="text-xs text-text-muted text-center mt-3">
-          No comments yet. Be the first!
-        </div>
-      )}
+      {inputRow}
+      {errorEl}
+      {comments.length === 0 && !error && emptyState}
     </div>
   );
 }

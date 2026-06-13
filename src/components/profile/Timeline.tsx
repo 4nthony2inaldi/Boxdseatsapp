@@ -1,11 +1,11 @@
 "use client";
 
 import { useState, useCallback, useRef, useEffect } from "react";
-import { useRouter } from "next/navigation";
 import type { TimelineEntry } from "@/lib/queries/profile";
 import { LEAGUES } from "@/lib/constants";
 import SectionLabel from "./SectionLabel";
 import TimelineCard from "../TimelineCard";
+import CommentSheet from "../event/CommentSheet";
 import { SkeletonTimelineCard } from "../Skeleton";
 import { useInfiniteScroll } from "@/hooks/useInfiniteScroll";
 import { createClient } from "@/lib/supabase/client";
@@ -30,8 +30,8 @@ type TimelineProps = {
 const leagueOptions = ["All", ...Object.keys(LEAGUES)];
 
 export default function Timeline({ initialEntries, initialHasMore, userId, viewerId, canEdit = false, monthFilter }: TimelineProps) {
-  const router = useRouter();
   const [filter, setFilter] = useState("All");
+  const [commentLogId, setCommentLogId] = useState<string | null>(null);
   const [entries, setEntries] = useState(initialEntries);
   const [hasMore, setHasMore] = useState(initialHasMore);
   const [isOpen, setIsOpen] = useState(false);
@@ -70,8 +70,8 @@ export default function Timeline({ initialEntries, initialHasMore, userId, viewe
   }, [entries, viewerId]);
 
   const handleComment = (entryId: string) => {
-    const entry = entries.find((e) => e.id === entryId);
-    if (entry?.event_id) router.push(`/event/${entry.event_id}?log=${entryId}#comments`);
+    // Open the log's comment thread in a bottom sheet (no navigation).
+    if (viewerId) setCommentLogId(entryId);
   };
 
   const handleLike = async (entryId: string) => {
@@ -384,6 +384,21 @@ export default function Timeline({ initialEntries, initialHasMore, userId, viewe
 
       {/* Infinite scroll sentinel */}
       <div ref={sentinelRef} className="h-1" />
+
+      {commentLogId && viewerId && (
+        <CommentSheet
+          eventLogId={commentLogId}
+          userId={viewerId}
+          onClose={() => setCommentLogId(null)}
+          onCountChange={(count) =>
+            setEntries((prev) =>
+              prev.map((e) =>
+                e.id === commentLogId ? { ...e, comment_count: count } : e
+              )
+            )
+          }
+        />
+      )}
     </div>
   );
 }

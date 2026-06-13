@@ -1,8 +1,8 @@
 "use client";
 
 import { useState, useCallback } from "react";
-import { useRouter } from "next/navigation";
 import TimelineCard from "@/components/TimelineCard";
+import CommentSheet from "@/components/event/CommentSheet";
 import { SkeletonFeedCard } from "@/components/Skeleton";
 import { createClient } from "@/lib/supabase/client";
 import { toggleLike, type FeedEntry } from "@/lib/queries/social";
@@ -22,7 +22,7 @@ export default function FeedList({ initialEntries, initialHasMore, userId }: Pro
   const [entries, setEntries] = useState(initialEntries);
   const [hasMore, setHasMore] = useState(initialHasMore);
   const [loadingMore, setLoadingMore] = useState(false);
-  const router = useRouter();
+  const [commentLogId, setCommentLogId] = useState<string | null>(null);
 
   const handleLike = async (entryId: string) => {
     const entry = entries.find((e) => e.id === entryId);
@@ -64,11 +64,8 @@ export default function FeedList({ initialEntries, initialHasMore, userId }: Pro
   };
 
   const handleComment = (entryId: string) => {
-    const entry = entries.find((e) => e.id === entryId);
-    if (entry?.event_id) {
-      // land on that log's comment thread, not just the event
-      router.push(`/event/${entry.event_id}?log=${entryId}#comments`);
-    }
+    // Open the log's comment thread in a bottom sheet (preserves feed scroll).
+    setCommentLogId(entryId);
   };
 
   const loadMore = useCallback(async () => {
@@ -146,6 +143,21 @@ export default function FeedList({ initialEntries, initialHasMore, userId }: Pro
 
       {/* Infinite scroll sentinel */}
       <div ref={sentinelRef} className="h-1" />
+
+      {commentLogId && (
+        <CommentSheet
+          eventLogId={commentLogId}
+          userId={userId}
+          onClose={() => setCommentLogId(null)}
+          onCountChange={(count) =>
+            setEntries((prev) =>
+              prev.map((e) =>
+                e.id === commentLogId ? { ...e, comment_count: count } : e
+              )
+            )
+          }
+        />
+      )}
     </div>
   );
 }
