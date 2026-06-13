@@ -151,34 +151,66 @@ export async function fetchBigFour(
   supabase: SupabaseClient,
   profile: ProfileData
 ): Promise<BigFourItem[]> {
+  // The featured pick per category is the #1 (lowest-rank) entry in the user's
+  // ranking. Fall back to the legacy profiles.fav_*_id for anyone who has no
+  // ranked favorites yet. The team slot may hold an athlete (individual sports).
+  const { data: favRows } = await supabase
+    .from("user_league_favorites")
+    .select("category, rank, team_id, athlete_id, venue_id, event_id")
+    .eq("user_id", profile.id)
+    .order("rank", { ascending: true });
+
+  const topByCat = new Map<string, { team_id: string | null; athlete_id: string | null; venue_id: string | null; event_id: string | null }>();
+  for (const f of favRows || []) {
+    if (!topByCat.has(f.category)) topByCat.set(f.category, f);
+  }
+  const teamTop = topByCat.get("team");
+  const venueTop = topByCat.get("venue");
+  const athleteTop = topByCat.get("athlete");
+  const eventTop = topByCat.get("event");
+
+  // Resolve effective ids: ranking first, else legacy column.
+  const teamId = teamTop ? teamTop.team_id : profile.fav_team_id;
+  const teamAthleteId = teamTop ? teamTop.athlete_id : null;
+  const venueId = venueTop ? venueTop.venue_id : profile.fav_venue_id;
+  const athleteId = athleteTop ? athleteTop.athlete_id : profile.fav_athlete_id;
+  const eventId = eventTop ? eventTop.event_id : profile.fav_event_id;
+
   // The four lookups are independent \u2014 run them concurrently, then assemble
   // in fixed display order (team, venue, athlete, event).
-  const [teamRes, venueRes, athleteRes, eventRes, ownLogRes] = await Promise.all([
-    profile.fav_team_id
-      ? supabase.from("teams").select("name, short_name, logo_url, leagues(name)").eq("id", profile.fav_team_id).single()
+  const [teamRes, teamAthleteRes, venueRes, athleteRes, eventRes, ownLogRes] = await Promise.all([
+    teamId
+      ? supabase.from("teams").select("name, short_name, logo_url, leagues(name)").eq("id", teamId).single()
       : Promise.resolve({ data: null }),
-    profile.fav_venue_id
-      ? supabase.from("venues").select("name, city, state, photo_url").eq("id", profile.fav_venue_id).single()
+    teamAthleteId
+      ? supabase.from("athletes").select("name, sport, headshot_url").eq("id", teamAthleteId).single()
       : Promise.resolve({ data: null }),
-    profile.fav_athlete_id
-      ? supabase.from("athletes").select("name, sport, headshot_url").eq("id", profile.fav_athlete_id).single()
+    venueId
+      ? supabase.from("venues").select("name, city, state, photo_url").eq("id", venueId).single()
       : Promise.resolve({ data: null }),
-    profile.fav_event_id
+    athleteId
+      ? supabase.from("athletes").select("name, sport, headshot_url").eq("id", athleteId).single()
+      : Promise.resolve({ data: null }),
+    eventId
       ? supabase.from("events").select(
           "event_date, home_score, away_score, home_team:teams!events_home_team_id_fkey(short_name, abbreviation), away_team:teams!events_away_team_id_fkey(short_name, abbreviation), tournament_name, venues!events_venue_id_fkey(name, photo_url)"
-        ).eq("id", profile.fav_event_id).single()
+        ).eq("id", eventId).single()
       : Promise.resolve({ data: null }),
-    profile.fav_event_id
-      ? supabase.from("event_logs").select("photo_url").eq("user_id", profile.id).eq("event_id", profile.fav_event_id).not("photo_url", "is", null).limit(1).maybeSingle()
+    eventId
+      ? supabase.from("event_logs").select("photo_url").eq("user_id", profile.id).eq("event_id", eventId).not("photo_url", "is", null).limit(1).maybeSingle()
       : Promise.resolve({ data: null }),
   ]);
 
   const items: BigFourItem[] = [];
 
   const team = teamRes.data as { name: string; short_name: string; logo_url: string | null; leagues: unknown } | null;
+  const teamAthlete = teamAthleteRes.data as { name: string; sport: string | null; headshot_url: string | null } | null;
   if (team) {
     const league = (team.leagues as unknown as { name: string } | null)?.name || "";
     items.push({ category: "team", name: team.short_name || team.name, subtitle: league, image_url: team.logo_url });
+  } else if (teamAthlete) {
+    // Individual-sport pick ranked #1 in the team slot (e.g. a tennis player)
+    items.push({ category: "team", name: teamAthlete.name, subtitle: teamAthlete.sport || "", image_url: teamAthlete.headshot_url });
   } else {
     items.push({ category: "team", name: "Not set", subtitle: "" });
   }

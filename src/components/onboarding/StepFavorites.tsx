@@ -106,7 +106,6 @@ export default function StepFavorites({
             userId={userId}
             category={c.key}
             initialFavorites={[]}
-            featuredPickId={null}
           />
         </div>
       ))}
