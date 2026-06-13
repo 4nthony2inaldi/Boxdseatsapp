@@ -161,10 +161,12 @@ export default async function UserProfilePage({ params }: Props) {
       </div>
       <StatsRow
         stats={stats}
+        eventsHref={`/user/${username}/timeline`}
+        venuesHref={`/user/${username}/venues`}
         followersHref={`/user/${username}/followers`}
         followingHref={`/user/${username}/following`}
       />
-      <BigFourSection items={bigFour} linkable={false} />
+      <BigFourSection items={bigFour} hrefBase={`/user/${username}/favorites`} />
       <ActivityChart months={activityData.months} total={activityData.total} timelineHref={`/user/${username}/timeline`} />
       <PinnedLists lists={pinnedLists} />
       <BadgeSection badges={badges} tracked={trackedIncomplete} userId={profile.id} showTracked={pinnedLists.length === 0} />

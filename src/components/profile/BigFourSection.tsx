@@ -6,9 +6,15 @@ import BigFourCard from "./BigFourCard";
 type BigFourSectionProps = {
   items: BigFourItem[];
   linkable?: boolean;
+  /** Base path for the per-category drill-in (no trailing slash). */
+  hrefBase?: string;
 };
 
-export default function BigFourSection({ items, linkable = true }: BigFourSectionProps) {
+export default function BigFourSection({
+  items,
+  linkable = true,
+  hrefBase = "/profile/favorites",
+}: BigFourSectionProps) {
   return (
     <div className="px-4 mb-5">
       <SectionLabel>The Big Four</SectionLabel>
@@ -17,7 +23,7 @@ export default function BigFourSection({ items, linkable = true }: BigFourSectio
           linkable ? (
             <Link
               key={item.category}
-              href={`/profile/favorites/${item.category}`}
+              href={`${hrefBase}/${item.category}`}
               className="flex-1 min-w-0"
             >
               <BigFourCard item={item} />
