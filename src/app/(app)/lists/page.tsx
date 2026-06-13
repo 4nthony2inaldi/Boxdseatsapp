@@ -7,7 +7,8 @@ import {
 } from "@/lib/queries/lists";
 import Link from "next/link";
 import SectionLabel from "@/components/profile/SectionLabel";
-import SportIcon from "@/components/SportIcon";
+import ListCard from "@/components/lists/ListCard";
+import ListsBrowser from "@/components/lists/ListsBrowser";
 import { ListIcon } from "@/components/icons";
 
 export default async function ListsPage({
@@ -151,90 +152,17 @@ export default async function ListsPage({
         </div>
       )}
 
-      {/* My Lists */}
-      {!showOnlyCreated && userLists.length > 0 && (
-        <div className="mb-6">
-          <SectionLabel>My Lists</SectionLabel>
-          <div className="space-y-4">
-            {userLists.map((list) => (
-              <ListCard key={list.id} list={list} />
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* Following */}
-      {!showOnlyCreated && followedLists.length > 0 && (
-        <div className="mb-6">
-          <SectionLabel>Following</SectionLabel>
-          <div className="space-y-4">
-            {followedLists.map((list) => (
-              <ListCard
-                key={list.id}
-                list={list}
-                subtitle={
-                  list.creator_display_name || list.creator_username
-                    ? `by ${list.creator_display_name || list.creator_username}`
-                    : undefined
-                }
-              />
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* Challenges, grouped by sport */}
-      {!showOnlyCreated && systemLists.length > 0 && (
-        <div className="mb-6">
-          <SectionLabel>Challenges</SectionLabel>
-          {(() => {
-            const sportOrder = [
-              "baseball",
-              "football",
-              "basketball",
-              "hockey",
-              "soccer",
-              "golf",
-              "tennis",
-              "motorsports",
-            ];
-            const sportLabels: Record<string, string> = {
-              baseball: "Baseball",
-              football: "Football",
-              basketball: "Basketball",
-              hockey: "Hockey",
-              soccer: "Soccer",
-              golf: "Golf",
-              tennis: "Tennis",
-              motorsports: "Motorsports",
-            };
-            const groups = sportOrder
-              .map((sport) => ({
-                sport,
-                lists: systemLists.filter((l) => l.sport === sport),
-              }))
-              .filter((g) => g.lists.length > 0);
-            const ungrouped = systemLists.filter(
-              (l) => !l.sport || !sportOrder.includes(l.sport)
-            );
-            if (ungrouped.length > 0)
-              groups.push({ sport: "other", lists: ungrouped });
-
-            return groups.map((group) => (
-              <div key={group.sport} className="mb-5 last:mb-0">
-                <div className="font-display text-[11px] text-text-muted tracking-[1.5px] uppercase mb-2">
-                  {sportLabels[group.sport] || "More"}
-                </div>
-                <div className="space-y-3">
-                  {group.lists.map((list) => (
-                    <ListCard key={list.id} list={list} showIcon />
-                  ))}
-                </div>
-              </div>
-            ));
-          })()}
-        </div>
-      )}
+      {/* Browsable lists: search + My Lists, Following, and sport accordions */}
+      {!showOnlyCreated &&
+        (systemLists.length > 0 ||
+          userLists.length > 0 ||
+          followedLists.length > 0) && (
+          <ListsBrowser
+            userLists={userLists}
+            followedLists={followedLists}
+            systemLists={systemLists}
+          />
+        )}
 
       {/* Empty state — only if no lists at all */}
       {!showOnlyCreated &&
@@ -264,64 +192,5 @@ export default async function ListsPage({
           </div>
         )}
     </div>
-  );
-}
-
-// ── Reusable list card ──
-
-function ListCard({
-  list,
-  subtitle,
-  showIcon,
-}: {
-  list: {
-    id: string;
-    name: string;
-    description: string | null;
-    icon: string;
-    item_count: number;
-    visited: number;
-  };
-  subtitle?: string;
-  showIcon?: boolean;
-}) {
-  const pct =
-    list.item_count > 0
-      ? Math.round((list.visited / list.item_count) * 100)
-      : 0;
-
-  return (
-    <Link href={`/lists/${list.id}`} className="block">
-      <div className="rounded-xl border border-border bg-bg-card p-4 flex items-center gap-4 cursor-pointer hover:border-accent active:scale-[0.99] transition-[transform,border-color]">
-        {showIcon && list.icon && <SportIcon src={list.icon} size={28} />}
-        <div className="flex-1 min-w-0">
-          <div className="font-display text-sm tracking-wider text-text-primary">
-            {list.name}
-          </div>
-          {subtitle && (
-            <div className="text-text-muted text-xs mt-0.5">{subtitle}</div>
-          )}
-          {!subtitle && list.description && (
-            <div className="text-text-muted text-xs mt-0.5 line-clamp-1">
-              {list.description}
-            </div>
-          )}
-          <div className="text-text-secondary text-xs mt-1">
-            {list.visited} of {list.item_count}
-          </div>
-        </div>
-        <div className="w-16 shrink-0">
-          <div className="text-right text-[11px] text-text-muted font-display mb-1">
-            {pct}%
-          </div>
-          <div className="w-full h-1.5 rounded-full bg-bg-elevated overflow-hidden">
-            <div
-              className="h-full rounded-full bg-gradient-to-r from-accent to-accent-hover transition-all"
-              style={{ width: `${pct}%` }}
-            />
-          </div>
-        </div>
-      </div>
-    </Link>
   );
 }
