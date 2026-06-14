@@ -45,6 +45,7 @@ export const LEAGUES = {
   BUNDESLIGA: { slug: "ger.1", color: "#D20515", icon: "/soccer.svg", sport: "soccer" },
   SERIEA: { slug: "ita.1", color: "#0066A0", icon: "/soccer.svg", sport: "soccer" },
   LIGUE1: { slug: "fra.1", color: "#091C3E", icon: "/soccer.svg", sport: "soccer" },
+  WORLDCUP: { slug: "fifa.world", color: "#3A206B", icon: "/soccer.svg", sport: "soccer" },
   NCAAM: { slug: "ncaam", color: "#0C2340", icon: "/basketball.svg", sport: "basketball" },
   NCAAW: { slug: "ncaaw", color: "#0C2340", icon: "/basketball.svg", sport: "basketball" },
   PGA: { slug: "pga-tour", color: "#003B2F", icon: "/golf.svg", sport: "golf" },
