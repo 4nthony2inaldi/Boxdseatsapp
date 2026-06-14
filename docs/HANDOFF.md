@@ -2996,3 +2996,12 @@ Strategy: marquee events that don't fit league+season (World Cup, all-star games
 
 ### Next (agreed scope, not yet done)
 All-star backfill ~2002+: MLB All-Star Game, NBA All-Star (mini-tournament games), NHL All-Star, NFL Pro Bowl, MLS All-Star — as neutral exhibitions; plus curated Home Run Derby + Dunk/3-Point. User explicitly **declined** extending the forward-discovery window (it's a ticketing concern; retrospective logging doesn't need it — events are loggable by navigating to them regardless).
+
+### Shipped — All-star / exhibition backfill (2002+)
+`scripts/data/seed-all-star-events.mjs` (applied to prod). 115 all-star **games** + 64 curated **skills comps** = 179 special events, all modeled as neutral tournament-style events (`event_template='field'`, no FK teams, clean `tournament_name`) under their existing league — so no frontend changes were needed (they render like golf/tennis tournaments and inherit league icon/filter/feed).
+- Games: MLB 22, NBA 26, NHL 32, NFL Pro Bowl 20, MLS 15 (2002–2026 where they existed; NHL correctly absent 2025 (4 Nations) / 2026 (Olympics)).
+- Skills (derived from each game anchor — same venue, day before): Home Run Derby ×22, Slam Dunk ×21, 3-Point ×21.
+- Detection: `/all[- ]star|pro bowl/` on name+note+competitors, which cleanly excludes the regular-season games in the same weeks. MLB pulled by single date (July range hits ESPN's 100-row cap). Missing venues filled from the summary endpoint + a curated host map; renamed buildings mapped to existing rows so no venue dupes (Daikin→Minute Maid, Lenovo→PNC, Rocket Arena→Rocket Mortgage FieldHouse, etc.). Corrected ESPN's mistagged 2003 MLB ASG (→ Guaranteed Rate Field); dropped COVID-canceled 2020 MLS ASG; created only Moscone Center (2026 Pro Bowl).
+- Verified: the **2026 Philly marquee set is live** — MLB All-Star Game (Citizens Bank Park, Jul 14) + Home Run Derby (CBP, Jul 13). Event pages render e.g. "MLB · All-Star / Home Run Derby / Citizens Bank Park / I WAS THERE".
+
+The special-events backlog (World Cup + all-star) is now **done**. Remaining future ideas unchanged (stadium map, share card, multi-photo logs, European-club-league sync coverage).
