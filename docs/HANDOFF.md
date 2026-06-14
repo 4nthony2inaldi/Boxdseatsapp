@@ -3005,3 +3005,14 @@ All-star backfill ~2002+: MLB All-Star Game, NBA All-Star (mini-tournament games
 - Verified: the **2026 Philly marquee set is live** — MLB All-Star Game (Citizens Bank Park, Jul 14) + Home Run Derby (CBP, Jul 13). Event pages render e.g. "MLB · All-Star / Home Run Derby / Citizens Bank Park / I WAS THERE".
 
 The special-events backlog (World Cup + all-star) is now **done**. Remaining future ideas unchanged (stadium map, share card, multi-photo logs, European-club-league sync coverage).
+
+## Session 16 (cont.) — Admin role + panel
+Replaces one-off account cleanup with a real admin surface.
+- **`016-admin-users.sql`** (applied): `admin_users(user_id PK → profiles)` table, RLS = read-your-own-row only, **no write policy** (service-role grants only — chosen over a `profiles.is_admin` column because the profiles UPDATE policy is `id = auth.uid()` with no column guard, i.e. a column would be self-grantable). Seeded `anthony`.
+- **`isAdmin()` / `fetchAllUsersForAdmin()`** in `src/lib/queries/admin.ts` (roster joins auth emails via service role).
+- **`/admin`** (`(app)/admin/page.tsx`): server-gated — `notFound()` for non-admins so the route isn't discoverable; lists every user (email, username, logs, created) with delete. Entry point = conditional row in Settings (admins only).
+- **`/api/admin/delete-user`**: re-verifies the caller is admin from their session, then service-role storage purge + `auth.admin.deleteUser` (full cascade). Guards: can't delete yourself or another admin.
+- **To grant admin:** `insert into admin_users (user_id) select id from profiles where username='X';` (service role / Management API only).
+- Verified end-to-end: non-admin → 404 + 403; admin → page loads/lists/deletes (deleted claudeverify2 — profile AND auth row gone, proving cascade); self + admin deletes blocked. Account-deletion cascade graph confirmed clean (all owned tables CASCADE from profiles; companion tags / created lists / notification actor degrade via SET NULL; `profiles.id → auth.users` is CASCADE).
+
+Remaining test accounts to triage (owner's call): tony, t2r, t123, n8 (throwaway) vs santoo2008/Santosh, n8c/Nate, juliansmom/Genevieve (look like real testers). claudeverify/claudeverify2 cleaned up (verify2 deleted; verify kept as the rig login).
