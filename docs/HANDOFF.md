@@ -3016,3 +3016,9 @@ Replaces one-off account cleanup with a real admin surface.
 - Verified end-to-end: non-admin → 404 + 403; admin → page loads/lists/deletes (deleted claudeverify2 — profile AND auth row gone, proving cascade); self + admin deletes blocked. Account-deletion cascade graph confirmed clean (all owned tables CASCADE from profiles; companion tags / created lists / notification actor degrade via SET NULL; `profiles.id → auth.users` is CASCADE).
 
 Remaining test accounts to triage (owner's call): tony, t2r, t123, n8 (throwaway) vs santoo2008/Santosh, n8c/Nate, juliansmom/Genevieve (look like real testers). claudeverify/claudeverify2 cleaned up (verify2 deleted; verify kept as the rig login).
+
+### Admin: Reset onboarding (testing tool)
+Onboarding is gated by BOTH `auth.user_metadata.onboarding_completed` AND `profiles.fav_sport` (middleware + `/onboarding` page redirect away if either is set), so revisiting `/onboarding` alone bounces to `/profile`.
+- **`/api/admin/reset-onboarding`** (admin-only): service-role clears the metadata flag (merged) + sets `fav_sport=null` → re-arms the flow ("light" reset; doesn't wipe other data).
+- Admin panel: per-row **"Reset onboarding"** button. On your OWN row it routes you straight to `/onboarding`; on others it shows "re-armed ✓" (they hit the flow on next navigation).
+- Verified: reset flipped both signals and dropped the account into "Step 1 of 4". `getUser()` reads live metadata so the redirect takes effect immediately.

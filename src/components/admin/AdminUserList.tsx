@@ -17,6 +17,26 @@ export default function AdminUserList({
   const [confirmId, setConfirmId] = useState<string | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
   const [removed, setRemoved] = useState<Set<string>>(new Set());
+  const [resetId, setResetId] = useState<string | null>(null);
+  const [resetDone, setResetDone] = useState<Set<string>>(new Set());
+
+  async function handleReset(id: string, isSelf: boolean) {
+    setResetId(id);
+    const res = await fetch("/api/admin/reset-onboarding", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ userId: id }),
+    });
+    const json = await res.json().catch(() => ({}));
+    setResetId(null);
+    if (!res.ok) {
+      toastError(json.error || "Failed to reset onboarding.");
+      return;
+    }
+    // Resetting your own account: walk the flow now. Otherwise confirm inline.
+    if (isSelf) router.push("/onboarding");
+    else setResetDone((prev) => new Set(prev).add(id));
+  }
 
   async function handleDelete(id: string) {
     setBusyId(id);
@@ -68,6 +88,18 @@ export default function AdminUserList({
               </div>
             </div>
 
+            {resetDone.has(u.id) ? (
+              <span className="text-[11px] text-win">re-armed ✓</span>
+            ) : (
+              <button
+                onClick={() => handleReset(u.id, isSelf)}
+                disabled={resetId === u.id}
+                title="Re-trigger the onboarding flow for this account"
+                className="text-xs text-text-muted hover:text-accent transition-colors px-2 py-1 disabled:opacity-50"
+              >
+                {resetId === u.id ? "…" : "Reset onboarding"}
+              </button>
+            )}
             {isSelf ? (
               <span className="text-[11px] text-text-muted">you</span>
             ) : u.is_admin ? (
