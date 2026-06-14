@@ -18,6 +18,7 @@ const LEAGUE_PATHS: Record<string, string> = {
   mlb: "baseball/mlb",
   nhl: "hockey/nhl",
   mls: "soccer/usa.1",
+  "fifa.world": "soccer/fifa.world",
 };
 
 const LEAGUE_SPORTS: Record<string, string> = {
@@ -26,6 +27,7 @@ const LEAGUE_SPORTS: Record<string, string> = {
   mlb: "baseball",
   nhl: "hockey",
   mls: "soccer",
+  "fifa.world": "soccer",
 };
 
 type EspnEvent = {

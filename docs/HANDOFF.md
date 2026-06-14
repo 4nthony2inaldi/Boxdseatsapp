@@ -2981,3 +2981,18 @@ Migration `015-companion-consent-colog.sql` (applied to prod). Turns the always-
 - **fan record / stats:** the co-log is a normal `event_logs` row owned by the tagged user, so it counts everywhere; starts neutral (excluded from W/L) until they set rooting in the editor. The `auto_visit_venue` trigger records their venue visit.
 
 **Deferred (Phase 3):** true multi-photo-per-log (today: one `photo_url`/log; the event-level gallery already pools co-attendees' photos by `event_id`, so a shared album reads correctly). Also: distinguishing free-text vs real-account chips in the log editor; a stale duplicate companion notification can show buttons mapping to the same live tag (harmless — both act on it).
+
+## Session 16 — Special / non-league events (World Cup first)
+Strategy: marquee events that don't fit league+season (World Cup, all-star games, exhibitions) are seeded as deliberate **competitions**, modeled with the existing events table — team-vs-team like soccer/MLB, or tournament-style (tournament_name, no FK teams) like golf/tennis. `events.league_id` is NOT NULL, so a "non-league" event still needs a league/competition row; we already stretch "league" to mean competition (NCAA tourneys, golf tours).
+
+### Shipped — FIFA World Cup 2026 (`fifa.world`)
+- `scripts/data/seed-world-cup.mjs`: pulls all 104 matches from ESPN `soccer/fifa.world`, **reuses the 13 existing US/CA host venues by exact name** (so a WC match at the Linc unifies with people's NFL venue history) and creates only the 3 Mexican stadiums (hand-geocoded). 48 national teams (espn ids namespaced `fifa:<id>`). Group matches carry both teams; 32 knockout matches are placeholders (round label) until the bracket resolves — re-run to refresh. Idempotent (wipe + re-insert). Applied to prod via Management API.
+- Wired into frontend: `constants.ts` (WORLDCUP), `sportIcons.ts` (LEAGUE_SPORT_MAP + LEAGUES_LIST), `event.ts` LEAGUE_CONFIG. Verified the event page renders "FIFA World Cup · Group Stage / ECU vs CIV / Lincoln Financial Field / I WAS THERE".
+- Added `fifa.world` to the **hourly sync** (`api/sync-events`) — it previously covered only the 5 US majors (hardcoded LEAGUE_PATHS), so European leagues + WC weren't refreshing. WC scores/dates now update live during the tournament. (Note: European club leagues still aren't in the sync — separate gap.)
+
+### ESPN coverage findings (for the all-star backlog)
+- **All-star GAMES** exist on scoreboards historically (MLB ASG 2005 ✓, NHL/NBA ✓) but use throwaway "teams" (American All-Stars, Team Shaq, Team McDavid) → model as **neutral exhibitions, tournament-style** (no FK teams), not real matchups. Our seed skips them today (unknown teams + a deliberate Pro Bowl conference filter).
+- **Skills competitions are NOT in the scoreboard API** (Home Run Derby returns 0; Dunk/3PT absent) → need a **curated** hand-seed per year.
+
+### Next (agreed scope, not yet done)
+All-star backfill ~2002+: MLB All-Star Game, NBA All-Star (mini-tournament games), NHL All-Star, NFL Pro Bowl, MLS All-Star — as neutral exhibitions; plus curated Home Run Derby + Dunk/3-Point. User explicitly **declined** extending the forward-discovery window (it's a ticketing concern; retrospective logging doesn't need it — events are loggable by navigating to them regardless).

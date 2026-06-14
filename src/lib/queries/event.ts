@@ -88,6 +88,7 @@ const LEAGUE_CONFIG: Record<string, { icon: string; color: string }> = {
   mlb: { icon: "/baseball.svg", color: "#002D72" },
   nhl: { icon: "/hockey.svg", color: "#000000" },
   mls: { icon: "/soccer.svg", color: "#5B2C82" },
+  "fifa.world": { icon: "/soccer.svg", color: "#3A206B" },
   "pga-tour": { icon: "/golf.svg", color: "#003B2F" },
   pga: { icon: "/golf.svg", color: "#003B2F" },
 };
