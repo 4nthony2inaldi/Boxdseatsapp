@@ -67,6 +67,7 @@ export async function GET(_req: Request, { params }: { params: Promise<{ usernam
     [data.stats.winPct !== null ? `${data.stats.winPct}%` : "—", "FAN WIN%", true],
   ];
   const heroRing = data.topComplete[0] ?? null;
+  const teams = data.teams;
   const { landPath, bubbles } = buildPassportMap(data.venues, MAP_W, MAP_H, 20);
 
   return new ImageResponse(
@@ -102,9 +103,22 @@ export async function GET(_req: Request, { params }: { params: Promise<{ usernam
         {/* Divider */}
         <div style={{ display: "flex", height: 2, background: ACCENT, opacity: 0.5, marginTop: 18, marginBottom: 20 }} />
 
-        {/* Body: hero ring | map */}
+        {/* Body: teams + hero ring | map */}
         <div style={{ display: "flex", flex: 1 }}>
-          <div style={{ display: "flex", width: 300, alignItems: "center", justifyContent: "center" }}>
+          <div style={{ display: "flex", width: 300, flexDirection: "column", alignItems: "center", justifyContent: "center" }}>
+            {teams.length > 0 && (
+              <div style={{ display: "flex", marginBottom: 26 }}>
+                {teams.map((t, i) => (
+                  <div key={t.id} style={{ display: "flex", marginLeft: i === 0 ? 0 : 12, width: 52, height: 52, borderRadius: 999, background: "#1C2530", alignItems: "center", justifyContent: "center", overflow: "hidden" }}>
+                    {t.logo_url ? (
+                      <img src={t.logo_url} width={42} height={42} style={{ objectFit: "contain" }} alt="" />
+                    ) : (
+                      <div style={{ display: "flex", fontSize: 14, fontWeight: 700, color: SUB }}>{t.name.slice(0, 3).toUpperCase()}</div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
             {heroRing ? <BigRing ring={heroRing} /> : null}
           </div>
           <div style={{ display: "flex", flex: 1, marginLeft: 24, borderRadius: 20, overflow: "hidden", background: "#0F1620" }}>
