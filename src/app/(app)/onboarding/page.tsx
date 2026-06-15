@@ -1,7 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
 import OnboardingFlow from "@/components/onboarding/OnboardingFlow";
-import { fetchAllVenues } from "@/lib/queries/onboarding";
 
 export default async function OnboardingPage() {
   const supabase = await createClient();
@@ -30,16 +29,9 @@ export default async function OnboardingPage() {
     redirect("/profile");
   }
 
-  // Fetch all venues for step 3
-  const allVenues = await fetchAllVenues(supabase);
-
   return (
     <div className="max-w-lg mx-auto min-h-screen">
-      <OnboardingFlow
-        userId={user.id}
-        initialUsername={profile.username}
-        allVenues={allVenues}
-      />
+      <OnboardingFlow userId={user.id} initialUsername={profile.username} />
     </div>
   );
 }

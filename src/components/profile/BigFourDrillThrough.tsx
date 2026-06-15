@@ -35,6 +35,8 @@ type Props = {
   userId: string;
   category: "team" | "venue" | "athlete" | "event";
   initialFavorites: LeagueFavorite[];
+  /** Fires whenever the pick set changes — used to drive onboarding progress. */
+  onChange?: (summary: { count: number; topName: string | null }) => void;
 };
 
 type SearchResult = { id: string; label: string; subtitle?: string };
@@ -50,6 +52,7 @@ export default function BigFourDrillThrough({
   userId,
   category,
   initialFavorites,
+  onChange,
 }: Props) {
   const [favorites, setFavorites] = useState(
     [...initialFavorites].sort((a, b) => a.rank - b.rank)
@@ -70,6 +73,12 @@ export default function BigFourDrillThrough({
 
   const pickedSlugs = new Set(favorites.map((f) => f.league_slug));
   const unpickedLeagues = ALL_LEAGUES.filter((l) => !pickedSlugs.has(l.slug));
+
+  // Report progress (headliner is the lowest-rank pick) for onboarding.
+  useEffect(() => {
+    onChange?.({ count: favorites.length, topName: favorites[0]?.pick_name ?? null });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [favorites]);
 
   // ── Drag-to-reorder (pointer based, works on touch + mouse) ──
   useEffect(() => {
