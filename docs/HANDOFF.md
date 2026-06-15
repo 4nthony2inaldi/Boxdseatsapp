@@ -3035,3 +3035,8 @@ Reworked onboarding from a 4-step form into a 3-act "build your fan card" flow g
 - Removed StepFavorites/StepVenues/StepFirstEvent (replaced).
 
 **Deferred / noted:** the venue act uses text search (reused picker) rather than the "drillable by sport / home-city-first browse" the owner floated — a good next enhancement. Manual best-games can't headline the Event card (fav_event_id FKs to events); real-event search covers the target user.
+
+### Onboarding refinements (same session)
+- **Best game is now a real venue → date → event flow** (StepBestGame reuses the log flow's `StepVenue`/`StepDate`/`StepEvent`) instead of a freeform event search that looked unrealistic. Picking a listed event logs + features it; "log another" seeds the timeline with `feature=false` so it doesn't steal the headliner. Manual (no listed event) shows a toast rather than featuring (fav_event_id FKs to events). `logAndFeatureBestGame` gained a `feature` flag; `searchEvents` is now unused by onboarding (kept as a utility).
+- **Favorite player no longer gates Act 1** — only a team is required to advance ("not intuitive to force a player"). Players remain offered and fill the Athlete card if added; otherwise that card is simply "Not set" (Big Four no longer hard-requires it).
+- Verified: team-only advances Act 1; venue→date→event picks "Rays @ Yankees" and fills the Event card; profile completes with the Athlete card optional.

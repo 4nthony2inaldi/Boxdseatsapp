@@ -43,7 +43,8 @@ export default function OnboardingFlow({ userId, initialUsername }: OnboardingFl
     }
   }
 
-  const canLeaveRootFor = progress.team.count > 0 && progress.athlete.count > 0;
+  // A team is required to advance; a favorite player is encouraged but optional.
+  const canLeaveRootFor = progress.team.count > 0;
   const canLeaveVenues = progress.venue.count > 0;
 
   return (

@@ -23,7 +23,7 @@ export default function StepRootFor({ userId, canNext, onTeamChange, onAthleteCh
         Who do you root for?
       </h2>
       <p className="text-sm text-text-secondary mb-5">
-        Add a team and a player for each league you follow. Your first pick in each headlines your profile — the rest stack behind it.
+        Add your teams — one per league you follow — and any players you love (optional). Your first pick in each headlines your profile; the rest stack behind it.
       </p>
 
       <div className="flex gap-1.5 mb-4">
@@ -60,7 +60,7 @@ export default function StepRootFor({ userId, canNext, onTeamChange, onAthleteCh
         <button
           onClick={onNext}
           disabled={!canNext}
-          title={canNext ? "" : "Add at least one team and one player"}
+          title={canNext ? "" : "Add at least one team"}
           className="flex-[2] py-3.5 rounded-xl font-display text-base tracking-widest text-white disabled:opacity-40 active:opacity-80 transition-opacity"
           style={{ background: "linear-gradient(135deg, var(--color-accent), var(--color-accent-brown))" }}
         >
