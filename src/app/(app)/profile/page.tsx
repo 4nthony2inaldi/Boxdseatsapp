@@ -70,7 +70,7 @@ export default async function ProfilePage() {
       <PinnedLists lists={pinnedLists} />
       <BadgeSection badges={badges} tracked={trackedIncomplete} userId={user.id} showTracked={pinnedLists.length === 0} />
       <LatestEvent entry={latestEvent} canEdit viewerId={user.id} />
-      <SummaryRows counts={summaryCounts} />
+      <SummaryRows counts={summaryCounts} passportHref={`/@${profile.username}/passport`} />
       {/* Share Profile */}
       <div className="px-4 mt-4">
         <ShareButton
