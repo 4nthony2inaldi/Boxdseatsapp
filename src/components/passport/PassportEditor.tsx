@@ -1,0 +1,147 @@
+"use client";
+
+import { useState } from "react";
+import { useRouter } from "next/navigation";
+import { createClient } from "@/lib/supabase/client";
+import SportIcon from "@/components/SportIcon";
+import { toastError } from "@/components/Toaster";
+import type { PassportListOption } from "@/lib/queries/passport";
+
+const SECTIONS = [
+  { key: "map", label: "Map" },
+  { key: "rings", label: "Bucket list" },
+  { key: "topVenues", label: "Top venues" },
+  { key: "sports", label: "By sport" },
+];
+
+export default function PassportEditor({
+  userId,
+  username,
+  options,
+  initialSelected,
+  initialHidden,
+}: {
+  userId: string;
+  username: string;
+  options: PassportListOption[];
+  initialSelected: string[];
+  initialHidden: string[];
+}) {
+  const router = useRouter();
+  const [selected, setSelected] = useState<string[]>(initialSelected);
+  const [hidden, setHidden] = useState<Set<string>>(new Set(initialHidden));
+  const [saving, setSaving] = useState(false);
+  const supabase = createClient();
+
+  const selectedSet = new Set(selected);
+
+  function toggleList(id: string) {
+    setSelected((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
+  }
+  function toggleSection(key: string) {
+    setHidden((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return next;
+    });
+  }
+
+  async function save() {
+    setSaving(true);
+    // Keep rings in the editor's display order (most-progressed first).
+    const lists = options.filter((o) => selectedSet.has(o.id)).map((o) => o.id);
+    const { error } = await supabase
+      .from("profiles")
+      .update({ passport_config: { lists, hidden: [...hidden] } })
+      .eq("id", userId);
+    setSaving(false);
+    if (error) { toastError("Couldn't save. Please try again."); return; }
+    router.push(`/u/${username}/passport`);
+    router.refresh();
+  }
+
+  return (
+    <div className="max-w-lg mx-auto pb-28">
+      <div className="flex items-center gap-3 px-4 py-3 border-b border-border">
+        <button onClick={() => router.push(`/u/${username}/passport`)} className="p-1 hover:opacity-80">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--color-text-secondary)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <polyline points="15 18 9 12 15 6" />
+          </svg>
+        </button>
+        <h1 className="font-display text-lg text-text-primary tracking-wide">Edit Passport</h1>
+      </div>
+
+      {/* Section toggles */}
+      <div className="px-4 pt-4">
+        <div className="font-display text-[11px] text-text-muted tracking-[1.5px] uppercase mb-2">Sections</div>
+        <div className="rounded-xl border border-border bg-bg-card overflow-hidden">
+          {SECTIONS.map((s) => {
+            const on = !hidden.has(s.key);
+            return (
+              <button
+                key={s.key}
+                onClick={() => toggleSection(s.key)}
+                className="w-full flex items-center justify-between px-4 py-3 border-b border-border last:border-b-0 active:opacity-70"
+              >
+                <span className="text-sm text-text-primary">{s.label}</span>
+                <span
+                  className="w-10 h-6 rounded-full p-0.5 transition-colors flex"
+                  style={{ background: on ? "var(--color-accent)" : "var(--color-bg-input)", justifyContent: on ? "flex-end" : "flex-start" }}
+                >
+                  <span className="w-5 h-5 rounded-full bg-white" />
+                </span>
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* Ring picker */}
+      <div className="px-4 pt-5">
+        <div className="font-display text-[11px] text-text-muted tracking-[1.5px] uppercase mb-2">
+          Bucket-list rings ({selected.length})
+        </div>
+        <div className="rounded-xl border border-border bg-bg-card overflow-hidden">
+          {options.map((o) => {
+            const on = selectedSet.has(o.id);
+            return (
+              <button
+                key={o.id}
+                onClick={() => toggleList(o.id)}
+                className="w-full flex items-center gap-3 px-4 py-3 border-b border-border last:border-b-0 active:opacity-70"
+              >
+                <SportIcon sport={o.sport} size={20} />
+                <div className="flex-1 min-w-0 text-left">
+                  <div className="text-sm text-text-primary truncate">{o.name}</div>
+                  <div className="text-xs text-text-muted">{o.visited}/{o.total} visited</div>
+                </div>
+                <span
+                  className="w-5 h-5 rounded-md border flex items-center justify-center flex-shrink-0"
+                  style={{ borderColor: on ? "var(--color-accent)" : "var(--color-border)", background: on ? "var(--color-accent)" : "transparent" }}
+                >
+                  {on && (
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                      <polyline points="20 6 9 17 4 12" />
+                    </svg>
+                  )}
+                </span>
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
+      <div className="px-4 mt-6">
+        <button
+          onClick={save}
+          disabled={saving}
+          className="w-full py-3.5 rounded-xl font-display text-base tracking-widest text-white disabled:opacity-50"
+          style={{ background: "linear-gradient(135deg, var(--color-accent), var(--color-accent-brown))" }}
+        >
+          {saving ? "SAVING…" : "SAVE PASSPORT"}
+        </button>
+      </div>
+    </div>
+  );
+}

@@ -3065,3 +3065,9 @@ A public, shareable overview page at `/u/[username]/passport` (reachable via `/@
 - Verified for anthony: 153/54/48/66%, 69 map bubbles, rings, top venues, sport bars all render; nav link present.
 
 **Next (PR B, this feature):** owner Edit (pick which list rings + section toggles, writes `passport_config`) and a passport OG share image (`/u/[username]/passport/og`). The PassportView `editHref` prop is already wired (unset until the edit route exists).
+
+### Fan Passport — edit + share image (same feature, PR completes it)
+- **Edit** (`/profile/passport/edit`, owner-only): `PassportEditor` lets you toggle which **sections** show (map/rings/top venues/by sport → `passport_config.hidden`) and pick which venue lists become **rings** (`passport_config.lists`). `fetchPassportListOptions` lists all system + own venue lists with visited/total. Default selection = top-6 most-progressed. PassportView's `editHref` shows the Edit link to the owner. `PassportView` now hides sections per `hidden`.
+- **Share image**: `/u/[username]/passport/og` (next/og, edge) — name + the four big stats + top-3 ring chips; wired into the passport page's `openGraph`/`twitter` metadata. (satori gotcha: every multi-child div needs `display:flex`; "boxdseats.com/@x/passport" had to be one template-literal child.)
+- Gotcha fixed: the edit page is under the (app) layout (which has BottomNav, z-50), so a `fixed bottom-0` save bar was covered by the nav — made Save inline instead.
+- Verified: edit saves `{lists,hidden}` and redirects; OG renders 200 image/png (stats + rings).

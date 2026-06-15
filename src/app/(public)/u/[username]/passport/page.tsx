@@ -15,9 +15,19 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { data: profile } = await supabase.from("profiles").select("display_name, username").eq("username", username).maybeSingle();
   if (!profile) return { title: "Fan Passport" };
   const name = profile.display_name || `@${profile.username}`;
+  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://boxdseats.com";
+  const ogUrl = `${siteUrl}/u/${username}/passport/og`;
+  const description = `${name}'s games, venues, and bucket-list progress on BoxdSeats.`;
   return {
     title: `${name}'s Fan Passport | BoxdSeats`,
-    description: `${name}'s games, venues, and bucket-list progress on BoxdSeats.`,
+    description,
+    openGraph: {
+      title: `${name}'s Fan Passport | BoxdSeats`,
+      description,
+      url: `${siteUrl}/@${username}/passport`,
+      images: [{ url: ogUrl, width: 1200, height: 630 }],
+    },
+    twitter: { card: "summary_large_image", title: `${name}'s Fan Passport`, description, images: [ogUrl] },
   };
 }
 
@@ -71,6 +81,7 @@ export default async function PassportPage({ params }: Props) {
         displayName={profile.display_name}
         avatarUrl={profile.avatar_url}
         data={data}
+        editHref={isOwner ? "/profile/passport/edit" : undefined}
         backHref={backHref}
       />
     </div>

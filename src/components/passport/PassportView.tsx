@@ -59,7 +59,8 @@ type Props = {
 };
 
 export default function PassportView({ username, displayName, avatarUrl, data, editHref, backHref }: Props) {
-  const { stats, venues, topVenues, rings, sports } = data;
+  const { stats, venues, topVenues, rings, sports, hidden } = data;
+  const show = (k: string) => !hidden.includes(k);
   const maxSportGames = Math.max(1, ...sports.map((s) => s.games));
   const name = displayName || `@${username}`;
 
@@ -108,13 +109,15 @@ export default function PassportView({ username, displayName, avatarUrl, data, e
       </div>
 
       {/* Map */}
+      {show("map") && (
       <div className="px-4 mt-5">
         <div className="font-display text-[11px] text-text-muted tracking-[1.5px] uppercase mb-2">Where you&apos;ve been</div>
         <PassportMap venues={venues} />
       </div>
+      )}
 
       {/* Bucketlist rings */}
-      {rings.length > 0 && (
+      {show("rings") && rings.length > 0 && (
         <div className="px-4 mt-6">
           <div className="font-display text-[11px] text-text-muted tracking-[1.5px] uppercase mb-3">Bucket List</div>
           <div className="grid grid-cols-3 gap-y-4 gap-x-2">
@@ -124,7 +127,7 @@ export default function PassportView({ username, displayName, avatarUrl, data, e
       )}
 
       {/* Top venues */}
-      {topVenues.length > 0 && (
+      {show("topVenues") && topVenues.length > 0 && (
         <div className="mt-7">
           <div className="font-display text-[11px] text-text-muted tracking-[1.5px] uppercase mb-3 px-4">Top venues</div>
           <div className="flex gap-3 overflow-x-auto px-4 scroll-fade-x" style={{ scrollbarWidth: "none" }}>
@@ -146,7 +149,7 @@ export default function PassportView({ username, displayName, avatarUrl, data, e
       )}
 
       {/* Sport breakdown */}
-      {sports.length > 0 && (
+      {show("sports") && sports.length > 0 && (
         <div className="px-4 mt-7">
           <div className="font-display text-[11px] text-text-muted tracking-[1.5px] uppercase mb-3">By sport</div>
           <div className="space-y-2">

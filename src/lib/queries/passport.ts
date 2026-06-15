@@ -36,6 +36,17 @@ export type PassportData = {
   topVenues: PassportVenue[];
   rings: PassportRing[];
   sports: { sport: string; games: number; venues: number }[];
+  /** Section keys the owner has hidden (map | rings | topVenues | sports). */
+  hidden: string[];
+};
+
+export type PassportListOption = {
+  id: string;
+  name: string;
+  sport: string | null;
+  icon: string;
+  visited: number;
+  total: number;
 };
 
 type PassportConfig = { lists?: string[]; hidden?: string[] } | null;
@@ -146,5 +157,50 @@ export async function fetchPassport(
     topVenues,
     rings,
     sports,
+    hidden: Array.isArray(config?.hidden) ? config!.hidden : [],
   };
+}
+
+/**
+ * All venue lists the user could feature as rings (system + their own), each
+ * with the user's visited/total — for the passport editor.
+ */
+export async function fetchPassportListOptions(
+  supabase: SupabaseClient,
+  userId: string
+): Promise<PassportListOption[]> {
+  const { data: venueRows } = await supabase.rpc("passport_venues", { p_user: userId });
+  const visited = new Set((venueRows || []).map((v: PassportVenue) => v.venue_id));
+
+  const { data: lists } = await supabase
+    .from("lists")
+    .select("id, name, sport, item_count, source, created_by")
+    .eq("list_type", "venue")
+    .or(`source.eq.system,created_by.eq.${userId}`);
+  const ids = (lists || []).map((l) => l.id as string);
+
+  const byList = new Map<string, number>();
+  if (ids.length > 0) {
+    const { data: items } = await supabase
+      .from("list_items")
+      .select("list_id, venue_id")
+      .in("list_id", ids)
+      .not("venue_id", "is", null);
+    for (const it of items || []) {
+      if (visited.has(it.venue_id as string)) {
+        byList.set(it.list_id as string, (byList.get(it.list_id as string) || 0) + 1);
+      }
+    }
+  }
+
+  return (lists || [])
+    .map((l) => ({
+      id: l.id as string,
+      name: l.name as string,
+      sport: l.sport as string | null,
+      icon: getSportIconPath(l.sport) || "",
+      visited: byList.get(l.id as string) || 0,
+      total: (l.item_count as number) || 0,
+    }))
+    .sort((a, b) => b.visited - a.visited || b.total - a.total);
 }
