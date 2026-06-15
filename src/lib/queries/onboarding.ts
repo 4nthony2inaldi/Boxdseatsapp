@@ -127,25 +127,26 @@ export async function searchAthletes(
 }
 
 /**
- * Onboarding "best game": log the event for this user (so it seeds their
- * timeline + venue count via the auto_visit_venue trigger) and feature it as
- * the Big Four event. Idempotent on (user, event). Optional star rating.
+ * Onboarding "best game": log the event for this user (seeds their timeline +
+ * venue count via the auto_visit_venue trigger) and, when `feature` is true,
+ * set it as the Big Four event. Idempotent on (user, event). The first pick
+ * features; later "log another" picks pass feature=false so they don't steal
+ * the headliner.
  */
 export async function logAndFeatureBestGame(
   supabase: SupabaseClient,
   userId: string,
   eventId: string,
-  rating?: number | null
+  feature = true
 ): Promise<{ success: boolean } | { error: string }> {
   const { data: event } = await supabase
     .from("events")
     .select("venue_id, league_id, event_date, leagues(sport)")
     .eq("id", eventId)
     .single();
-  if (!event) return { error: "Couldn't find that game. Try another search." };
+  if (!event) return { error: "Couldn't find that game. Try another." };
   const sport = (event.leagues as unknown as { sport: string } | null)?.sport ?? null;
 
-  // Reuse an existing log for this event if the user already has one.
   const { data: existing } = await supabase
     .from("event_logs")
     .select("id")
@@ -161,21 +162,20 @@ export async function logAndFeatureBestGame(
       league_id: event.league_id,
       sport,
       event_date: event.event_date,
-      rating: rating ?? null,
       privacy: "show_all",
       is_neutral: true,
       outcome: "neutral",
     });
     if (error) return { error: "Couldn't log that game. Please try again." };
-  } else if (rating != null) {
-    await supabase.from("event_logs").update({ rating }).eq("id", existing.id);
   }
 
-  const { error: favErr } = await supabase
-    .from("profiles")
-    .update({ fav_event_id: eventId })
-    .eq("id", userId);
-  if (favErr) return { error: "Couldn't feature that game. Please try again." };
+  if (feature) {
+    const { error: favErr } = await supabase
+      .from("profiles")
+      .update({ fav_event_id: eventId })
+      .eq("id", userId);
+    if (favErr) return { error: "Couldn't feature that game. Please try again." };
+  }
   return { success: true };
 }
 
