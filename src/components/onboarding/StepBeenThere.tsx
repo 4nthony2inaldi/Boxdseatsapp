@@ -1,6 +1,6 @@
 "use client";
 
-import BigFourDrillThrough from "@/components/profile/BigFourDrillThrough";
+import VenueFavoritesPicker from "@/components/profile/VenueFavoritesPicker";
 
 type Summary = { count: number; topName: string | null };
 
@@ -22,7 +22,7 @@ export default function StepBeenThere({ userId, canNext, onVenueChange, onBack, 
         Add the venues you&apos;ve been to. Your top one becomes your featured venue — and they all count toward your venue total.
       </p>
 
-      <BigFourDrillThrough userId={userId} category="venue" initialFavorites={[]} onChange={onVenueChange} />
+      <VenueFavoritesPicker userId={userId} initialFavorites={[]} onChange={onVenueChange} />
 
       <div className="flex gap-3 mt-6">
         <button

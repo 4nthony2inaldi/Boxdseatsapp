@@ -94,18 +94,28 @@ export async function searchTeams(
 export async function searchVenuesForOnboarding(
   supabase: SupabaseClient,
   query: string,
-  limit = 10
-): Promise<{ id: string; name: string; city: string; state: string | null }[]> {
-  const pattern = `%${query.trim()}%`;
-  const { data } = await supabase
-    .from("venues")
-    .select("id, name, city, state")
-    .eq("status", "active")
-    .or(`name.ilike.${pattern},city.ilike.${pattern}`)
-    .order("name")
-    .limit(limit);
+  opts: { sport?: string | null; limit?: number } = {}
+): Promise<{ id: string; name: string; city: string; state: string | null; sport: string | null }[]> {
+  const { sport, limit = 30 } = opts;
+  const trimmed = query.trim();
+  // Nothing to show until the user types or picks a sport to browse.
+  if (!trimmed && !sport) return [];
 
-  return data || [];
+  let q = supabase
+    .from("venues")
+    .select("id, name, city, state, primary_sport")
+    .eq("status", "active");
+  if (sport) q = q.eq("primary_sport", sport);
+  if (trimmed) q = q.or(`name.ilike.%${trimmed}%,city.ilike.%${trimmed}%`);
+
+  const { data } = await q.order("name").limit(limit);
+  return (data || []).map((v) => ({
+    id: v.id,
+    name: v.name,
+    city: v.city,
+    state: v.state,
+    sport: v.primary_sport ?? null,
+  }));
 }
 
 export async function searchAthletes(

@@ -3040,3 +3040,13 @@ Reworked onboarding from a 4-step form into a 3-act "build your fan card" flow g
 - **Best game is now a real venue → date → event flow** (StepBestGame reuses the log flow's `StepVenue`/`StepDate`/`StepEvent`) instead of a freeform event search that looked unrealistic. Picking a listed event logs + features it; "log another" seeds the timeline with `feature=false` so it doesn't steal the headliner. Manual (no listed event) shows a toast rather than featuring (fav_event_id FKs to events). `logAndFeatureBestGame` gained a `feature` flag; `searchEvents` is now unused by onboarding (kept as a utility).
 - **Favorite player no longer gates Act 1** — only a team is required to advance ("not intuitive to force a player"). Players remain offered and fill the Athlete card if added; otherwise that card is simply "Not set" (Big Four no longer hard-requires it).
 - Verified: team-only advances Act 1; venue→date→event picks "Rays @ Yankees" and fills the Event card; profile completes with the Athlete card optional.
+
+### Venues → flat, sport-filtered, multi-add (same session)
+The venue picker no longer uses league rows (venues belong to a sport, not a league, and "where have you been?" wants many). New `VenueFavoritesPicker` (used in onboarding StepBeenThere AND the profile `/profile/favorites/venue` page): sport-filter chips (All + 8 sports) that browse venues by sport, a name/city search, and a ranked add-many list with drag-reorder + remove (#1 featured).
+- Migration `017-flat-venue-favorites.sql`: `user_league_favorites.league_id` now nullable; replaced the `(user,category,league)` unique with partial indexes — `(user,category,league) where category<>'venue'` (one pick per league for team/athlete/event) and `(user,venue_id) where category='venue'` (flat, de-duped venue list).
+- `bigfour.ts`: `addFlatVenueFavorite` (append, null league, idempotent); `fetchLeagueFavorites` now renders league-less venue rows via the venue's `primary_sport` (icon) + city (subtitle), and `LeagueFavorite` gained `sport`. `league_id` is now `string | null`.
+- `searchVenuesForOnboarding(query, {sport, limit})`: optional sport filter + browse-by-sport when query is empty; returns `sport`.
+- Read-only other-user venue view uses `SportIcon sport=` for venues.
+- Verified: Baseball chip browses 30 venues with no typing; added 2 venues across sports (multi-add, no per-bucket cap), ranked, one Featured.
+
+**Still open (noted earlier):** home-city-first ordering in the venue browse; any end-of-onboarding reward beat.

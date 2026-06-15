@@ -4,6 +4,7 @@ import Link from "next/link";
 import { fetchLeagueFavorites } from "@/lib/queries/bigfour";
 import { fetchBigFour, fetchProfile } from "@/lib/queries/profile";
 import BigFourDrillThrough from "@/components/profile/BigFourDrillThrough";
+import VenueFavoritesPicker from "@/components/profile/VenueFavoritesPicker";
 
 const VALID_CATEGORIES = ["team", "venue", "athlete", "event"] as const;
 type Category = (typeof VALID_CATEGORIES)[number];
@@ -88,11 +89,15 @@ export default async function BigFourCategoryPage({
         <div className="font-display text-[11px] text-text-muted tracking-[1.5px] uppercase mb-3">
           Your Ranking
         </div>
-        <BigFourDrillThrough
-          userId={user.id}
-          category={cat}
-          initialFavorites={leagueFavorites}
-        />
+        {cat === "venue" ? (
+          <VenueFavoritesPicker userId={user.id} initialFavorites={leagueFavorites} />
+        ) : (
+          <BigFourDrillThrough
+            userId={user.id}
+            category={cat}
+            initialFavorites={leagueFavorites}
+          />
+        )}
       </div>
     </div>
   );

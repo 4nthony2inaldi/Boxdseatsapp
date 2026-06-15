@@ -1,15 +1,17 @@
 import { SupabaseClient } from "@supabase/supabase-js";
-import { getLeagueIconPath } from "@/lib/sportIcons";
+import { getLeagueIconPath, getSportIconPath } from "@/lib/sportIcons";
 
 export type LeagueFavorite = {
   id: string;
-  league_id: string;
+  league_id: string | null;
   league_name: string;
   league_slug: string;
   league_icon: string;
   pick_name: string;
   pick_id: string;
   rank: number;
+  /** For league-less venue favorites: the venue's sport (drives the icon). */
+  sport?: string | null;
 };
 
 export async function fetchLeagueFavorites(
@@ -38,6 +40,8 @@ export async function fetchLeagueFavorites(
   const venueIds = data.map((f) => f.venue_id).filter((x): x is string => !!x);
   const eventIds = data.map((f) => f.event_id).filter((x): x is string => !!x);
   const nameById = new Map<string, string>();
+  // Venues carry extra display info (city + sport) since they may have no league.
+  const venueMeta = new Map<string, { city: string | null; sport: string | null }>();
 
   if (teamIds.length > 0) {
     const { data: rows } = await supabase.from("teams").select("id, name, short_name").in("id", teamIds);
@@ -48,8 +52,11 @@ export async function fetchLeagueFavorites(
     for (const a of rows || []) nameById.set(a.id, a.name || "Unknown");
   }
   if (venueIds.length > 0) {
-    const { data: rows } = await supabase.from("venues").select("id, name").in("id", venueIds);
-    for (const v of rows || []) nameById.set(v.id, v.name || "Unknown");
+    const { data: rows } = await supabase.from("venues").select("id, name, city, primary_sport").in("id", venueIds);
+    for (const v of rows || []) {
+      nameById.set(v.id, v.name || "Unknown");
+      venueMeta.set(v.id, { city: v.city ?? null, sport: v.primary_sport ?? null });
+    }
   }
   if (eventIds.length > 0) {
     const { data: rows } = await supabase
@@ -72,10 +79,28 @@ export async function fetchLeagueFavorites(
   const results: LeagueFavorite[] = [];
   for (const fav of data) {
     const league = fav.leagues as unknown as { name: string; slug: string } | null;
-    if (!league) continue;
     const pickId = fav.team_id || fav.athlete_id || fav.venue_id || fav.event_id || "";
     if (!pickId) continue;
     const pickName = nameById.get(pickId) || "Unknown";
+
+    // Venues are league-less now: display by sport + city instead.
+    if (fav.venue_id) {
+      const meta = venueMeta.get(fav.venue_id);
+      results.push({
+        id: fav.id,
+        league_id: fav.league_id,
+        league_name: meta?.city || "",
+        league_slug: "",
+        league_icon: getSportIconPath(meta?.sport) || "",
+        pick_name: pickName,
+        pick_id: pickId,
+        rank: fav.rank ?? 0,
+        sport: meta?.sport ?? null,
+      });
+      continue;
+    }
+
+    if (!league) continue;
     results.push({
       id: fav.id,
       league_id: fav.league_id,
@@ -89,6 +114,46 @@ export async function fetchLeagueFavorites(
   }
 
   return results;
+}
+
+/**
+ * Add a venue to the user's flat (league-less) venue favorites, appended to
+ * the bottom of the ranking. Idempotent on (user, venue). #1 stays featured.
+ */
+export async function addFlatVenueFavorite(
+  supabase: SupabaseClient,
+  userId: string,
+  venueId: string
+): Promise<{ success: boolean } | { error: string }> {
+  const { data: existing } = await supabase
+    .from("user_league_favorites")
+    .select("id")
+    .eq("user_id", userId)
+    .eq("category", "venue")
+    .eq("venue_id", venueId)
+    .maybeSingle();
+  if (existing) return { success: true };
+
+  const { data: maxRow } = await supabase
+    .from("user_league_favorites")
+    .select("rank")
+    .eq("user_id", userId)
+    .eq("category", "venue")
+    .order("rank", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  const nextRank = (maxRow?.rank ?? -1) + 1;
+
+  const { error } = await supabase.from("user_league_favorites").insert({
+    user_id: userId,
+    category: "venue",
+    league_id: null,
+    venue_id: venueId,
+    rank: nextRank,
+  });
+  if (error) return { error: "Couldn't add that venue. Please try again." };
+  await syncFeaturedFromRanking(supabase, userId, "venue");
+  return { success: true };
 }
 
 export async function upsertLeagueFavorite(

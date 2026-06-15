@@ -108,7 +108,7 @@ export default async function UserFavoritesCategoryPage({ params }: Props) {
                   >
                     {i + 1}
                   </div>
-                  <SportIcon league={fav.league_slug} size={22} />
+                  <SportIcon sport={fav.sport} league={fav.league_slug} size={22} />
                   <div className="flex-1 min-w-0">
                     <div className="text-sm text-text-primary font-medium truncate">
                       {fav.pick_name}
