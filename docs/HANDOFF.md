@@ -3053,3 +3053,6 @@ The venue picker no longer uses league rows (venues belong to a sport, not a lea
 
 ### Onboarding: athlete required again, but obvious (same session)
 Reversed the earlier "player optional" change — the real issue was discoverability, not the requirement. Act 1 ("Who do you root for?") now requires ≥1 team AND ≥1 athlete, made obvious: once a team is in, the Players tab gets a pulsing accent dot, an accent prompt "Now choose 1+ favorite athlete to continue" (tapping it jumps to the Players tab), and the primary button reads "PICK AN ATHLETE" (disabled) until an athlete is added, then "NEXT". StepRootFor now takes teamCount/athleteCount. Verified.
+
+### Onboarding: sticky action bars + nav hidden (same session)
+The long pick lists (teams/players, venues, best-game sub-flow) buried the Back/Next buttons. Now each of those steps' action bar (prompt + Back/Next) is `sticky bottom-0` with a solid bg + top border, so the primary action is always in the viewport without scrolling. Also hid the app `BottomNav` on `/onboarding` (it only bounced users back mid-gate and crowded the sticky bar). Verified: nav absent on /onboarding; the action button sits in-viewport (~828/844) before any scroll.
