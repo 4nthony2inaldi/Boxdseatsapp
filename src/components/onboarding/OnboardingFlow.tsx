@@ -43,8 +43,6 @@ export default function OnboardingFlow({ userId, initialUsername }: OnboardingFl
     }
   }
 
-  // A team is required to advance; a favorite player is encouraged but optional.
-  const canLeaveRootFor = progress.team.count > 0;
   const canLeaveVenues = progress.venue.count > 0;
 
   return (
@@ -80,7 +78,8 @@ export default function OnboardingFlow({ userId, initialUsername }: OnboardingFl
       {step === 1 && (
         <StepRootFor
           userId={userId}
-          canNext={canLeaveRootFor}
+          teamCount={progress.team.count}
+          athleteCount={progress.athlete.count}
           onTeamChange={(s) => setProgress((p) => ({ ...p, team: { count: s.count, name: s.topName } }))}
           onAthleteChange={(s) => setProgress((p) => ({ ...p, athlete: { count: s.count, name: s.topName } }))}
           onBack={() => setStep(0)}

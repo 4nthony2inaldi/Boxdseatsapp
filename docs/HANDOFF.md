@@ -3050,3 +3050,6 @@ The venue picker no longer uses league rows (venues belong to a sport, not a lea
 - Verified: Baseball chip browses 30 venues with no typing; added 2 venues across sports (multi-add, no per-bucket cap), ranked, one Featured.
 
 **Still open (noted earlier):** home-city-first ordering in the venue browse; any end-of-onboarding reward beat.
+
+### Onboarding: athlete required again, but obvious (same session)
+Reversed the earlier "player optional" change — the real issue was discoverability, not the requirement. Act 1 ("Who do you root for?") now requires ≥1 team AND ≥1 athlete, made obvious: once a team is in, the Players tab gets a pulsing accent dot, an accent prompt "Now choose 1+ favorite athlete to continue" (tapping it jumps to the Players tab), and the primary button reads "PICK AN ATHLETE" (disabled) until an athlete is added, then "NEXT". StepRootFor now takes teamCount/athleteCount. Verified.
