@@ -118,7 +118,7 @@ export default function StepBestGame({ userId, best, onBestChange, finishing, on
         </button>
       )}
 
-      <div className="flex gap-3">
+      <div className="sticky bottom-0 -mx-4 px-4 pt-3 pb-[max(env(safe-area-inset-bottom),1rem)] bg-bg border-t border-border flex gap-3">
         <button
           onClick={inFlow && sub !== "venue" ? () => setSub(sub === "event" ? "date" : "venue") : onBack}
           className="flex-1 py-3.5 rounded-xl bg-bg-card border border-border text-text-secondary text-sm hover:bg-bg-elevated active:opacity-70 transition-colors"

@@ -64,6 +64,10 @@ function ProfileIcon({ active }: { active: boolean }) {
 export default function BottomNav() {
   const pathname = usePathname();
 
+  // Onboarding is a gated flow with its own step controls — the tab bar would
+  // only bounce users back, and it crowds the step's sticky action bar.
+  if (pathname.startsWith("/onboarding")) return null;
+
   function isActive(href: string) {
     if (href === "/") return pathname === "/";
     return pathname.startsWith(href);

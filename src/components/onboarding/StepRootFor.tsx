@@ -72,37 +72,38 @@ export default function StepRootFor({
         <BigFourDrillThrough userId={userId} category="athlete" initialFavorites={[]} onChange={onAthleteChange} />
       </div>
 
-      {/* Obvious next-action prompt */}
-      {needAthlete && (
-        <button
-          onClick={() => setTab("athlete")}
-          className="w-full mt-5 flex items-center justify-between gap-2 px-4 py-3 rounded-xl border border-accent/40 bg-accent/10 text-left active:opacity-80 transition-opacity"
-        >
-          <span className="text-sm text-accent font-medium">
-            Now choose 1+ favorite athlete to continue
-          </span>
-          {tab === "team" && (
-            <span className="text-accent text-sm font-semibold whitespace-nowrap">Players →</span>
-          )}
-        </button>
-      )}
-
-      <div className="flex gap-3 mt-5">
-        <button
-          onClick={onBack}
-          className="flex-1 py-3.5 rounded-xl bg-bg-card border border-border text-text-secondary text-sm hover:bg-bg-elevated active:opacity-70 transition-colors"
-        >
-          Back
-        </button>
-        <button
-          onClick={onNext}
-          disabled={!canNext}
-          title={needTeam ? "Add at least one team" : needAthlete ? "Choose at least one favorite athlete" : ""}
-          className="flex-[2] py-3.5 rounded-xl font-display text-base tracking-widest text-white disabled:opacity-40 active:opacity-80 transition-opacity"
-          style={{ background: "linear-gradient(135deg, var(--color-accent), var(--color-accent-brown))" }}
-        >
-          {needAthlete ? "PICK AN ATHLETE" : "NEXT"}
-        </button>
+      {/* Sticky action bar — always in reach despite the long pick lists */}
+      <div className="sticky bottom-0 -mx-4 px-4 pt-3 pb-[max(env(safe-area-inset-bottom),1rem)] bg-bg border-t border-border">
+        {needAthlete && (
+          <button
+            onClick={() => setTab("athlete")}
+            className="w-full mb-2.5 flex items-center justify-between gap-2 px-4 py-2.5 rounded-xl border border-accent/40 bg-accent/10 text-left active:opacity-80 transition-opacity"
+          >
+            <span className="text-sm text-accent font-medium">
+              Now choose 1+ favorite athlete to continue
+            </span>
+            {tab === "team" && (
+              <span className="text-accent text-sm font-semibold whitespace-nowrap">Players →</span>
+            )}
+          </button>
+        )}
+        <div className="flex gap-3">
+          <button
+            onClick={onBack}
+            className="flex-1 py-3.5 rounded-xl bg-bg-card border border-border text-text-secondary text-sm hover:bg-bg-elevated active:opacity-70 transition-colors"
+          >
+            Back
+          </button>
+          <button
+            onClick={onNext}
+            disabled={!canNext}
+            title={needTeam ? "Add at least one team" : needAthlete ? "Choose at least one favorite athlete" : ""}
+            className="flex-[2] py-3.5 rounded-xl font-display text-base tracking-widest text-white disabled:opacity-40 active:opacity-80 transition-opacity"
+            style={{ background: "linear-gradient(135deg, var(--color-accent), var(--color-accent-brown))" }}
+          >
+            {needAthlete ? "PICK AN ATHLETE" : "NEXT"}
+          </button>
+        </div>
       </div>
     </div>
   );
