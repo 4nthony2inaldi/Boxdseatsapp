@@ -63,7 +63,7 @@ type Props = {
 };
 
 export default function PassportView({ username, displayName, avatarUrl, data, editHref, backHref }: Props) {
-  const { stats, venues, topVenues, rings, sports, hidden } = data;
+  const { stats, venues, topVenues, rings, sports, hidden, teams } = data;
   const show = (k: string) => !hidden.includes(k);
   const maxSportGames = Math.max(1, ...sports.map((s) => s.games));
   const name = displayName || `@${username}`;
@@ -107,6 +107,28 @@ export default function PassportView({ username, displayName, avatarUrl, data, e
           <Stat value={stats.winPct !== null ? `${stats.winPct}%` : "—"} label="Fan Win%" />
         </div>
       </div>
+
+      {/* Teams */}
+      {teams.length > 0 && (
+        <div className="px-4 mt-5">
+          <div className="font-display text-[11px] text-text-muted tracking-[1.5px] uppercase mb-2">Teams</div>
+          <div className="flex gap-3">
+            {teams.map((t) => (
+              <Link
+                key={t.id}
+                href={`/team/${t.id}`}
+                className="w-14 h-14 rounded-full bg-bg-elevated flex items-center justify-center overflow-hidden hover:opacity-80 transition-opacity"
+              >
+                {t.logo_url ? (
+                  <Image src={t.logo_url} alt={t.name} width={44} height={44} className="object-contain" />
+                ) : (
+                  <span className="text-text-secondary text-xs font-semibold">{t.name.slice(0, 3).toUpperCase()}</span>
+                )}
+              </Link>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Map */}
       {show("map") && (
