@@ -124,16 +124,40 @@ export async function searchAthletes(
   limit = 10,
   sport?: string | null
 ): Promise<{ id: string; name: string; sport: string | null }[]> {
-  const pattern = `%${query.trim()}%`;
+  const raw = query.trim();
+  if (!raw) return [];
+  const pattern = `%${raw}%`;
+  // Pull a wider candidate pool than we return so ranking can surface the best
+  // match — with thousands of athletes (incl. retired legends who share common
+  // names, e.g. dozens of "Jordan"s) an unranked LIMIT would drop the obvious
+  // pick before we ever see it.
   let q = supabase
     .from("athletes")
     .select("id, name, sport")
     .ilike("name", pattern)
-    .limit(limit);
+    .limit(Math.max(limit * 6, 60));
   if (sport) q = q.eq("sport", sport);
   const { data } = await q;
+  if (!data) return [];
 
-  return data || [];
+  const norm = (s: string) =>
+    s.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase().trim();
+  const nq = norm(raw);
+
+  // Lower score = better: exact name, then prefix of the whole name, then a
+  // later word starting with the query (e.g. "Michael Jordan" for "jordan"),
+  // then any substring. Ties break on shorter (more exact) names.
+  const score = (name: string): number => {
+    const nn = norm(name);
+    if (nn === nq) return 0;
+    if (nn.startsWith(nq)) return 1;
+    if (nn.split(/\s+/).some((w) => w.startsWith(nq))) return 2;
+    return 3;
+  };
+
+  return [...data]
+    .sort((a, b) => score(a.name) - score(b.name) || a.name.length - b.name.length || a.name.localeCompare(b.name))
+    .slice(0, limit);
 }
 
 /**
