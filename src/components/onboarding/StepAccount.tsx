@@ -8,6 +8,7 @@ import {
 } from "@/lib/queries/onboarding";
 import AvatarUpload from "@/components/AvatarUpload";
 import { METROS } from "@/lib/metros";
+import OnboardingActionBar from "./OnboardingActionBar";
 
 type StepAccountProps = {
   userId: string;
@@ -211,18 +212,19 @@ export default function StepAccount({
         />
       </div>
 
-      {error && <p className="text-loss text-sm mb-4">{error}</p>}
-
-      <button
-        onClick={handleNext}
-        disabled={saving || !usernameValid}
-        className="w-full py-4 rounded-xl font-display text-lg tracking-widest text-white disabled:opacity-50 transition-opacity"
-        style={{
-          background: "linear-gradient(135deg, var(--color-accent), var(--color-accent-brown))",
-        }}
-      >
-        {saving ? "SAVING..." : "NEXT"}
-      </button>
+      <OnboardingActionBar>
+        {error && <p className="text-loss text-sm mb-2">{error}</p>}
+        <button
+          onClick={handleNext}
+          disabled={saving || !usernameValid}
+          className="w-full py-3.5 rounded-xl font-display text-base tracking-widest text-white disabled:opacity-50 transition-opacity"
+          style={{
+            background: "linear-gradient(135deg, var(--color-accent), var(--color-accent-brown))",
+          }}
+        >
+          {saving ? "SAVING..." : "NEXT"}
+        </button>
+      </OnboardingActionBar>
     </div>
   );
 }

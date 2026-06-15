@@ -1,6 +1,7 @@
 "use client";
 
 import VenueFavoritesPicker from "@/components/profile/VenueFavoritesPicker";
+import OnboardingActionBar from "./OnboardingActionBar";
 
 type Summary = { count: number; topName: string | null };
 
@@ -24,23 +25,25 @@ export default function StepBeenThere({ userId, canNext, onVenueChange, onBack, 
 
       <VenueFavoritesPicker userId={userId} initialFavorites={[]} onChange={onVenueChange} />
 
-      <div className="sticky bottom-0 -mx-4 px-4 pt-3 pb-[max(env(safe-area-inset-bottom),1rem)] bg-bg border-t border-border mt-4 flex gap-3">
-        <button
-          onClick={onBack}
-          className="flex-1 py-3.5 rounded-xl bg-bg-card border border-border text-text-secondary text-sm hover:bg-bg-elevated active:opacity-70 transition-colors"
-        >
-          Back
-        </button>
-        <button
-          onClick={onNext}
-          disabled={!canNext}
-          title={canNext ? "" : "Add at least one venue"}
-          className="flex-[2] py-3.5 rounded-xl font-display text-base tracking-widest text-white disabled:opacity-40 active:opacity-80 transition-opacity"
-          style={{ background: "linear-gradient(135deg, var(--color-accent), var(--color-accent-brown))" }}
-        >
-          NEXT
-        </button>
-      </div>
+      <OnboardingActionBar>
+        <div className="flex gap-3">
+          <button
+            onClick={onBack}
+            className="flex-1 py-3.5 rounded-xl bg-bg-card border border-border text-text-secondary text-sm hover:bg-bg-elevated active:opacity-70 transition-colors"
+          >
+            Back
+          </button>
+          <button
+            onClick={onNext}
+            disabled={!canNext}
+            title={canNext ? "" : "Add at least one venue"}
+            className="flex-[2] py-3.5 rounded-xl font-display text-base tracking-widest text-white disabled:opacity-40 active:opacity-80 transition-opacity"
+            style={{ background: "linear-gradient(135deg, var(--color-accent), var(--color-accent-brown))" }}
+          >
+            NEXT
+          </button>
+        </div>
+      </OnboardingActionBar>
     </div>
   );
 }

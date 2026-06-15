@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import BigFourDrillThrough from "@/components/profile/BigFourDrillThrough";
+import OnboardingActionBar from "./OnboardingActionBar";
 
 type Summary = { count: number; topName: string | null };
 
@@ -72,8 +73,7 @@ export default function StepRootFor({
         <BigFourDrillThrough userId={userId} category="athlete" initialFavorites={[]} onChange={onAthleteChange} />
       </div>
 
-      {/* Sticky action bar — always in reach despite the long pick lists */}
-      <div className="sticky bottom-0 -mx-4 px-4 pt-3 pb-[max(env(safe-area-inset-bottom),1rem)] bg-bg border-t border-border">
+      <OnboardingActionBar>
         {needAthlete && (
           <button
             onClick={() => setTab("athlete")}
@@ -104,7 +104,7 @@ export default function StepRootFor({
             {needAthlete ? "PICK AN ATHLETE" : "NEXT"}
           </button>
         </div>
-      </div>
+      </OnboardingActionBar>
     </div>
   );
 }
