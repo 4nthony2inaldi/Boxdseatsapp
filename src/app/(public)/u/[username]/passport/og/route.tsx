@@ -16,31 +16,31 @@ const TRACK = "#2A2D3A";
 const PROFILE_COLS =
   "id, username, display_name, bio, avatar_url, fav_sport, fav_team_id, fav_venue_id, fav_athlete_id, fav_event_id, pinned_list_1_id, pinned_list_2_id, is_private, passport_config";
 
-const MAP_W = 700;
-const MAP_H = 360;
+const MAP_W = 768;
+const MAP_H = 380;
 const SITE = process.env.NEXT_PUBLIC_SITE_URL || "https://boxdseats.com";
 
-function Ring({ ring }: { ring: PassportRing }) {
-  const R = 38;
+function BigRing({ ring }: { ring: PassportRing }) {
+  const R = 86;
   const C = 2 * Math.PI * R;
   const pct = ring.total > 0 ? Math.min(1, ring.visited / ring.total) : 0;
   const done = ring.total > 0 && ring.visited >= ring.total;
   return (
-    <div style={{ display: "flex", flexDirection: "column", alignItems: "center", width: 172, marginBottom: 14 }}>
-      <div style={{ display: "flex", position: "relative", width: 96, height: 96, alignItems: "center", justifyContent: "center" }}>
-        <svg width={96} height={96} viewBox="0 0 96 96" style={{ position: "absolute", top: 0, left: 0 }}>
-          <circle cx={48} cy={48} r={R} fill="none" stroke={TRACK} strokeWidth={7} />
+    <div style={{ display: "flex", flexDirection: "column", alignItems: "center" }}>
+      <div style={{ display: "flex", position: "relative", width: 200, height: 200, alignItems: "center", justifyContent: "center" }}>
+        <svg width={200} height={200} viewBox="0 0 200 200" style={{ position: "absolute", top: 0, left: 0 }}>
+          <circle cx={100} cy={100} r={R} fill="none" stroke={TRACK} strokeWidth={13} />
           <circle
-            cx={48} cy={48} r={R} fill="none" stroke={done ? ACCENT : WIN} strokeWidth={7} strokeLinecap="round"
-            strokeDasharray={C} strokeDashoffset={C * (1 - pct)} transform="rotate(-90 48 48)"
+            cx={100} cy={100} r={R} fill="none" stroke={done ? ACCENT : WIN} strokeWidth={13} strokeLinecap="round"
+            strokeDasharray={C} strokeDashoffset={C * (1 - pct)} transform="rotate(-90 100 100)"
           />
         </svg>
         <div style={{ display: "flex", flexDirection: "column", alignItems: "center" }}>
-          {ring.icon ? <img src={`${SITE}${ring.icon}`} width={18} height={18} alt="" /> : null}
-          <div style={{ fontSize: 16, fontWeight: 700, color: TEXT, marginTop: 2 }}>{`${ring.visited}/${ring.total}`}</div>
+          {ring.icon ? <img src={`${SITE}${ring.icon}`} width={34} height={34} alt="" /> : null}
+          <div style={{ fontSize: 46, fontWeight: 700, color: TEXT, marginTop: 4 }}>{`${ring.visited}/${ring.total}`}</div>
         </div>
       </div>
-      <div style={{ fontSize: 13, color: SUB, textAlign: "center", marginTop: 6, lineHeight: 1.2 }}>{ring.name}</div>
+      <div style={{ display: "flex", fontSize: 22, color: SUB, textAlign: "center", marginTop: 16 }}>{ring.name}</div>
     </div>
   );
 }
@@ -66,7 +66,7 @@ export async function GET(_req: Request, { params }: { params: Promise<{ usernam
     [String(data.stats.cities), "CITIES", false],
     [data.stats.winPct !== null ? `${data.stats.winPct}%` : "—", "FAN WIN%", true],
   ];
-  const rings = data.topComplete;
+  const heroRing = data.topComplete[0] ?? null;
   const { landPath, bubbles } = buildPassportMap(data.venues, MAP_W, MAP_H, 20);
 
   return new ImageResponse(
@@ -102,10 +102,10 @@ export async function GET(_req: Request, { params }: { params: Promise<{ usernam
         {/* Divider */}
         <div style={{ display: "flex", height: 2, background: ACCENT, opacity: 0.5, marginTop: 18, marginBottom: 20 }} />
 
-        {/* Body: rings | map */}
+        {/* Body: hero ring | map */}
         <div style={{ display: "flex", flex: 1 }}>
-          <div style={{ display: "flex", flexWrap: "wrap", width: 360, alignContent: "flex-start" }}>
-            {rings.map((r) => <Ring key={r.list_id} ring={r} />)}
+          <div style={{ display: "flex", width: 300, alignItems: "center", justifyContent: "center" }}>
+            {heroRing ? <BigRing ring={heroRing} /> : null}
           </div>
           <div style={{ display: "flex", flex: 1, marginLeft: 24, borderRadius: 20, overflow: "hidden", background: "#0F1620" }}>
             <svg width={MAP_W} height={MAP_H} viewBox={`0 0 ${MAP_W} ${MAP_H}`}>
