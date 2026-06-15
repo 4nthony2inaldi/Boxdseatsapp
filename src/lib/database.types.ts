@@ -1048,6 +1048,7 @@ export type Database = {
           is_private: boolean
           pinned_list_1_id: string | null
           pinned_list_2_id: string | null
+          passport_config: Json | null
           updated_at: string
           username: string
         }
@@ -1069,6 +1070,7 @@ export type Database = {
           is_private?: boolean
           pinned_list_1_id?: string | null
           pinned_list_2_id?: string | null
+          passport_config?: Json | null
           updated_at?: string
           username: string
         }
@@ -1090,6 +1092,7 @@ export type Database = {
           is_private?: boolean
           pinned_list_1_id?: string | null
           pinned_list_2_id?: string | null
+          passport_config?: Json | null
           updated_at?: string
           username?: string
         }
@@ -1608,6 +1611,20 @@ export type Database = {
       }
     }
     Functions: {
+      passport_venues: {
+        Args: { p_user: string }
+        Returns: {
+          venue_id: string
+          name: string
+          city: string
+          state: string | null
+          sport: string | null
+          photo_url: string | null
+          lat: number
+          lng: number
+          games: number
+        }[]
+      }
       accept_companion_and_colog: {
         Args: { p_tag_id: string }
         Returns: string

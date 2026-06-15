@@ -174,6 +174,7 @@ export default async function UserProfilePage({ params }: Props) {
       <SummaryRows
         counts={summaryCounts}
         basePath={`/user/${username}`}
+        passportHref={`/@${username}/passport`}
       />
       {/* Share profile */}
       <div className="px-4 mt-4">

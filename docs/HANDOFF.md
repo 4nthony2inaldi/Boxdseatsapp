@@ -3056,3 +3056,18 @@ Reversed the earlier "player optional" change — the real issue was discoverabi
 
 ### Onboarding: sticky action bars + nav hidden (same session)
 The long pick lists (teams/players, venues, best-game sub-flow) buried the Back/Next buttons. Now each of those steps' action bar (prompt + Back/Next) is `sticky bottom-0` with a solid bg + top border, so the primary action is always in the viewport without scrolling. Also hid the app `BottomNav` on `/onboarding` (it only bounced users back mid-gate and crowded the sticky bar). Verified: nav absent on /onboarding; the action button sits in-viewport (~828/844) before any scroll.
+
+## Session 18 — Fan Passport (shareable overview)
+A public, shareable overview page at `/u/[username]/passport` (reachable via `/@username/passport`). Linked from the Summary card ("Fan Passport" row, below Want to Visit) on own + in-app other-user profiles. Migration `018-fan-passport.sql`: `profiles.passport_config jsonb` (editable featured lists/sections) + `passport_venues(uuid)` RPC (visited venues with ST_X/ST_Y coords + per-venue game counts; SECURITY INVOKER so venue_visits/event_logs RLS enforces privacy — public profiles visible to anyone, private gated). Needed `SET search_path = public, extensions` (PostGIS lives in `extensions`).
+- **Heat-bubble map** (`PassportMap`, server SVG): `d3-geo` geoMercator fit to the user's venues over the `world-atlas` `land-110m` basemap; bubbles sized + heat-colored (brown→orange→red) by games logged. New deps: d3-geo, topojson-client, world-atlas (+types).
+- **Sections** (`PassportView`): hero big-numbers (Games / Venues / Cities / Fan Win% with W–L), map, **bucket-list rings driven by venue lists** (visited/total; default = the user's top-6 most-progressed system/own venue lists, overridable via `passport_config.lists`), top venues (photos, by games), sport breakdown bars, Share.
+- `fetchPassport` in `lib/queries/passport.ts`. Privacy gated at the page (mirrors the public profile rules).
+- Verified for anthony: 153/54/48/66%, 69 map bubbles, rings, top venues, sport bars all render; nav link present.
+
+**Next (PR B, this feature):** owner Edit (pick which list rings + section toggles, writes `passport_config`) and a passport OG share image (`/u/[username]/passport/og`). The PassportView `editHref` prop is already wired (unset until the edit route exists).
+
+### Fan Passport — edit + share image (same feature, PR completes it)
+- **Edit** (`/profile/passport/edit`, owner-only): `PassportEditor` lets you toggle which **sections** show (map/rings/top venues/by sport → `passport_config.hidden`) and pick which venue lists become **rings** (`passport_config.lists`). `fetchPassportListOptions` lists all system + own venue lists with visited/total. Default selection = top-6 most-progressed. PassportView's `editHref` shows the Edit link to the owner. `PassportView` now hides sections per `hidden`.
+- **Share image**: `/u/[username]/passport/og` (next/og, edge) — name + the four big stats + top-3 ring chips; wired into the passport page's `openGraph`/`twitter` metadata. (satori gotcha: every multi-child div needs `display:flex`; "boxdseats.com/@x/passport" had to be one template-literal child.)
+- Gotcha fixed: the edit page is under the (app) layout (which has BottomNav, z-50), so a `fixed bottom-0` save bar was covered by the nav — made Save inline instead.
+- Verified: edit saves `{lists,hidden}` and redirects; OG renders 200 image/png (stats + rings).
