@@ -3022,3 +3022,16 @@ Onboarding is gated by BOTH `auth.user_metadata.onboarding_completed` AND `profi
 - **`/api/admin/reset-onboarding`** (admin-only): service-role clears the metadata flag (merged) + sets `fav_sport=null` → re-arms the flow ("light" reset; doesn't wipe other data).
 - Admin panel: per-row **"Reset onboarding"** button. On your OWN row it routes you straight to `/onboarding`; on others it shows "re-armed ✓" (they hit the flow on next navigation).
 - Verified: reset flipped both signals and dropped the account into "Step 1 of 4". `getUser()` reads live metadata so the redirect takes effect immediately.
+
+## Session 17 — Onboarding rework (build-your-Big-Four)
+Reworked onboarding from a 4-step form into a 3-act "build your fan card" flow gated on a complete Big Four. Verified end-to-end with the reset-onboarding tool.
+- **Spine:** `OnboardingProgress` — a persistent 4-card strip (Team/Venue/Athlete/Event) that quietly fills (accent border + headliner name, "+N" for extras) as picks are made; the same Big Four that lands on the profile reveal.
+- **Acts:** StepAccount (unchanged opener) → **StepRootFor** "Who do you root for?" (Teams + Players tabs, reuses `BigFourDrillThrough`) → **StepBeenThere** "Where have you been?" (venues) → **StepBestGame** "What's the best game you've been to?" (event search → log + feature, optional star rating, "log more" seeds timeline).
+- **Gating:** can't advance Act 1 without ≥1 team AND ≥1 player; Act 2 without ≥1 venue; can't finish without a featured best game. So finishing requires a full Big Four.
+- `BigFourDrillThrough` gained an `onChange({count, topName})` callback to drive the progress strip + gates.
+- `finalizeOnboardingExtras`: on finish, derives `fav_sport` from the #1 team's league (keeps the avatar badge) and marks all favorited venues visited (venue total reflects it).
+- `logAndFeatureBestGame`: logs the event for the user (auto_visit_venue trigger bumps venues) and sets `fav_event_id`; idempotent on (user, event).
+- Rewrote `searchEvents` (was scanning a tiny recent window → missed team games): now resolves matching teams + venues first, ORs over home/away/venue/tournament, and restricts to past games. Only used by StepBestGame.
+- Removed StepFavorites/StepVenues/StepFirstEvent (replaced).
+
+**Deferred / noted:** the venue act uses text search (reused picker) rather than the "drillable by sport / home-city-first browse" the owner floated — a good next enhancement. Manual best-games can't headline the Event card (fav_event_id FKs to events); real-event search covers the target user.

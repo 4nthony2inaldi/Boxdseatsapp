@@ -3,30 +3,30 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
-import { completeOnboarding, markVenuesVisited } from "@/lib/queries/onboarding";
+import { completeOnboarding, finalizeOnboardingExtras } from "@/lib/queries/onboarding";
 import StepAccount from "./StepAccount";
-import StepFavorites from "./StepFavorites";
-import StepVenues from "./StepVenues";
-import StepFirstEvent from "./StepFirstEvent";
+import StepRootFor from "./StepRootFor";
+import StepBeenThere from "./StepBeenThere";
+import StepBestGame from "./StepBestGame";
+import OnboardingProgress, { type BigFourProgress } from "./OnboardingProgress";
 
 type OnboardingFlowProps = {
   userId: string;
   initialUsername: string;
-  allVenues: { id: string; name: string; city: string; state: string | null; sport: string | null }[];
 };
 
-const STEP_LABELS = ["Account", "Favorites", "Venues", "First Event"];
+const STEP_COUNT = 4;
 
-export default function OnboardingFlow({
-  userId,
-  initialUsername,
-  allVenues,
-}: OnboardingFlowProps) {
+export default function OnboardingFlow({ userId, initialUsername }: OnboardingFlowProps) {
   const [step, setStep] = useState(0);
   const [username, setUsername] = useState(initialUsername);
   const [displayName, setDisplayName] = useState("");
-  const [favSport, setFavSport] = useState<string | null>(null);
-  const [markedVenueIds, setMarkedVenueIds] = useState<string[]>([]);
+  const [progress, setProgress] = useState<BigFourProgress>({
+    team: { count: 0, name: null },
+    venue: { count: 0, name: null },
+    athlete: { count: 0, name: null },
+    event: { filled: false, name: null },
+  });
   const [finishing, setFinishing] = useState(false);
   const router = useRouter();
   const supabase = createClient();
@@ -34,11 +34,7 @@ export default function OnboardingFlow({
   async function handleFinish() {
     setFinishing(true);
     try {
-      // Mark venues as visited
-      if (markedVenueIds.length > 0) {
-        await markVenuesVisited(supabase, userId, markedVenueIds);
-      }
-      // Mark onboarding complete
+      await finalizeOnboardingExtras(supabase, userId);
       await completeOnboarding(supabase);
       router.push("/profile");
       router.refresh();
@@ -47,27 +43,27 @@ export default function OnboardingFlow({
     }
   }
 
+  const canLeaveRootFor = progress.team.count > 0 && progress.athlete.count > 0;
+  const canLeaveVenues = progress.venue.count > 0;
+
   return (
     <div className="px-4 pt-6 pb-24">
-      {/* Progress indicator */}
-      <div className="flex gap-1.5 mb-6">
-        {STEP_LABELS.map((_, i) => (
+      {/* Step indicator */}
+      <div className="flex gap-1.5 mb-3">
+        {Array.from({ length: STEP_COUNT }).map((_, i) => (
           <div
             key={i}
             className="flex-1 h-1 rounded-full transition-colors duration-300"
-            style={{
-              background: i <= step ? "var(--color-accent)" : "var(--color-bg-input)",
-            }}
+            style={{ background: i <= step ? "var(--color-accent)" : "var(--color-bg-input)" }}
           />
         ))}
       </div>
-
-      {/* Step label */}
-      <div className="flex justify-between items-center mb-2">
-        <div className="font-display text-[11px] text-text-muted tracking-[1.5px] uppercase">
-          Step {step + 1} of {STEP_LABELS.length}
-        </div>
+      <div className="font-display text-[11px] text-text-muted tracking-[1.5px] uppercase mb-4">
+        {step === 0 ? "Build your fan card" : `Step ${step + 1} of ${STEP_COUNT}`}
       </div>
+
+      {/* The Big Four assembling — the spine of the whole flow */}
+      <OnboardingProgress progress={progress} />
 
       {step === 0 && (
         <StepAccount
@@ -81,33 +77,31 @@ export default function OnboardingFlow({
       )}
 
       {step === 1 && (
-        <StepFavorites
+        <StepRootFor
           userId={userId}
-          favSport={favSport}
-          onFavSportChange={setFavSport}
+          canNext={canLeaveRootFor}
+          onTeamChange={(s) => setProgress((p) => ({ ...p, team: { count: s.count, name: s.topName } }))}
+          onAthleteChange={(s) => setProgress((p) => ({ ...p, athlete: { count: s.count, name: s.topName } }))}
           onBack={() => setStep(0)}
           onNext={() => setStep(2)}
         />
       )}
 
       {step === 2 && (
-        <StepVenues
-          allVenues={allVenues}
-          markedVenueIds={markedVenueIds}
-          onToggleVenue={(id) => {
-            setMarkedVenueIds((prev) =>
-              prev.includes(id) ? prev.filter((v) => v !== id) : [...prev, id]
-            );
-          }}
+        <StepBeenThere
+          userId={userId}
+          canNext={canLeaveVenues}
+          onVenueChange={(s) => setProgress((p) => ({ ...p, venue: { count: s.count, name: s.topName } }))}
           onBack={() => setStep(1)}
           onNext={() => setStep(3)}
         />
       )}
 
       {step === 3 && (
-        <StepFirstEvent
-          markedVenueIds={markedVenueIds}
-          allVenues={allVenues}
+        <StepBestGame
+          userId={userId}
+          best={progress.event}
+          onBestChange={(b) => setProgress((p) => ({ ...p, event: b }))}
           finishing={finishing}
           onBack={() => setStep(2)}
           onFinish={handleFinish}

@@ -126,12 +126,88 @@ export async function searchAthletes(
   return data || [];
 }
 
+/**
+ * Onboarding "best game": log the event for this user (so it seeds their
+ * timeline + venue count via the auto_visit_venue trigger) and feature it as
+ * the Big Four event. Idempotent on (user, event). Optional star rating.
+ */
+export async function logAndFeatureBestGame(
+  supabase: SupabaseClient,
+  userId: string,
+  eventId: string,
+  rating?: number | null
+): Promise<{ success: boolean } | { error: string }> {
+  const { data: event } = await supabase
+    .from("events")
+    .select("venue_id, league_id, event_date, leagues(sport)")
+    .eq("id", eventId)
+    .single();
+  if (!event) return { error: "Couldn't find that game. Try another search." };
+  const sport = (event.leagues as unknown as { sport: string } | null)?.sport ?? null;
+
+  // Reuse an existing log for this event if the user already has one.
+  const { data: existing } = await supabase
+    .from("event_logs")
+    .select("id")
+    .eq("user_id", userId)
+    .eq("event_id", eventId)
+    .maybeSingle();
+
+  if (!existing) {
+    const { error } = await supabase.from("event_logs").insert({
+      user_id: userId,
+      event_id: eventId,
+      venue_id: event.venue_id,
+      league_id: event.league_id,
+      sport,
+      event_date: event.event_date,
+      rating: rating ?? null,
+      privacy: "show_all",
+      is_neutral: true,
+      outcome: "neutral",
+    });
+    if (error) return { error: "Couldn't log that game. Please try again." };
+  } else if (rating != null) {
+    await supabase.from("event_logs").update({ rating }).eq("id", existing.id);
+  }
+
+  const { error: favErr } = await supabase
+    .from("profiles")
+    .update({ fav_event_id: eventId })
+    .eq("id", userId);
+  if (favErr) return { error: "Couldn't feature that game. Please try again." };
+  return { success: true };
+}
+
 export async function searchEvents(
   supabase: SupabaseClient,
   query: string,
-  limit = 10
+  limit = 12
 ): Promise<{ id: string; label: string; venue_name: string | null; event_date: string }[]> {
-  const pattern = `%${query.trim()}%`;
+  const trimmed = query.trim();
+  if (!trimmed) return [];
+  const pattern = `%${trimmed}%`;
+  const today = new Date().toISOString().slice(0, 10);
+
+  // Resolve the query to matching teams + venues first, then find games for
+  // them — far more reliable than scanning a window of recent rows.
+  const [teamsRes, venuesRes] = await Promise.all([
+    supabase
+      .from("teams")
+      .select("id")
+      .or(`name.ilike.${pattern},short_name.ilike.${pattern},abbreviation.ilike.${pattern}`)
+      .limit(20),
+    supabase.from("venues").select("id").ilike("name", pattern).limit(15),
+  ]);
+  const teamIds = (teamsRes.data || []).map((t) => t.id);
+  const venueIds = (venuesRes.data || []).map((v) => v.id);
+
+  const ors = [`tournament_name.ilike.${pattern}`];
+  if (teamIds.length) {
+    ors.push(`home_team_id.in.(${teamIds.join(",")})`, `away_team_id.in.(${teamIds.join(",")})`);
+  }
+  if (venueIds.length) ors.push(`venue_id.in.(${venueIds.join(",")})`);
+
   const { data } = await supabase
     .from("events")
     .select(
@@ -140,42 +216,12 @@ export async function searchEvents(
        away_team:teams!events_away_team_id_fkey(short_name),
        venues!events_venue_id_fkey(name)`
     )
-    .or(`tournament_name.ilike.${pattern}`)
+    .or(ors.join(","))
+    .lte("event_date", today) // you can't have attended a future game
     .order("event_date", { ascending: false })
     .limit(limit);
 
-  // Also search by team names
-  const { data: teamMatches } = await supabase
-    .from("events")
-    .select(
-      `id, event_date, tournament_name,
-       home_team:teams!events_home_team_id_fkey(short_name, name),
-       away_team:teams!events_away_team_id_fkey(short_name, name),
-       venues!events_venue_id_fkey(name)`
-    )
-    .limit(limit * 2);
-
-  const allEvents = [...(data || [])];
-  const seenIds = new Set(allEvents.map((e) => e.id));
-  const lowerQ = query.trim().toLowerCase();
-
-  for (const e of teamMatches || []) {
-    if (seenIds.has(e.id)) continue;
-    const home = e.home_team as unknown as { short_name: string; name: string } | null;
-    const away = e.away_team as unknown as { short_name: string; name: string } | null;
-    if (
-      home?.short_name?.toLowerCase().includes(lowerQ) ||
-      home?.name?.toLowerCase().includes(lowerQ) ||
-      away?.short_name?.toLowerCase().includes(lowerQ) ||
-      away?.name?.toLowerCase().includes(lowerQ)
-    ) {
-      allEvents.push(e);
-      seenIds.add(e.id);
-    }
-    if (allEvents.length >= limit) break;
-  }
-
-  return allEvents.slice(0, limit).map((e) => {
+  return (data || []).map((e) => {
     const home = e.home_team as unknown as { short_name: string } | null;
     const away = e.away_team as unknown as { short_name: string } | null;
     const venue = e.venues as unknown as { name: string } | null;
@@ -233,6 +279,38 @@ export async function markVenuesVisited(
 
   if (error) return { error: "Failed to mark venues." };
   return { success: true };
+}
+
+/**
+ * Finishing touches when onboarding completes:
+ *  - derive the avatar's sport badge from the #1 team's league,
+ *  - mark every favorited venue as visited so the venue total reflects it.
+ */
+export async function finalizeOnboardingExtras(
+  supabase: SupabaseClient,
+  userId: string
+): Promise<void> {
+  const { data: topTeam } = await supabase
+    .from("user_league_favorites")
+    .select("leagues(sport)")
+    .eq("user_id", userId)
+    .eq("category", "team")
+    .order("rank", { ascending: true })
+    .limit(1)
+    .maybeSingle();
+  const sport = (topTeam?.leagues as unknown as { sport: string } | null)?.sport;
+  if (sport) {
+    await supabase.from("profiles").update({ fav_sport: sport }).eq("id", userId);
+  }
+
+  const { data: venues } = await supabase
+    .from("user_league_favorites")
+    .select("venue_id")
+    .eq("user_id", userId)
+    .eq("category", "venue")
+    .not("venue_id", "is", null);
+  const ids = (venues || []).map((v) => v.venue_id as string).filter(Boolean);
+  if (ids.length > 0) await markVenuesVisited(supabase, userId, ids);
 }
 
 // ── Mark onboarding complete ──
