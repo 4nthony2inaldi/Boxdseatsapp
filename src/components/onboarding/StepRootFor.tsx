@@ -7,15 +7,28 @@ type Summary = { count: number; topName: string | null };
 
 type Props = {
   userId: string;
-  canNext: boolean;
+  teamCount: number;
+  athleteCount: number;
   onTeamChange: (s: Summary) => void;
   onAthleteChange: (s: Summary) => void;
   onBack: () => void;
   onNext: () => void;
 };
 
-export default function StepRootFor({ userId, canNext, onTeamChange, onAthleteChange, onBack, onNext }: Props) {
+export default function StepRootFor({
+  userId,
+  teamCount,
+  athleteCount,
+  onTeamChange,
+  onAthleteChange,
+  onBack,
+  onNext,
+}: Props) {
   const [tab, setTab] = useState<"team" | "athlete">("team");
+
+  const needTeam = teamCount === 0;
+  const needAthlete = teamCount > 0 && athleteCount === 0;
+  const canNext = teamCount > 0 && athleteCount > 0;
 
   return (
     <div>
@@ -23,23 +36,32 @@ export default function StepRootFor({ userId, canNext, onTeamChange, onAthleteCh
         Who do you root for?
       </h2>
       <p className="text-sm text-text-secondary mb-5">
-        Add your teams — one per league you follow — and any players you love (optional). Your first pick in each headlines your profile; the rest stack behind it.
+        Add a favorite team and a favorite player for the leagues you follow. Your first pick in each headlines your profile; the rest stack behind it.
       </p>
 
       <div className="flex gap-1.5 mb-4">
-        {(["team", "athlete"] as const).map((k) => (
-          <button
-            key={k}
-            onClick={() => setTab(k)}
-            className="flex-1 py-2 rounded-lg font-display text-xs tracking-[1px] uppercase transition-colors active:opacity-70"
-            style={{
-              background: tab === k ? "var(--color-accent)" : "var(--color-bg-input)",
-              color: tab === k ? "#fff" : "var(--color-text-secondary)",
-            }}
-          >
-            {k === "team" ? "Teams" : "Players"}
-          </button>
-        ))}
+        {(["team", "athlete"] as const).map((k) => {
+          const active = tab === k;
+          // Draw the eye to Players once a team is in but no athlete yet.
+          const attention = k === "athlete" && needAthlete && !active;
+          return (
+            <button
+              key={k}
+              onClick={() => setTab(k)}
+              className="relative flex-1 py-2 rounded-lg font-display text-xs tracking-[1px] uppercase transition-colors active:opacity-70"
+              style={{
+                background: active ? "var(--color-accent)" : "var(--color-bg-input)",
+                color: active ? "#fff" : "var(--color-text-secondary)",
+                border: attention ? "1px solid var(--color-accent)" : "1px solid transparent",
+              }}
+            >
+              {k === "team" ? "Teams" : "Players"}
+              {attention && (
+                <span className="absolute -top-1 -right-1 w-2.5 h-2.5 rounded-full bg-accent animate-pulse" />
+              )}
+            </button>
+          );
+        })}
       </div>
 
       {/* Both stay mounted so picks persist across tab switches */}
@@ -50,7 +72,22 @@ export default function StepRootFor({ userId, canNext, onTeamChange, onAthleteCh
         <BigFourDrillThrough userId={userId} category="athlete" initialFavorites={[]} onChange={onAthleteChange} />
       </div>
 
-      <div className="flex gap-3 mt-6">
+      {/* Obvious next-action prompt */}
+      {needAthlete && (
+        <button
+          onClick={() => setTab("athlete")}
+          className="w-full mt-5 flex items-center justify-between gap-2 px-4 py-3 rounded-xl border border-accent/40 bg-accent/10 text-left active:opacity-80 transition-opacity"
+        >
+          <span className="text-sm text-accent font-medium">
+            Now choose 1+ favorite athlete to continue
+          </span>
+          {tab === "team" && (
+            <span className="text-accent text-sm font-semibold whitespace-nowrap">Players →</span>
+          )}
+        </button>
+      )}
+
+      <div className="flex gap-3 mt-5">
         <button
           onClick={onBack}
           className="flex-1 py-3.5 rounded-xl bg-bg-card border border-border text-text-secondary text-sm hover:bg-bg-elevated active:opacity-70 transition-colors"
@@ -60,11 +97,11 @@ export default function StepRootFor({ userId, canNext, onTeamChange, onAthleteCh
         <button
           onClick={onNext}
           disabled={!canNext}
-          title={canNext ? "" : "Add at least one team"}
+          title={needTeam ? "Add at least one team" : needAthlete ? "Choose at least one favorite athlete" : ""}
           className="flex-[2] py-3.5 rounded-xl font-display text-base tracking-widest text-white disabled:opacity-40 active:opacity-80 transition-opacity"
           style={{ background: "linear-gradient(135deg, var(--color-accent), var(--color-accent-brown))" }}
         >
-          NEXT
+          {needAthlete ? "PICK AN ATHLETE" : "NEXT"}
         </button>
       </div>
     </div>
