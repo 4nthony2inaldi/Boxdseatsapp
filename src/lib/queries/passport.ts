@@ -38,6 +38,8 @@ export type PassportData = {
   sports: { sport: string; games: number; venues: number }[];
   /** Section keys the owner has hidden (map | rings | topVenues | sports). */
   hidden: string[];
+  /** Top 4 most-complete list sets, for the share card. */
+  topComplete: PassportRing[];
 };
 
 export type PassportListOption = {
@@ -139,17 +141,23 @@ export async function fetchPassport(
     };
   };
 
+  const allRings = candidateIds
+    .map(buildRing)
+    .filter((r): r is PassportRing => !!r);
+
   let rings: PassportRing[];
   const configured = config?.lists;
   if (configured && configured.length > 0) {
     rings = configured.map(buildRing).filter((r): r is PassportRing => !!r);
   } else {
-    rings = candidateIds
-      .map(buildRing)
-      .filter((r): r is PassportRing => !!r)
-      .sort((a, b) => b.visited - a.visited || b.total - a.total)
-      .slice(0, 6);
+    rings = [...allRings].sort((a, b) => b.visited - a.visited || b.total - a.total).slice(0, 6);
   }
+
+  // Most-complete sets (highest visited/total) — used by the share card.
+  const topComplete = allRings
+    .filter((r) => r.total > 0 && r.visited > 0)
+    .sort((a, b) => b.visited / b.total - a.visited / a.total || b.visited - a.visited)
+    .slice(0, 4);
 
   return {
     stats: { games: logs.length, venues: venues.length, cities, wins, losses, draws, winPct },
@@ -158,6 +166,7 @@ export async function fetchPassport(
     rings,
     sports,
     hidden: Array.isArray(config?.hidden) ? config!.hidden : [],
+    topComplete,
   };
 }
 
