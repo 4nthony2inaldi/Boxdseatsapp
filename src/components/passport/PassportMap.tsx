@@ -59,9 +59,9 @@ export default function PassportMap({ venues }: { venues: PassportVenue[] }) {
           if (!xy) return null;
           const { r, fill } = bubble(v.games);
           return (
-            <g key={v.venue_id}>
+            <a key={v.venue_id} href={`/venue/${v.venue_id}`} aria-label={v.name} style={{ cursor: "pointer" }}>
               <circle cx={xy[0]} cy={xy[1]} r={r} fill={fill} fillOpacity={0.55} stroke={fill} strokeWidth={1} />
-            </g>
+            </a>
           );
         })}
       </svg>

@@ -39,13 +39,17 @@ function Ring({ ring }: { ring: PassportRing }) {
   );
 }
 
-function Stat({ value, label, sub }: { value: string; label: string; sub?: string }) {
-  return (
-    <div className="text-center flex-1 min-w-0">
+function Stat({ value, label, href }: { value: string; label: string; href?: string }) {
+  const inner = (
+    <>
       <div className="font-display text-2xl text-text-primary tracking-wide leading-none">{value}</div>
-      {sub && <div className="text-[10px] text-accent mt-0.5">{sub}</div>}
-      <div className="text-[10px] text-text-secondary uppercase tracking-wider mt-1">{label}</div>
-    </div>
+      <div className="text-[10px] text-text-secondary uppercase tracking-wider mt-1.5">{label}</div>
+    </>
+  );
+  return href ? (
+    <Link href={href} className="flex-1 min-w-0 text-center hover:opacity-80 transition-opacity">{inner}</Link>
+  ) : (
+    <div className="flex-1 min-w-0 text-center">{inner}</div>
   );
 }
 
@@ -97,14 +101,10 @@ export default function PassportView({ username, displayName, avatarUrl, data, e
       {/* Big numbers */}
       <div className="px-4">
         <div className="flex gap-2 rounded-2xl border border-border bg-bg-card px-2 py-4">
-          <Stat value={String(stats.games)} label="Games" />
-          <Stat value={String(stats.venues)} label="Venues" />
+          <Stat value={String(stats.games)} label="Games" href={`/user/${username}/timeline`} />
+          <Stat value={String(stats.venues)} label="Venues" href={`/user/${username}/venues`} />
           <Stat value={String(stats.cities)} label="Cities" />
-          <Stat
-            value={stats.winPct !== null ? `${stats.winPct}%` : "—"}
-            sub={stats.wins + stats.losses > 0 ? `${stats.wins}–${stats.losses}` : undefined}
-            label="Fan Win%"
-          />
+          <Stat value={stats.winPct !== null ? `${stats.winPct}%` : "—"} label="Fan Win%" />
         </div>
       </div>
 
@@ -121,7 +121,11 @@ export default function PassportView({ username, displayName, avatarUrl, data, e
         <div className="px-4 mt-6">
           <div className="font-display text-[11px] text-text-muted tracking-[1.5px] uppercase mb-3">Bucket List</div>
           <div className="grid grid-cols-3 gap-y-4 gap-x-2">
-            {rings.map((r) => <Ring key={r.list_id} ring={r} />)}
+            {rings.map((r) => (
+              <Link key={r.list_id} href={`/lists/${r.list_id}`} className="block hover:opacity-80 transition-opacity">
+                <Ring ring={r} />
+              </Link>
+            ))}
           </div>
         </div>
       )}
@@ -132,7 +136,7 @@ export default function PassportView({ username, displayName, avatarUrl, data, e
           <div className="font-display text-[11px] text-text-muted tracking-[1.5px] uppercase mb-3 px-4">Top venues</div>
           <div className="flex gap-3 overflow-x-auto px-4 scroll-fade-x" style={{ scrollbarWidth: "none" }}>
             {topVenues.map((v) => (
-              <div key={v.venue_id} className="flex flex-col items-center text-center w-20 flex-shrink-0">
+              <Link key={v.venue_id} href={`/venue/${v.venue_id}`} className="flex flex-col items-center text-center w-20 flex-shrink-0 hover:opacity-80 transition-opacity">
                 <div className="w-16 h-16 rounded-full overflow-hidden bg-bg-elevated flex items-center justify-center">
                   {v.photo_url ? (
                     <Image src={v.photo_url} alt="" width={64} height={64} className="w-full h-full object-cover" />
@@ -142,7 +146,7 @@ export default function PassportView({ username, displayName, avatarUrl, data, e
                 </div>
                 <div className="text-[11px] text-text-primary font-medium mt-1.5 leading-tight line-clamp-2">{v.name}</div>
                 <div className="text-[10px] text-text-muted">{v.games} {v.games === 1 ? "game" : "games"}</div>
-              </div>
+              </Link>
             ))}
           </div>
         </div>
