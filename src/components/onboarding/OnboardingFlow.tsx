@@ -46,7 +46,7 @@ export default function OnboardingFlow({ userId, initialUsername }: OnboardingFl
   const canLeaveVenues = progress.venue.count > 0;
 
   return (
-    <div className="px-4 pt-6 pb-24">
+    <div className="px-4 pt-6 pb-40">
       {/* Step indicator */}
       <div className="flex gap-1.5 mb-3">
         {Array.from({ length: STEP_COUNT }).map((_, i) => (

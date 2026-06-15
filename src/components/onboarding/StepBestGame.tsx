@@ -7,6 +7,7 @@ import { toastError } from "@/components/Toaster";
 import StepVenue from "@/components/log/StepVenue";
 import StepDate from "@/components/log/StepDate";
 import StepEvent from "@/components/log/StepEvent";
+import OnboardingActionBar from "./OnboardingActionBar";
 import type { VenueResult, EventMatch } from "@/lib/queries/log";
 
 type Props = {
@@ -118,23 +119,25 @@ export default function StepBestGame({ userId, best, onBestChange, finishing, on
         </button>
       )}
 
-      <div className="sticky bottom-0 -mx-4 px-4 pt-3 pb-[max(env(safe-area-inset-bottom),1rem)] bg-bg border-t border-border flex gap-3">
-        <button
-          onClick={inFlow && sub !== "venue" ? () => setSub(sub === "event" ? "date" : "venue") : onBack}
-          className="flex-1 py-3.5 rounded-xl bg-bg-card border border-border text-text-secondary text-sm hover:bg-bg-elevated active:opacity-70 transition-colors"
-        >
-          Back
-        </button>
-        <button
-          onClick={onFinish}
-          disabled={finishing || !best.filled}
-          title={best.filled ? "" : "Pick your best game to finish"}
-          className="flex-[2] py-3.5 rounded-xl font-display text-base tracking-widest text-white disabled:opacity-40 active:opacity-80 transition-opacity"
-          style={{ background: "linear-gradient(135deg, var(--color-accent), var(--color-accent-brown))" }}
-        >
-          {finishing ? "BUILDING YOUR PROFILE…" : "SEE MY PROFILE"}
-        </button>
-      </div>
+      <OnboardingActionBar>
+        <div className="flex gap-3">
+          <button
+            onClick={inFlow && sub !== "venue" ? () => setSub(sub === "event" ? "date" : "venue") : onBack}
+            className="flex-1 py-3.5 rounded-xl bg-bg-card border border-border text-text-secondary text-sm hover:bg-bg-elevated active:opacity-70 transition-colors"
+          >
+            Back
+          </button>
+          <button
+            onClick={onFinish}
+            disabled={finishing || !best.filled}
+            title={best.filled ? "" : "Pick your best game to finish"}
+            className="flex-[2] py-3.5 rounded-xl font-display text-base tracking-widest text-white disabled:opacity-40 active:opacity-80 transition-opacity"
+            style={{ background: "linear-gradient(135deg, var(--color-accent), var(--color-accent-brown))" }}
+          >
+            {finishing ? "BUILDING YOUR PROFILE…" : "SEE MY PROFILE"}
+          </button>
+        </div>
+      </OnboardingActionBar>
     </div>
   );
 }
