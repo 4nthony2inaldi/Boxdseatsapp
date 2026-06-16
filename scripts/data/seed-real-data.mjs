@@ -57,11 +57,12 @@ const LEAGUES = {
   'ger.1': { sport: 'soccer', espn: 'ger.1', soccer: true },
   'ita.1': { sport: 'soccer', espn: 'ita.1', soccer: true },
   'fra.1': { sport: 'soccer', espn: 'fra.1', soccer: true },
-  // College "Big Events" — tournament games only. lazyTeams skips the
-  // 350+-team bulk import (only schools that made the field get created);
-  // postseasonOnly keeps just the NCAA tournament (seasontype 3).
-  ncaam: { sport: 'basketball', espn: 'mens-college-basketball', soccer: false, lazyTeams: true, postseasonOnly: true, singleDayFetch: true },
-  ncaaw: { sport: 'basketball', espn: 'womens-college-basketball', soccer: false, lazyTeams: true, postseasonOnly: true, singleDayFetch: true },
+  // College basketball: full schedule (regular season + postseason). The ESPN
+  // college scoreboard rejects date RANGES and defaults to only a featured
+  // handful of games per day, so we fetch one day at a time with groups=50
+  // (all of Division I).
+  ncaam: { sport: 'basketball', espn: 'mens-college-basketball', soccer: false, lazyTeams: true, singleDayFetch: true, groups: 50, seasonMonths: true },
+  ncaaw: { sport: 'basketball', espn: 'womens-college-basketball', soccer: false, lazyTeams: true, singleDayFetch: true, groups: 50, seasonMonths: true },
 };
 
 const CONCURRENCY = 8;
@@ -699,16 +700,18 @@ async function seedLeague(leagueSlug) {
   }
 
   // Some ESPN scoreboards (college basketball) reject date RANGES (404) and
-  // only accept single dates. For those, fetch one day at a time — but only
-  // within the tournament window (Mar 1 – Apr 10) to keep it to ~40 days/yr.
+  // only accept single dates, so those leagues fetch one day at a time. The
+  // college hoops season runs ~early Nov through early Apr, so with
+  // seasonMonths we walk Nov 1 (y-1) → Apr 15 (y) for each season-ending year
+  // and skip the empty summer months; otherwise honour args.from/args.to.
   let windows;
   if (cfg.singleDayFetch) {
     windows = [];
     const fromY = Number(args.from.slice(0, 4));
     const toY = Number((args.to ?? new Date().toISOString().slice(0, 10)).slice(0, 4));
     for (let y = fromY; y <= toY; y++) {
-      const start = new Date(Date.UTC(y, 2, 1)); // Mar 1
-      const end = new Date(Date.UTC(y, 3, 10)); // Apr 10
+      const start = cfg.seasonMonths ? new Date(Date.UTC(y - 1, 10, 1)) : new Date(Date.UTC(y, 2, 1)); // Nov 1 (prev yr) or Mar 1
+      const end = cfg.seasonMonths ? new Date(Date.UTC(y, 3, 15)) : new Date(Date.UTC(y, 3, 10)); // Apr 15 or Apr 10
       for (let d = new Date(start); d <= end; d.setUTCDate(d.getUTCDate() + 1)) {
         const ymd = d.toISOString().slice(0, 10).replace(/-/g, '');
         windows.push([ymd, ymd]);
@@ -719,7 +722,8 @@ async function seedLeague(leagueSlug) {
   }
   const fetches = windows.map(([a, b]) => limiter(async () => {
     const dateParam = a === b ? a : `${a}-${b}`;
-    const url = `https://site.api.espn.com/apis/site/v2/sports/${cfg.sport}/${cfg.espn}/scoreboard?dates=${dateParam}&limit=1000`;
+    const groups = cfg.groups ? `&groups=${cfg.groups}` : '';
+    const url = `https://site.api.espn.com/apis/site/v2/sports/${cfg.sport}/${cfg.espn}/scoreboard?dates=${dateParam}&limit=1000${groups}`;
     const data = await fetchJSON(url);
     const events = data.events ?? [];
     if (events.length >= 950) console.warn(`  WARNING: chunk ${a}-${b} returned ${events.length} events (near cap) — consider smaller CHUNK_DAYS`);
