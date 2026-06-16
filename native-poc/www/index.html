@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <title>BoxdSeats PoC</title>
+    <style>
+      :root { color-scheme: dark; }
+      body { margin: 0; font-family: -apple-system, system-ui, sans-serif; background: #0D0F14; color: #F0EBE0; padding: 20px; }
+      h1 { font-size: 20px; }
+      p.sub { color: #9BA1B5; font-size: 14px; line-height: 1.4; }
+      button { width: 100%; padding: 16px; font-size: 17px; font-weight: 600; color: #fff; background: #D4872C; border: none; border-radius: 12px; margin: 12px 0; }
+      button:disabled { opacity: 0.5; }
+      .stat { font-size: 15px; margin: 6px 0; }
+      .big { font-size: 34px; font-weight: 700; color: #D4872C; }
+      .match { border: 1px solid #2A2D3A; border-radius: 10px; padding: 10px 12px; margin: 8px 0; font-size: 14px; }
+      .match .v { font-weight: 600; }
+      .match .d { color: #9BA1B5; }
+      pre { background: #1C2530; border-radius: 10px; padding: 12px; font-size: 11px; white-space: pre-wrap; word-break: break-word; overflow-x: auto; color: #B8C0D0; }
+      .err { color: #E4572E; }
+    </style>
+  </head>
+  <body>
+    <h1>BoxdSeats — Photo Scan PoC</h1>
+    <p class="sub">
+      Tests whether this app can read your photos' dates + GPS and match them to
+      stadiums/arenas. Nothing is uploaded — it all runs on the phone. Tap below,
+      then allow photo access.
+    </p>
+    <button id="scan">Scan my photos</button>
+    <div id="status" class="stat"></div>
+    <div id="results"></div>
+    <h3 style="margin-top:24px;color:#9BA1B5;font-size:13px;text-transform:uppercase;letter-spacing:1px;">Raw sample (paste this back)</h3>
+    <pre id="raw">—</pre>
+    <script src="app.js"></script>
+  </body>
+</html>

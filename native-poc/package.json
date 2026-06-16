@@ -1,0 +1,14 @@
+{
+  "name": "boxdseats-native-poc",
+  "version": "0.0.1",
+  "private": true,
+  "description": "Throwaway proof-of-concept: can an iOS Capacitor app read photo timestamps + GPS and geofence them against BoxdSeats venues?",
+  "devDependencies": {
+    "@capacitor/cli": "^6.1.0"
+  },
+  "dependencies": {
+    "@capacitor/core": "^6.1.0",
+    "@capacitor/ios": "^6.1.0",
+    "@capacitor-community/media": "^6.0.0"
+  }
+}
