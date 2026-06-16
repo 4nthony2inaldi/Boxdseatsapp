@@ -107,7 +107,10 @@ export default function PhotoSuggestionsView({ suggestions, unknownTeams }: Prop
   if (done) {
     return (
       <div className="max-w-lg mx-auto px-4 py-16 text-center">
-        <div className="text-5xl mb-4">🎟️</div>
+        <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="var(--color-accent)" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="mx-auto mb-4">
+          <path d="M2 9a3 3 0 0 1 0 6v2a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-2a3 3 0 0 1 0-6V7a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2z" />
+          <path d="M13 5v2" /><path d="M13 11v2" /><path d="M13 17v2" />
+        </svg>
         <h1 className="font-display text-2xl text-text-primary tracking-wide mb-2">
           Logged {done.created} {done.created === 1 ? "game" : "games"}
         </h1>
