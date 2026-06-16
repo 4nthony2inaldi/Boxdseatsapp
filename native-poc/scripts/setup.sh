@@ -14,7 +14,7 @@ if [ ! -d ios ]; then
 fi
 
 PLIST="ios/App/App/Info.plist"
-DESC="Find games you attended from your photos."
+DESC="BoxdSeats reads the date and location saved in your photos to find games you've attended. Your photos aren't uploaded."
 echo "→ adding the photo-library permission string to Info.plist"
 /usr/libexec/PlistBuddy -c "Add :NSPhotoLibraryUsageDescription string $DESC" "$PLIST" 2>/dev/null \
   || /usr/libexec/PlistBuddy -c "Set :NSPhotoLibraryUsageDescription $DESC" "$PLIST"
