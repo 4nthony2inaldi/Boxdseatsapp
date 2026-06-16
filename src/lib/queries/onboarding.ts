@@ -71,24 +71,38 @@ export async function searchTeams(
   limit = 10,
   leagueSlug?: string | null
 ): Promise<{ id: string; name: string; short_name: string; league_name: string | null }[]> {
-  const pattern = `%${query.trim()}%`;
+  const raw = query.trim();
+  if (!raw) return [];
+  const pattern = `%${raw}%`;
+  // Pull a wider pool than we return, then rank — with full D1 membership a
+  // league can have hundreds of teams and an unranked LIMIT can drop the
+  // obvious match (e.g. shared mascots like "Bulldogs").
   let q = supabase
     .from("teams")
     .select("id, name, short_name, leagues!inner(name, slug)")
     .or(`name.ilike.${pattern},short_name.ilike.${pattern}`)
-    .limit(limit);
+    .limit(Math.max(limit * 6, 60));
   if (leagueSlug) q = q.eq("leagues.slug", leagueSlug);
   const { data } = await q;
+  if (!data) return [];
 
-  return (data || []).map((t) => {
-    const league = t.leagues as unknown as { name: string } | null;
-    return {
-      id: t.id,
-      name: t.name,
-      short_name: t.short_name,
-      league_name: league?.name || null,
-    };
-  });
+  const norm = (s: string) => s.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase().trim();
+  const nq = norm(raw);
+  const score = (name: string, short: string): number => {
+    const n = norm(name), s = norm(short);
+    if (n === nq || s === nq) return 0;
+    if (n.startsWith(nq) || s.startsWith(nq)) return 1;
+    if (n.split(/\s+/).some((w) => w.startsWith(nq)) || s.split(/\s+/).some((w) => w.startsWith(nq))) return 2;
+    return 3;
+  };
+
+  return [...data]
+    .sort((a, b) => score(a.name, a.short_name) - score(b.name, b.short_name) || a.name.length - b.name.length || a.name.localeCompare(b.name))
+    .slice(0, limit)
+    .map((t) => {
+      const league = t.leagues as unknown as { name: string } | null;
+      return { id: t.id, name: t.name, short_name: t.short_name, league_name: league?.name || null };
+    });
 }
 
 export async function searchVenuesForOnboarding(
