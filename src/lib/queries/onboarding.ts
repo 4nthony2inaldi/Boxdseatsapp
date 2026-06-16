@@ -115,12 +115,28 @@ export async function searchVenuesForOnboarding(
   // Nothing to show until the user types or picks a sport to browse.
   if (!trimmed && !sport) return [];
 
+  // Match former/alternate names too (e.g. "Staples Center" -> Crypto.com
+  // Arena), so a venue logged under an outdated name is still findable.
+  let aliasIds: string[] = [];
+  if (trimmed) {
+    const { data: aliasRows } = await supabase
+      .from("venue_aliases")
+      .select("venue_id")
+      .ilike("alias_name", `%${trimmed}%`)
+      .limit(limit);
+    aliasIds = [...new Set((aliasRows || []).map((a) => a.venue_id as string))];
+  }
+
   let q = supabase
     .from("venues")
     .select("id, name, city, state, primary_sport")
     .eq("status", "active");
   if (sport) q = q.eq("primary_sport", sport);
-  if (trimmed) q = q.or(`name.ilike.%${trimmed}%,city.ilike.%${trimmed}%`);
+  if (trimmed) {
+    const ors = [`name.ilike.%${trimmed}%`, `city.ilike.%${trimmed}%`];
+    if (aliasIds.length) ors.push(`id.in.(${aliasIds.join(",")})`);
+    q = q.or(ors.join(","));
+  }
 
   const { data } = await q.order("name").limit(limit);
   return (data || []).map((v) => ({
