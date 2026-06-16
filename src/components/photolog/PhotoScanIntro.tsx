@@ -10,10 +10,45 @@ type Props = {
   scanning?: boolean;
 };
 
-function Bullet({ icon, bold, rest }: { icon: string; bold: string; rest: string }) {
+const svg = "0 0 24 24";
+
+function TicketIcon({ size = 44 }: { size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox={svg} fill="none" stroke="var(--color-accent)" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M2 9a3 3 0 0 1 0 6v2a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-2a3 3 0 0 1 0-6V7a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2z" />
+      <path d="M13 5v2" /><path d="M13 11v2" /><path d="M13 17v2" />
+    </svg>
+  );
+}
+
+function PinIcon() {
+  return (
+    <svg width="20" height="20" viewBox={svg} fill="none" stroke="var(--color-accent)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" /><circle cx="12" cy="10" r="3" />
+    </svg>
+  );
+}
+
+function LockIcon() {
+  return (
+    <svg width="20" height="20" viewBox={svg} fill="none" stroke="var(--color-accent)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <rect x="3" y="11" width="18" height="11" rx="2" ry="2" /><path d="M7 11V7a5 5 0 0 1 10 0v4" />
+    </svg>
+  );
+}
+
+function CheckIcon() {
+  return (
+    <svg width="20" height="20" viewBox={svg} fill="none" stroke="var(--color-accent)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <circle cx="12" cy="12" r="10" /><polyline points="8 12 11 15 16 9" />
+    </svg>
+  );
+}
+
+function Bullet({ icon, bold, rest }: { icon: React.ReactNode; bold: string; rest: string }) {
   return (
     <div className="flex items-start gap-3">
-      <span className="text-lg leading-6">{icon}</span>
+      <span className="flex-shrink-0 mt-0.5">{icon}</span>
       <p className="text-sm text-text-secondary leading-6">
         <span className="text-text-primary font-medium">{bold}</span> — {rest}
       </p>
@@ -26,7 +61,9 @@ export default function PhotoScanIntro({ onScan, onCancel, webFallback, scanning
 
   return (
     <div className="max-w-lg mx-auto px-5 pt-8 pb-10">
-      <div className="text-5xl mb-4">🎟️</div>
+      <div className="mb-4">
+        <TicketIcon />
+      </div>
       <h1 className="font-display text-[26px] text-text-primary tracking-wide leading-tight">
         Find the games hiding in your camera roll
       </h1>
@@ -37,9 +74,9 @@ export default function PhotoScanIntro({ onScan, onCancel, webFallback, scanning
       </p>
 
       <div className="mt-6 space-y-3 rounded-2xl border border-border bg-bg-card p-4">
-        <Bullet icon="📍" bold="Only the date + location" rest="we never open or analyze the actual pictures" />
-        <Bullet icon="🔒" bold="Your photos stay on your phone" rest="nothing is uploaded or stored" />
-        <Bullet icon="🎟️" bold="You're in control" rest="a photo is only saved if you choose to add it to a game" />
+        <Bullet icon={<PinIcon />} bold="Only the date + location" rest="we never open or analyze the actual pictures" />
+        <Bullet icon={<LockIcon />} bold="Your photos stay on your phone" rest="nothing is uploaded or stored" />
+        <Bullet icon={<CheckIcon />} bold="You're in control" rest="a photo is only saved if you choose to add it to a game" />
       </div>
 
       <p className="text-xs text-text-muted leading-5 mt-4">
@@ -52,7 +89,7 @@ export default function PhotoScanIntro({ onScan, onCancel, webFallback, scanning
         className="mt-3 text-xs text-accent hover:opacity-80 flex items-center gap-1"
       >
         How it works
-        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ transform: howOpen ? "rotate(180deg)" : "none" }}>
+        <svg width="13" height="13" viewBox={svg} fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ transform: howOpen ? "rotate(180deg)" : "none" }}>
           <polyline points="6 9 12 15 18 9" />
         </svg>
       </button>
