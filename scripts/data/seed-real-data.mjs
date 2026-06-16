@@ -63,6 +63,10 @@ const LEAGUES = {
   // (all of Division I).
   ncaam: { sport: 'basketball', espn: 'mens-college-basketball', soccer: false, lazyTeams: true, singleDayFetch: true, groups: 50, seasonMonths: true },
   ncaaw: { sport: 'basketball', espn: 'womens-college-basketball', soccer: false, lazyTeams: true, singleDayFetch: true, groups: 50, seasonMonths: true },
+  // NCAA football (ncaaf) is intentionally absent here: the ESPN scoreboard
+  // truncates college football to ~15-25 of the ~60+ games a week regardless of
+  // groups/limit, so it's seeded from per-team schedule endpoints by the
+  // dedicated scripts/data/seed-ncaaf.mjs instead.
 };
 
 const CONCURRENCY = 8;
