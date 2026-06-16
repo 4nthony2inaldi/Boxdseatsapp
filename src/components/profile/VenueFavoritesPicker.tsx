@@ -12,7 +12,6 @@ import {
 } from "@/lib/queries/bigfour";
 import { toastError } from "@/components/Toaster";
 import SportIcon from "@/components/SportIcon";
-import { SPORTS_LIST } from "@/lib/sportIcons";
 
 type Props = {
   userId: string;
@@ -26,7 +25,6 @@ export default function VenueFavoritesPicker({ userId, initialFavorites, onChang
   const [favorites, setFavorites] = useState(
     [...initialFavorites].sort((a, b) => a.rank - b.rank)
   );
-  const [sport, setSport] = useState<string | null>(null);
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<Result[]>([]);
   const [searching, setSearching] = useState(false);
@@ -47,18 +45,20 @@ export default function VenueFavoritesPicker({ userId, initialFavorites, onChang
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [favorites]);
 
-  // Run search/browse when query or sport changes
+  // Run an open name/city search when the query changes. Venue sport tags are
+  // unreliable (e.g. Gillette is tagged soccer), so there's no sport filter —
+  // searching across all venues avoids hiding a venue under the wrong sport.
   useEffect(() => {
     if (debounceRef.current) clearTimeout(debounceRef.current);
-    if (!query.trim() && !sport) { setResults([]); return; }
+    if (!query.trim()) { setResults([]); return; }
     setSearching(true);
     debounceRef.current = setTimeout(async () => {
-      const found = await searchVenuesForOnboarding(supabase, query, { sport });
+      const found = await searchVenuesForOnboarding(supabase, query, {});
       setResults(found);
       setSearching(false);
     }, 300);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [query, sport]);
+  }, [query]);
 
   // ── Drag-to-reorder (pointer based) ──
   useEffect(() => {
@@ -183,44 +183,12 @@ export default function VenueFavoritesPicker({ userId, initialFavorites, onChang
           {favorites.length > 0 ? "Add another" : "Add venues"}
         </div>
 
-        {/* Sport filter chips */}
-        <div className="flex flex-wrap gap-1.5 mb-3">
-          <button
-            onClick={() => setSport(null)}
-            className="px-3 py-1.5 rounded-full text-xs transition-colors"
-            style={{
-              background: sport === null ? "rgba(212,135,44,0.15)" : "var(--color-bg-input)",
-              border: `1px solid ${sport === null ? "var(--color-accent)" : "var(--color-border)"}`,
-              color: sport === null ? "var(--color-accent)" : "var(--color-text-secondary)",
-            }}
-          >
-            All
-          </button>
-          {SPORTS_LIST.map((s) => {
-            const active = sport === s.key;
-            return (
-              <button
-                key={s.key}
-                onClick={() => setSport(active ? null : s.key)}
-                className="px-3 py-1.5 rounded-full text-xs transition-colors inline-flex items-center gap-1"
-                style={{
-                  background: active ? "rgba(212,135,44,0.15)" : "var(--color-bg-input)",
-                  border: `1px solid ${active ? "var(--color-accent)" : "var(--color-border)"}`,
-                  color: active ? "var(--color-accent)" : "var(--color-text-secondary)",
-                }}
-              >
-                <SportIcon sport={s.key} size={13} /> {s.label}
-              </button>
-            );
-          })}
-        </div>
-
         <div className="relative">
           <input
             type="text"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            placeholder={sport ? `Search ${sport} venues…` : "Search venues by name or city…"}
+            placeholder="Search by stadium name or city…"
             className="w-full py-2.5 px-3 rounded-lg bg-bg-input border border-border text-text-primary text-sm outline-none focus:border-accent transition-colors"
           />
           {searching && (
@@ -230,8 +198,10 @@ export default function VenueFavoritesPicker({ userId, initialFavorites, onChang
           )}
         </div>
 
-        {!query.trim() && !sport && favorites.length === 0 && (
-          <p className="mt-2 text-xs text-text-muted">Pick a sport or search to find venues you&apos;ve been to.</p>
+        {!query.trim() && (
+          <p className="mt-2 text-xs text-text-muted">
+            Search by stadium name or city. Some venues may be listed under a current or former name — try both if you don&apos;t see it.
+          </p>
         )}
 
         {visibleResults.length > 0 && (
