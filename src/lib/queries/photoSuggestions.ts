@@ -46,9 +46,21 @@ export async function fetchPhotoSuggestions(
 ): Promise<PhotoSuggestionsResult> {
   if (!items.length) return { suggestions: [], unknownTeams: [] };
 
-  const venueIds = [...new Set(items.map((i) => i.venueId))];
-  const dates = [...new Set(items.map((i) => i.date))];
-  const wanted = new Set(items.map((i) => `${i.venueId}|${i.date}`));
+  // One suggestion per game, never per photo. The device groups a day's photos
+  // at a venue (20 shots at one game) into a single (venue, date) item before
+  // calling, but we collapse duplicates here too so a sloppy caller can't
+  // produce redundant matches.
+  const seen = new Set<string>();
+  const uniqueItems = items.filter((i) => {
+    const k = `${i.venueId}|${i.date}`;
+    if (seen.has(k)) return false;
+    seen.add(k);
+    return true;
+  });
+
+  const venueIds = [...new Set(uniqueItems.map((i) => i.venueId))];
+  const dates = [...new Set(uniqueItems.map((i) => i.date))];
+  const wanted = new Set(uniqueItems.map((i) => `${i.venueId}|${i.date}`));
 
   const { data: rows } = await supabase
     .from("events")
