@@ -25,37 +25,33 @@ git fetch origin claude/project-review-finish-line-bi70xd
 git checkout claude/project-review-finish-line-bi70xd
 git pull
 
-# 2. Into the PoC and install
+# 2. Into the PoC and run one-shot setup (installs, creates iOS project,
+#    adds the photo-permission line, syncs)
 cd native-poc
-npm install
+bash scripts/setup.sh
 
-# 3. Create + open the iOS project
-npx cap add ios
-npx cap sync ios
+# 3. Open it in Xcode
 npx cap open ios
 ```
 
-If `npx cap add ios` complains about **CocoaPods**, run
-`sudo gem install cocoapods` and then re-run the three `npx cap` lines.
+If `setup.sh` complains about **CocoaPods**, run `sudo gem install cocoapods`
+and then re-run `bash scripts/setup.sh`.
 
-## Steps (Xcode — a few clicks)
+## Steps (Xcode — two clicks now, since the permission line is already set)
 Xcode opens the project. Then:
 
 1. **Signing:** left sidebar, click the blue **App** at the top → center pane
    **Signing & Capabilities** → tick **Automatically manage signing** → pick your
-   **Team** in the dropdown. If there's no team, click **Add an Account…** and
-   sign in with your normal Apple ID (free — no paid account needed for testing
-   on your own phone).
-2. **Photo permission text:** still on the **App** target → **Info** tab → hover
-   any row, click the small **+** → start typing **Privacy - Photo Library Usage
-   Description** and pick it → set the value to:
-   `Find games you attended from your photos.`
-   (Without this line iOS will refuse photo access.)
-3. **Run it:** plug your iPhone into the Mac with a cable. In the top bar, where
-   it says a device name, pick **your iPhone**. Click the **▶ (Run)** button.
-   - First time, your phone may say the developer isn't trusted: on the phone go
+   **Team**. If there's no team, click **Add an Account…** and sign in with your
+   normal Apple ID (free — no paid account needed to test on your own phone).
+2. **Run it:** plug your iPhone in. In the top bar pick **your iPhone**, then
+   click **▶ (Run)**.
+   - First time, the phone may say the developer isn't trusted: on the phone go
      **Settings → General → VPN & Device Management →** tap your Apple ID **→
      Trust**, then press ▶ again.
+
+(The photo-permission text that iOS requires is added automatically by
+`setup.sh`, so you no longer need to edit it in Xcode.)
 
 ## What to do in the app
 Tap **"Scan my photos"** and **Allow** photo access. It'll show:
