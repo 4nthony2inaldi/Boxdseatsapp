@@ -72,29 +72,3 @@ export const SPORTS_LIST = [
   { key: "tennis", label: "Tennis", icon: "/tennis.svg" },
   { key: "motorsports", label: "Motorsports", icon: "/motorsports.svg" },
 ] as const;
-
-/** League list with slugs, names, and icon paths */
-export const LEAGUES_LIST = [
-  { slug: "nfl", name: "NFL", icon: "/football.svg" },
-  { slug: "nba", name: "NBA", icon: "/basketball.svg" },
-  { slug: "mlb", name: "MLB", icon: "/baseball.svg" },
-  { slug: "nhl", name: "NHL", icon: "/hockey.svg" },
-  { slug: "mls", name: "MLS", icon: "/soccer.svg" },
-  { slug: "eng.1", name: "Premier League", icon: "/soccer.svg" },
-  { slug: "esp.1", name: "La Liga", icon: "/soccer.svg" },
-  { slug: "ger.1", name: "Bundesliga", icon: "/soccer.svg" },
-  { slug: "ita.1", name: "Serie A", icon: "/soccer.svg" },
-  { slug: "fra.1", name: "Ligue 1", icon: "/soccer.svg" },
-  { slug: "fifa.world", name: "FIFA World Cup", icon: "/soccer.svg" },
-  { slug: "ncaaf", name: "NCAA Football", icon: "/football.svg" },
-  { slug: "ncaam", name: "NCAA Men\u2019s Basketball", icon: "/basketball.svg" },
-  { slug: "ncaaw", name: "NCAA Women\u2019s Basketball", icon: "/basketball.svg" },
-  { slug: "pga-tour", name: "PGA Tour", icon: "/golf.svg" },
-  { slug: "atp", name: "ATP Tour", icon: "/tennis.svg" },
-  { slug: "wta", name: "WTA Tour", icon: "/tennis.svg" },
-  { slug: "nascar-cup", name: "NASCAR Cup Series", icon: "/motorsports.svg" },
-  { slug: "nascar-xfinity", name: "NASCAR Xfinity Series", icon: "/motorsports.svg" },
-  { slug: "nascar-truck", name: "NASCAR Truck Series", icon: "/motorsports.svg" },
-  { slug: "indycar", name: "IndyCar Series", icon: "/motorsports.svg" },
-  { slug: "f1", name: "Formula 1", icon: "/motorsports.svg" },
-] as const;

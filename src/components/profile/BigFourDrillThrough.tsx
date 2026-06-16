@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useMemo } from "react";
 import { createClient } from "@/lib/supabase/client";
 import type { LeagueFavorite } from "@/lib/queries/bigfour";
 import {
@@ -15,21 +15,13 @@ import {
   fetchLeagueFavorites,
   fetchLoggedEventChoices,
 } from "@/lib/queries/bigfour";
+import { fetchSelectableLeagues, type SelectableLeague } from "@/lib/queries/leagues";
 import { toastError } from "@/components/Toaster";
 import SportIcon from "@/components/SportIcon";
-import { leagueFromSlug } from "@/lib/constants";
-import { LEAGUES_LIST } from "@/lib/sportIcons";
-
-const ALL_LEAGUES = LEAGUES_LIST;
 
 // Sports with no teams — the "team" slot for these leagues holds an
 // athlete (Sinner for ATP, Blaney for NASCAR, ...).
 const INDIVIDUAL_SPORTS = new Set(["tennis", "golf", "motorsports"]);
-
-function isIndividualLeague(slug: string | null): boolean {
-  const sport = leagueFromSlug(slug)?.sport;
-  return !!sport && INDIVIDUAL_SPORTS.has(sport);
-}
 
 type Props = {
   userId: string;
@@ -71,8 +63,25 @@ export default function BigFourDrillThrough({
   dragIndexRef.current = dragIndex;
   const supabase = createClient();
 
+  // Selectable leagues come from the DB so a newly added league appears here
+  // automatically — no hardcoded list to maintain.
+  const [allLeagues, setAllLeagues] = useState<SelectableLeague[]>([]);
+  useEffect(() => {
+    fetchSelectableLeagues(supabase).then(setAllLeagues);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const sportBySlug = useMemo(
+    () => new Map(allLeagues.map((l) => [l.slug, l.sport])),
+    [allLeagues]
+  );
+  const isIndividualLeague = (slug: string | null): boolean => {
+    const sport = slug ? sportBySlug.get(slug) : null;
+    return !!sport && INDIVIDUAL_SPORTS.has(sport);
+  };
+
   const pickedSlugs = new Set(favorites.map((f) => f.league_slug));
-  const unpickedLeagues = ALL_LEAGUES.filter((l) => !pickedSlugs.has(l.slug));
+  const unpickedLeagues = allLeagues.filter((l) => !pickedSlugs.has(l.slug));
 
   // Report progress (headliner is the lowest-rank pick) for onboarding.
   useEffect(() => {
@@ -140,7 +149,7 @@ export default function BigFourDrillThrough({
       const slugForRow = leagueSlugOverride ?? editingLeagueSlug;
       if (category === "team") {
         if (isIndividualLeague(slugForRow)) {
-          const sport = leagueFromSlug(slugForRow)?.sport ?? null;
+          const sport = (slugForRow ? sportBySlug.get(slugForRow) : null) ?? null;
           const athletes = await searchAthletes(supabase, q, 10, sport);
           results = athletes.map((a) => ({ id: a.id, label: a.name, subtitle: a.sport || undefined }));
         } else {
@@ -155,7 +164,7 @@ export default function BigFourDrillThrough({
           subtitle: `${v.city}${v.state ? `, ${v.state}` : ""}`,
         }));
       } else if (category === "athlete") {
-        const sport = leagueFromSlug(slugForRow)?.sport ?? null;
+        const sport = (slugForRow ? sportBySlug.get(slugForRow) : null) ?? null;
         const athletes = await searchAthletes(supabase, q, 10, sport);
         results = athletes.map((a) => ({ id: a.id, label: a.name, subtitle: a.sport || undefined }));
       } else if (category === "event") {
@@ -226,7 +235,7 @@ export default function BigFourDrillThrough({
       category === "event"
         ? "Filter your logged events..."
         : individual
-          ? leagueFromSlug(leagueSlug)?.sport === "motorsports"
+          ? sportBySlug.get(leagueSlug) === "motorsports"
             ? "Search drivers..."
             : "Search players..."
           : `Search ${noun}s...`;
@@ -362,7 +371,7 @@ export default function BigFourDrillThrough({
               return (
                 <div key={league.slug} className="bg-bg-card rounded-xl border border-border overflow-hidden">
                   <div className="flex items-center gap-3 px-4 py-3">
-                    <SportIcon league={league.slug} size={22} />
+                    <SportIcon sport={league.sport} size={22} />
                     <div className="flex-1 min-w-0">
                       <div className="text-sm text-text-primary font-medium">{league.name}</div>
                       <div className="text-xs text-text-muted">No pick yet</div>
