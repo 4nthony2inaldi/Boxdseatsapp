@@ -116,9 +116,12 @@ async function seedGames() {
 
   const teamIds = [...teamByEspn.keys()];
   const jobs = [];
-  for (const tid of teamIds) for (const season of SEASONS) {
+  // Fetch regular season (type 2) AND postseason (type 3) — the default
+  // schedule omits bowls/CFP, so type 3 must be requested explicitly or games
+  // like the Pinstripe Bowl never come through.
+  for (const tid of teamIds) for (const season of SEASONS) for (const st of [2, 3]) {
     jobs.push(limiter(async () => {
-      const d = await fetchJSON(`https://site.api.espn.com/apis/site/v2/sports/football/college-football/teams/${tid}/schedule?season=${season}`);
+      const d = await fetchJSON(`https://site.api.espn.com/apis/site/v2/sports/football/college-football/teams/${tid}/schedule?season=${season}&seasontype=${st}`);
       return d.events || [];
     }));
   }
