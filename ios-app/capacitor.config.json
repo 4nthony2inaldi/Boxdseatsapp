@@ -1,0 +1,9 @@
+{
+  "appId": "com.boxdseats.app",
+  "appName": "BoxdSeats",
+  "webDir": "www",
+  "server": {
+    "url": "https://www.boxdseats.com",
+    "cleartext": false
+  }
+}
