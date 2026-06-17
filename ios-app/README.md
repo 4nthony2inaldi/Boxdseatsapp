@@ -38,6 +38,32 @@ If `setup.sh` complains about **CocoaPods**, install it once with
 **Tell me:** does it load and let you log in? Once that's confirmed, I'll wire
 the photo scan (web side) and it'll appear in the app on next launch.
 
+## Getting it on a real iPhone — cloud build → TestFlight (no Mac needed)
+
+The work Mac's USB is locked (CrowdStrike), so device installs go through
+TestFlight via a cloud build. All of this is doable from a browser (iPad-friendly).
+
+**One-time setup (you, in a browser):**
+1. **Apple Developer Program** — enroll at developer.apple.com/programs ($99/yr).
+   Start this first; Apple's identity check can take a day or two.
+2. **App Store Connect API key** — App Store Connect → Users and Access →
+   Integrations → App Store Connect API → generate a key. Download the `.p8`
+   and note the **Key ID** and **Issuer ID**.
+3. **Register the app** — register bundle id `com.boxdseats.app` and create the
+   app "BoxdSeats" in App Store Connect.
+4. **Codemagic** (codemagic.io, free tier): sign up, connect this GitHub repo,
+   add the App Store Connect key as an integration named exactly **`BoxdSeats ASC`**.
+
+**Build:** Codemagic auto-detects `codemagic.yaml` (repo root). Start the
+`ios-testflight` workflow. It builds the app on a cloud Mac, signs it, and
+uploads to TestFlight.
+
+**Install on your iPhone:** install Apple's **TestFlight** app, accept the
+BoxdSeats build, tap install. Done — no cable, no local Mac.
+
+The app icon comes from `ios-app/assets/logo.png` (the brand mark); the build
+generates the full icon + splash set automatically.
+
 ## Notes
 - App id: `com.boxdseats.app`. The photo-permission string is added by
   `setup.sh`; the photo prompt won't fire until the scan feature is wired.
