@@ -4,7 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import PhotoScanIntro from "@/components/photolog/PhotoScanIntro";
 import PhotoSuggestionsView from "@/components/photolog/PhotoSuggestionsView";
-import { scanPhotosForVenues, type ScanItem } from "@/lib/native/photoScan";
+import { scanPhotosForVenues, type ScanItem, type ScanProgress } from "@/lib/native/photoScan";
 import type { PhotoSuggestionsResult } from "@/lib/queries/photoSuggestions";
 
 type State = "intro" | "scanning" | "loading" | "ready" | "empty" | "error";
@@ -18,6 +18,36 @@ function Spinner({ message }: { message: string }) {
   );
 }
 
+function ScanProgressView({ progress }: { progress: ScanProgress | null }) {
+  let label = "Reading your photos…";
+  let pct: number | null = null;
+  if (progress?.phase === "scanning") {
+    label = `Scanning ${progress.total.toLocaleString()} photos for game locations…`;
+    pct = progress.total ? Math.min(99, Math.round((progress.processed / progress.total) * 100)) : 0;
+  } else if (progress?.phase === "matching") {
+    label = "Matching venues…";
+    pct = 100;
+  }
+  return (
+    <div className="max-w-lg mx-auto px-4 py-24 flex flex-col items-center text-center">
+      {pct === null ? (
+        <div className="w-8 h-8 border-2 border-text-muted/30 border-t-accent rounded-full animate-spin mb-4" />
+      ) : (
+        <div className="w-full max-w-xs mb-4">
+          <div className="h-2 rounded-full bg-bg-input overflow-hidden">
+            <div
+              className="h-full rounded-full transition-all duration-200"
+              style={{ width: `${pct}%`, background: "linear-gradient(90deg, var(--color-accent), var(--color-accent-brown))" }}
+            />
+          </div>
+          <div className="text-xs text-text-muted mt-1.5">{pct}%</div>
+        </div>
+      )}
+      <p className="text-text-secondary text-sm">{label}</p>
+    </div>
+  );
+}
+
 /**
  * Photo discovery flow: privacy-first intro → on-device scan → review the games
  * we found → bulk-log.
@@ -27,6 +57,7 @@ export default function PhotoLogPage() {
   const [state, setState] = useState<State>("intro");
   const [webFallback, setWebFallback] = useState(false);
   const [data, setData] = useState<PhotoSuggestionsResult | null>(null);
+  const [progress, setProgress] = useState<ScanProgress | null>(null);
   // venueId|date -> representative photo identifier, for auto-attach on commit.
   const [photoByKey, setPhotoByKey] = useState<Record<string, string>>({});
 
@@ -54,9 +85,10 @@ export default function PhotoLogPage() {
     }
   }
 
-  async function handleScan() {
+  async function handleScan(monthsBack?: number) {
+    setProgress({ phase: "reading" });
     setState("scanning");
-    const items = await scanPhotosForVenues();
+    const items = await scanPhotosForVenues({ monthsBack, onProgress: setProgress });
     if (items === null) {
       // No native photo access (web) — back to the intro with a gentle note.
       setWebFallback(true);
@@ -74,7 +106,7 @@ export default function PhotoLogPage() {
     return <PhotoScanIntro onScan={handleScan} onCancel={() => router.back()} webFallback={webFallback} />;
   }
 
-  if (state === "scanning") return <Spinner message="Scanning your photos…" />;
+  if (state === "scanning") return <ScanProgressView progress={progress} />;
   if (state === "loading") return <Spinner message="Finding your games…" />;
 
   // empty / error
