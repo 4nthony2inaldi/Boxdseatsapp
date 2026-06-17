@@ -173,9 +173,10 @@ export async function scanPhotosForVenues(opts: ScanOptions = {}): Promise<ScanI
 
   onProgress?.({ phase: "reading" });
 
-  // Fetch fewer photos for shorter ranges (generous per-month headroom) so a
-  // quick scan stays quick; the exact date cutoff is enforced below.
-  const quantity = monthsBack ? Math.min(50000, monthsBack * 2500) : 50000;
+  // Fetch fewer photos for shorter ranges so a quick scan stays quick, with
+  // very generous per-month headroom (~260/day) so an in-range photo is never
+  // truncated before the exact date cutoff below can see it.
+  const quantity = monthsBack ? Math.min(50000, monthsBack * 8000) : 50000;
   const attempts: Record<string, unknown>[] = [
     { quantity, types: "photos", sort: [{ key: "creationDate", ascending: false }] },
     { quantity, type: "photos" },

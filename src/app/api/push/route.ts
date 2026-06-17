@@ -53,12 +53,28 @@ function sendAll(tokens: string[], payload: object, jwt: string, topic: string):
   return new Promise((resolve) => {
     const client = http2.connect("https://api.push.apple.com");
     const results: SendResult[] = [];
-    let pending = tokens.length;
     const body = JSON.stringify(payload);
-    client.on("error", () => {
-      // Connection-level failure: report all as 0 so caller can log, then bail.
-      resolve(tokens.map((t) => ({ token: t, status: 0 })));
-    });
+
+    // Settle exactly once: fill any token without a result (e.g. a stalled
+    // stream on timeout) as status 0 so the promise always resolves and the
+    // session is torn down — never hang the serverless invocation.
+    let settled = false;
+    const settle = () => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      try {
+        client.destroy();
+      } catch {}
+      const seen = new Set(results.map((r) => r.token));
+      for (const t of tokens) if (!seen.has(t)) results.push({ token: t, status: 0 });
+      resolve(results);
+    };
+    const timer = setTimeout(settle, 10000);
+
+    let pending = tokens.length;
+    client.on("error", settle);
+
     for (const token of tokens) {
       const req = client.request({
         ":method": "POST",
@@ -84,17 +100,11 @@ function sendAll(tokens: string[], payload: object, jwt: string, topic: string):
           } catch {}
         }
         results.push({ token, status, reason });
-        if (--pending === 0) {
-          client.close();
-          resolve(results);
-        }
+        if (--pending === 0) settle();
       });
       req.on("error", () => {
         results.push({ token, status: 0 });
-        if (--pending === 0) {
-          client.close();
-          resolve(results);
-        }
+        if (--pending === 0) settle();
       });
       req.end(body);
     }
