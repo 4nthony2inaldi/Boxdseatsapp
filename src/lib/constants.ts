@@ -60,6 +60,8 @@ export const LEAGUES = {
   INDYCAR: { slug: "indycar", color: "#C8102E", icon: "/motorsports.svg", sport: "motorsports" },
   F1: { slug: "f1", color: "#E10600", icon: "/motorsports.svg", sport: "motorsports" },
   IMSA: { slug: "imsa", color: "#E4002B", icon: "/motorsports.svg", sport: "motorsports" },
+  UFC: { slug: "ufc", color: "#D20A0A", icon: "/mma.svg", sport: "mma" },
+  HORSERACING: { slug: "horse-racing", color: "#5B3A1E", icon: "/horse-racing.svg", sport: "horse_racing" },
 } as const;
 
 export type LeagueKey = keyof typeof LEAGUES;

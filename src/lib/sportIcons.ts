@@ -12,6 +12,8 @@ const SPORT_ICON_MAP: Record<string, string> = {
   motorsports: "/motorsports.svg",
   soccer: "/soccer.svg",
   tennis: "/tennis.svg",
+  mma: "/mma.svg",
+  horse_racing: "/horse-racing.svg",
 };
 
 /** League slug → sport name mapping */
@@ -42,6 +44,8 @@ const LEAGUE_SPORT_MAP: Record<string, string> = {
   indycar: "motorsports",
   f1: "motorsports",
   imsa: "motorsports",
+  ufc: "mma",
+  "horse-racing": "horse_racing",
 };
 
 /**
@@ -74,4 +78,6 @@ export const SPORTS_LIST = [
   { key: "golf", label: "Golf", icon: "/golf.svg" },
   { key: "tennis", label: "Tennis", icon: "/tennis.svg" },
   { key: "motorsports", label: "Motorsports", icon: "/motorsports.svg" },
+  { key: "mma", label: "MMA", icon: "/mma.svg" },
+  { key: "horse_racing", label: "Horse Racing", icon: "/horse-racing.svg" },
 ] as const;
