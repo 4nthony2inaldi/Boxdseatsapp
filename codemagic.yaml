@@ -72,8 +72,11 @@ workflows:
           echo "== p12 size: $(wc -c < /tmp/dist.p12) bytes =="
           # Extract the private key (macOS openssl reads the legacy p12 natively;
           # fall back to -legacy for an OpenSSL 3 toolchain).
-          openssl pkcs12 -in /tmp/dist.p12 -passin pass:"$IOS_DIST_CERT_PASSWORD" -nodes -nocerts -out /tmp/dist_key.pem 2>/dev/null \
-            || openssl pkcs12 -legacy -in /tmp/dist.p12 -passin pass:"$IOS_DIST_CERT_PASSWORD" -nodes -nocerts -out /tmp/dist_key.pem
+          openssl pkcs12 -in /tmp/dist.p12 -passin pass:"$IOS_DIST_CERT_PASSWORD" -nodes -nocerts -out /tmp/dist_key_raw.pem 2>/dev/null \
+            || openssl pkcs12 -legacy -in /tmp/dist.p12 -passin pass:"$IOS_DIST_CERT_PASSWORD" -nodes -nocerts -out /tmp/dist_key_raw.pem
+          # openssl prepends "Bag Attributes"/localKeyID text before the PEM block,
+          # which fetch-signing-files rejects — keep only the key block.
+          sed -n '/-----BEGIN/,/-----END/p' /tmp/dist_key_raw.pem > /tmp/dist_key.pem
           echo "== private key extracted: $(grep -c 'PRIVATE KEY' /tmp/dist_key.pem) =="
           keychain add-certificates --certificate /tmp/dist.p12 --certificate-password "$IOS_DIST_CERT_PASSWORD"
           echo "== code-signing identities in keychain: =="
