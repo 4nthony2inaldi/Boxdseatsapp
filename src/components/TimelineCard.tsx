@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { leagueFromSlug, leagueLabelFromSlug } from "@/lib/constants";
@@ -8,6 +9,7 @@ import StarRating from "./profile/StarRating";
 import OutcomeBadge from "./profile/OutcomeBadge";
 import ShareButton from "./sharing/ShareButton";
 import VerifiedBadge from "./VerifiedBadge";
+import ImageLightbox from "./ImageLightbox";
 
 export type TimelineAuthor = {
   id: string;
@@ -65,6 +67,7 @@ export default function TimelineCard({
   onComment,
   editHref,
 }: TimelineCardProps) {
+  const [photoOpen, setPhotoOpen] = useState(false);
   const leagueData = leagueFromSlug(entry.league_slug);
   const leagueColor = leagueData?.color || "#D4872C";
 
@@ -212,19 +215,33 @@ export default function TimelineCard({
         {/* Photo */}
         {entry.photo_url && (
           <div className="relative rounded-lg overflow-hidden mb-2.5 -mx-1">
-            <Image
-              src={entry.photo_url}
-              alt="Event photo"
-              width={600}
-              height={180}
-              sizes="(max-width: 512px) 100vw, 512px"
-              quality={75}
-              className="w-full aspect-video object-cover"
-            />
+            <button
+              type="button"
+              onClick={() => setPhotoOpen(true)}
+              aria-label="View photo"
+              className="block w-full cursor-zoom-in"
+            >
+              <Image
+                src={entry.photo_url}
+                alt="Event photo"
+                width={600}
+                height={180}
+                sizes="(max-width: 512px) 100vw, 512px"
+                quality={75}
+                className="w-full aspect-video object-cover"
+              />
+            </button>
             {entry.photo_is_verified && (
-              <div className="absolute top-2 left-2">
+              <div className="absolute top-2 left-2 pointer-events-none">
                 <VerifiedBadge size="sm" />
               </div>
+            )}
+            {photoOpen && (
+              <ImageLightbox
+                src={entry.photo_url}
+                alt="Event photo"
+                onClose={() => setPhotoOpen(false)}
+              />
             )}
           </div>
         )}
