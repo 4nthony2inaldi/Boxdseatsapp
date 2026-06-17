@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { completeOnboarding, finalizeOnboardingExtras } from "@/lib/queries/onboarding";
+import { toastError } from "@/components/Toaster";
 import { isNativeApp } from "@/lib/native/photoScan";
 import StepAccount from "./StepAccount";
 import StepRootFor from "./StepRootFor";
@@ -48,6 +49,7 @@ export default function OnboardingFlow({ userId, initialUsername }: OnboardingFl
       router.refresh();
     } catch {
       setFinishing(false);
+      toastError("Couldn't finish setting up your profile. Try again.");
     }
   }
 

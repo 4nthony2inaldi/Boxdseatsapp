@@ -4,6 +4,7 @@ import Image from "next/image";
 import { useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { postComment, deleteComment, type EventComment } from "@/lib/queries/event";
+import { formatRelative } from "@/lib/formatters";
 
 type Props = {
   eventLogId: string;
@@ -92,21 +93,6 @@ export default function CommentsSection({ eventLogId, userId, logOwnerId, initia
     });
   };
 
-  const formatTime = (dateStr: string) => {
-    const date = new Date(dateStr);
-    const now = new Date();
-    const diffMs = now.getTime() - date.getTime();
-    const diffMins = Math.floor(diffMs / 60000);
-    const diffHours = Math.floor(diffMins / 60);
-    const diffDays = Math.floor(diffHours / 24);
-
-    if (diffMins < 1) return "just now";
-    if (diffMins < 60) return `${diffMins}m ago`;
-    if (diffHours < 24) return `${diffHours}h ago`;
-    if (diffDays < 7) return `${diffDays}d ago`;
-    return date.toLocaleDateString("en-US", { month: "short", day: "numeric" });
-  };
-
   const commentItems = (
     <>
       {comments.map((comment) => (
@@ -138,13 +124,13 @@ export default function CommentsSection({ eventLogId, userId, logOwnerId, initia
                       {comment.display_name || comment.username}
                     </span>
                     <span className="text-[10px] text-text-muted">
-                      {formatTime(comment.created_at)}
+                      {formatRelative(comment.created_at)}
                     </span>
                     {(comment.user_id === userId || logOwnerId === userId) && (
                       <button
                         onClick={() => handleDelete(comment.id)}
                         aria-label="Delete comment"
-                        className="ml-auto text-[10px] text-text-muted hover:text-loss transition-colors bg-transparent border-none cursor-pointer p-0"
+                        className="ml-auto text-[10px] text-text-muted hover:text-loss transition-colors bg-transparent border-none cursor-pointer p-2.5 -m-2.5"
                       >
                         Delete
                       </button>

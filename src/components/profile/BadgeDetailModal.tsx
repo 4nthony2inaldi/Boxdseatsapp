@@ -20,15 +20,27 @@ type BadgeItem = {
 export default function BadgeDetailModal({ badge, userId, onClose }: BadgeDetailModalProps) {
   const [items, setItems] = useState<BadgeItem[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(false);
 
   useEffect(() => {
+    let active = true;
     async function load() {
-      const supabase = createClient();
-      const result = await fetchBadgeItems(supabase, badge.list_id, userId);
-      setItems(result);
-      setLoading(false);
+      try {
+        const supabase = createClient();
+        const result = await fetchBadgeItems(supabase, badge.list_id, userId);
+        if (!active) return;
+        setItems(result);
+      } catch {
+        if (!active) return;
+        setError(true);
+      } finally {
+        if (active) setLoading(false);
+      }
     }
     load();
+    return () => {
+      active = false;
+    };
   }, [badge.list_id, userId]);
 
   // Escape to close.
@@ -86,11 +98,13 @@ export default function BadgeDetailModal({ badge, userId, onClose }: BadgeDetail
             <button
               onClick={onClose}
               aria-label="Close"
-              className="w-8 h-8 flex items-center justify-center rounded-full bg-bg-input text-text-muted hover:text-text-primary transition-colors"
+              className="p-1 -m-1 flex items-center justify-center text-text-muted hover:text-text-primary transition-colors"
             >
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
-                <path d="M18 6L6 18M6 6l12 12" />
-              </svg>
+              <span className="w-8 h-8 flex items-center justify-center rounded-full bg-bg-input">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
+                  <path d="M18 6L6 18M6 6l12 12" />
+                </svg>
+              </span>
             </button>
           </div>
 
@@ -138,6 +152,14 @@ export default function BadgeDetailModal({ badge, userId, onClose }: BadgeDetail
           {loading ? (
             <div className="flex items-center justify-center py-8">
               <div className="w-5 h-5 border-2 border-accent border-t-transparent rounded-full animate-spin" />
+            </div>
+          ) : error ? (
+            <div className="text-center text-text-muted text-sm py-8">
+              Couldn&apos;t load these items. Please try again.
+            </div>
+          ) : items.length === 0 ? (
+            <div className="text-center text-text-muted text-sm py-8">
+              No items to show.
             </div>
           ) : (
             <div className="space-y-1">

@@ -86,7 +86,7 @@ export default async function PublicEventLogPage({ params }: Props) {
             This event log doesn&apos;t exist, is private, or has been removed.
           </p>
           <Link
-            href="/login"
+            href="/signup"
             className="inline-block bg-accent text-bg font-display text-sm tracking-wider uppercase px-6 py-2.5 rounded-lg hover:opacity-90 transition-opacity"
           >
             Join BoxdSeats

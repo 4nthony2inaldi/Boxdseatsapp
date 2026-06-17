@@ -11,6 +11,7 @@ import {
 } from "@/lib/queries/log";
 import { LEAGUES, leagueFromSlug } from "@/lib/constants";
 import SportIcon from "@/components/SportIcon";
+import { toastError } from "@/components/Toaster";
 
 export type ManualEntryData = {
   league_slug: string | null;
@@ -65,16 +66,21 @@ export default function StepEvent({
 
   useEffect(() => {
     async function load() {
-      const supabase = createClient();
-      const results = await findEventsAtVenueOnDate(supabase, venueId, date);
-      const logged = await fetchLoggedEventIds(
-        supabase,
-        userId,
-        results.map((r) => r.id)
-      );
-      setEvents(results);
-      setLoggedIds(logged);
-      setLoading(false);
+      try {
+        const supabase = createClient();
+        const results = await findEventsAtVenueOnDate(supabase, venueId, date);
+        const logged = await fetchLoggedEventIds(
+          supabase,
+          userId,
+          results.map((r) => r.id)
+        );
+        setEvents(results);
+        setLoggedIds(logged);
+      } catch {
+        toastError("Couldn't load events. Check your connection and try again.");
+      } finally {
+        setLoading(false);
+      }
     }
     load();
   }, [venueId, date, userId]);
@@ -90,15 +96,20 @@ export default function StepEvent({
     // Load all days for this tournament
     setMultiDayEvent(event);
     setLoadingDays(true);
-    const supabase = createClient();
-    const days = await fetchTournamentDays(supabase, event.tournament_id);
-    setTournamentDays(days);
-    // Pre-select the day that was on the selected date
-    const matchingDay = days.find((d) => d.id === event.id);
-    if (matchingDay) {
-      setSelectedDays(new Set([matchingDay.id]));
+    try {
+      const supabase = createClient();
+      const days = await fetchTournamentDays(supabase, event.tournament_id);
+      setTournamentDays(days);
+      // Pre-select the day that was on the selected date
+      const matchingDay = days.find((d) => d.id === event.id);
+      if (matchingDay) {
+        setSelectedDays(new Set([matchingDay.id]));
+      }
+    } catch {
+      toastError("Couldn't load tournament days. Try again.");
+    } finally {
+      setLoadingDays(false);
     }
-    setLoadingDays(false);
   };
 
   const toggleDay = (dayId: string) => {

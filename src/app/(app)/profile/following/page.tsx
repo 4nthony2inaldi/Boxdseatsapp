@@ -43,7 +43,32 @@ export default async function FollowingPage() {
           Following
         </h1>
       </div>
-      <UserList users={following} currentUserId={user.id} />
+      <UserList
+        users={following}
+        currentUserId={user.id}
+        emptyState={
+          <div className="px-4 py-12">
+            <div className="rounded-xl border border-border bg-bg-card p-8 text-center">
+              <div className="font-display text-lg text-text-primary tracking-wide mb-2">
+                Not Following Anyone
+              </div>
+              <p className="text-text-muted text-sm mb-4">
+                Follow other fans to see their event logs in your feed.
+              </p>
+              <Link
+                href="/explore"
+                className="inline-block px-5 py-2.5 rounded-xl text-sm font-medium text-white transition-opacity hover:opacity-90"
+                style={{
+                  background:
+                    "linear-gradient(135deg, var(--color-accent), var(--color-accent-brown))",
+                }}
+              >
+                Find Fans to Follow
+              </Link>
+            </div>
+          </div>
+        }
+      />
     </div>
   );
 }

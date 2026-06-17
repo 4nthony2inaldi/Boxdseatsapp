@@ -10,6 +10,7 @@ import {
   removeListItem,
   searchVenuesForList,
 } from "@/lib/queries/lists";
+import { toastError } from "@/components/Toaster";
 
 type ExistingItem = {
   id: string;
@@ -89,6 +90,8 @@ export default function EditListForm({
         ...prev,
         { id: result.id, venue_id: venue.id, display_name: venue.name },
       ]);
+    } else {
+      toastError("Couldn't add venue — check your connection.");
     }
     setSearchQuery("");
     setSearchResults([]);
@@ -102,6 +105,7 @@ export default function EditListForm({
     const result = await removeListItem(supabase, listId, itemId);
     if ("error" in result) {
       setItems(previous);
+      toastError("Couldn't remove venue — check your connection.");
     }
   };
 

@@ -18,6 +18,7 @@ import VenueTimelineList from "@/components/venue/VenueTimelineList";
 import VenueStatusToggle from "@/components/venue/VenueStatusToggle";
 import SportIcon from "@/components/SportIcon";
 import { CameraIcon } from "@/components/icons";
+import { formatDate } from "@/lib/formatters";
 
 export default async function VenueDetailPage({
   params,
@@ -59,14 +60,8 @@ export default async function VenueDetailPage({
 
   const hasEventLogs = history.totalVisits > 0;
 
-  const formatDate = (dateStr: string | null) => {
-    if (!dateStr) return "—";
-    return new Date(dateStr + "T00:00:00").toLocaleDateString("en-US", {
-      month: "short",
-      day: "numeric",
-      year: "numeric",
-    });
-  };
+  const formatVisitDate = (dateStr: string | null) =>
+    dateStr ? formatDate(dateStr) : "—";
 
   return (
     <div className="px-4 pb-8 max-w-lg mx-auto">
@@ -150,7 +145,7 @@ export default async function VenueDetailPage({
             <StatBox value={history.totalVisits} label="Visits" />
             <div className="text-center">
               <div className="font-display text-lg text-text-primary tracking-wide">
-                {formatDate(history.firstVisit)}
+                {formatVisitDate(history.firstVisit)}
               </div>
               <div className="text-[10px] text-text-secondary uppercase tracking-wider">
                 First Visit
@@ -158,7 +153,7 @@ export default async function VenueDetailPage({
             </div>
             <div className="text-center">
               <div className="font-display text-lg text-text-primary tracking-wide">
-                {formatDate(history.lastVisit)}
+                {formatVisitDate(history.lastVisit)}
               </div>
               <div className="text-[10px] text-text-secondary uppercase tracking-wider">
                 Last Visit

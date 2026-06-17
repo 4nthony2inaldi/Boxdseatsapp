@@ -90,7 +90,7 @@ export default async function PublicProfilePage({ params }: Props) {
             This profile doesn&apos;t exist or has been removed.
           </p>
           <Link
-            href="/login"
+            href="/signup"
             className="inline-block bg-accent text-bg font-display text-sm tracking-wider uppercase px-6 py-2.5 rounded-lg hover:opacity-90 transition-opacity"
           >
             Join BoxdSeats
@@ -151,12 +151,20 @@ export default async function PublicProfilePage({ params }: Props) {
               Follow this user to see their events and activity.
             </p>
             {!user && (
-              <Link
-                href="/login"
-                className="inline-block bg-accent text-bg font-display text-sm tracking-wider uppercase px-6 py-2.5 rounded-lg hover:opacity-90 transition-opacity"
-              >
-                Log in to follow
-              </Link>
+              <div className="flex flex-col items-center gap-2">
+                <Link
+                  href="/signup"
+                  className="inline-block bg-accent text-bg font-display text-sm tracking-wider uppercase px-6 py-2.5 rounded-lg hover:opacity-90 transition-opacity"
+                >
+                  Sign up to follow
+                </Link>
+                <Link
+                  href="/login"
+                  className="text-xs text-text-muted hover:text-text-secondary transition-colors"
+                >
+                  Already have an account? Log in
+                </Link>
+              </div>
             )}
           </div>
           {/* Share button */}

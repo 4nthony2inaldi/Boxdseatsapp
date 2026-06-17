@@ -27,7 +27,7 @@ export default async function SettingsPage() {
   return (
     <div className="max-w-lg mx-auto pb-5">
       <div className="flex items-center gap-3 px-4 py-3 border-b border-border">
-        <Link href="/profile" className="p-1 hover:opacity-80 transition-opacity">
+        <Link href="/profile" className="p-2.5 -m-2.5 hover:opacity-80 transition-opacity">
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--color-text-secondary)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
             <polyline points="15 18 9 12 15 6" />
           </svg>

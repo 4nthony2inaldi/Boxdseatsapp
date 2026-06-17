@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { fetchEventDatesForVenue } from "@/lib/queries/log";
+import { toastError } from "@/components/Toaster";
 
 type StepDateProps = {
   venueId: string;
@@ -32,22 +33,27 @@ export default function StepDate({
   // Load all event dates for this venue on mount
   useEffect(() => {
     async function load() {
-      const supabase = createClient();
-      const dates = await fetchEventDatesForVenue(supabase, venueId);
-      setEventDates(dates);
-      setLoading(false);
+      try {
+        const supabase = createClient();
+        const dates = await fetchEventDatesForVenue(supabase, venueId);
+        setEventDates(dates);
 
-      // Auto-navigate to the most recent month with an event
-      if (dates.size > 0) {
-        const sorted = Array.from(dates).sort().reverse();
-        const mostRecent = sorted[0];
-        const [y, m] = mostRecent.split("-").map(Number);
-        // Only auto-navigate if the most recent event isn't in the current month
-        if (y !== today.getFullYear() || m - 1 !== today.getMonth()) {
-          setViewYear(y);
-          setViewMonth(m - 1);
-          setAutoJumped(true);
+        // Auto-navigate to the most recent month with an event
+        if (dates.size > 0) {
+          const sorted = Array.from(dates).sort().reverse();
+          const mostRecent = sorted[0];
+          const [y, m] = mostRecent.split("-").map(Number);
+          // Only auto-navigate if the most recent event isn't in the current month
+          if (y !== today.getFullYear() || m - 1 !== today.getMonth()) {
+            setViewYear(y);
+            setViewMonth(m - 1);
+            setAutoJumped(true);
+          }
         }
+      } catch {
+        toastError("Couldn't load event dates. Check your connection.");
+      } finally {
+        setLoading(false);
       }
     }
     load();

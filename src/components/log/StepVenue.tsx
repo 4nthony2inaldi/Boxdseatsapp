@@ -8,6 +8,7 @@ import {
   type VenueResult,
 } from "@/lib/queries/log";
 import SportIcon from "@/components/SportIcon";
+import { toastError } from "@/components/Toaster";
 
 type StepVenueProps = {
   userId: string;
@@ -25,10 +26,15 @@ export default function StepVenue({ userId, onSelect }: StepVenueProps) {
   // Load user's recent/most-visited venues on mount
   useEffect(() => {
     async function load() {
-      const supabase = createClient();
-      const venues = await fetchUserVenues(supabase, userId);
-      setUserVenues(venues);
-      setLoading(false);
+      try {
+        const supabase = createClient();
+        const venues = await fetchUserVenues(supabase, userId);
+        setUserVenues(venues);
+      } catch {
+        toastError("Couldn't load your venues. Check your connection.");
+      } finally {
+        setLoading(false);
+      }
     }
     load();
   }, [userId]);
@@ -48,10 +54,15 @@ export default function StepVenue({ userId, onSelect }: StepVenueProps) {
 
       setSearching(true);
       debounceRef.current = setTimeout(async () => {
-        const supabase = createClient();
-        const results = await searchVenues(supabase, query, userId);
-        setSearchResults(results);
-        setSearching(false);
+        try {
+          const supabase = createClient();
+          const results = await searchVenues(supabase, query, userId);
+          setSearchResults(results);
+        } catch {
+          toastError("Venue search failed. Try again.");
+        } finally {
+          setSearching(false);
+        }
       }, 300);
     },
     [userId]

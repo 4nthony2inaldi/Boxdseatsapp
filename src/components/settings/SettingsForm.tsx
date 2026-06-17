@@ -70,11 +70,16 @@ export default function SettingsForm({ profile, userEmail, availableLists }: Pro
 
   // Autosave: every control persists on change (text fields on blur).
   // Matches the instant-save contract of the feed's city chip.
-  async function autoSave(updates: Parameters<typeof updateProfile>[2]) {
+  async function autoSave(
+    updates: Parameters<typeof updateProfile>[2],
+    revert?: () => void
+  ) {
     setSaving(true);
     const result = await updateProfile(supabase, profile.id, updates);
     setSaving(false);
     if ("error" in result) {
+      // Roll the control back so the UI doesn't show a value that never saved.
+      revert?.();
       toastError("Couldn't save — check your connection.");
     } else {
       setSaved(true);
@@ -133,8 +138,10 @@ export default function SettingsForm({ profile, userEmail, availableLists }: Pro
           <select
             value={homeCity || ""}
             onChange={(e) => {
-              setHomeCity(e.target.value || null);
-              autoSave({ home_city: e.target.value || null });
+              const prev = homeCity;
+              const next = e.target.value || null;
+              setHomeCity(next);
+              autoSave({ home_city: next }, () => setHomeCity(prev));
             }}
             className="w-full py-2 px-3 rounded-lg bg-bg-input border border-border text-text-primary text-sm outline-none"
           >
@@ -159,9 +166,10 @@ export default function SettingsForm({ profile, userEmail, availableLists }: Pro
                 <button
                   key={s.key}
                   onClick={() => {
+                    const prev = favSport;
                     const next = selected ? null : s.key;
                     setFavSport(next);
-                    autoSave({ fav_sport: next });
+                    autoSave({ fav_sport: next }, () => setFavSport(prev));
                   }}
                   className="px-3 py-1.5 rounded-full text-xs transition-colors"
                   style={{
@@ -206,8 +214,10 @@ export default function SettingsForm({ profile, userEmail, availableLists }: Pro
           <select
             value={pinnedList1 || ""}
             onChange={(e) => {
-              setPinnedList1(e.target.value || null);
-              autoSave({ pinned_list_1_id: e.target.value || null });
+              const prev = pinnedList1;
+              const next = e.target.value || null;
+              setPinnedList1(next);
+              autoSave({ pinned_list_1_id: next }, () => setPinnedList1(prev));
             }}
             className="w-full py-2 px-3 rounded-lg bg-bg-input border border-border text-text-primary text-sm outline-none"
           >
@@ -224,8 +234,10 @@ export default function SettingsForm({ profile, userEmail, availableLists }: Pro
           <select
             value={pinnedList2 || ""}
             onChange={(e) => {
-              setPinnedList2(e.target.value || null);
-              autoSave({ pinned_list_2_id: e.target.value || null });
+              const prev = pinnedList2;
+              const next = e.target.value || null;
+              setPinnedList2(next);
+              autoSave({ pinned_list_2_id: next }, () => setPinnedList2(prev));
             }}
             className="w-full py-2 px-3 rounded-lg bg-bg-input border border-border text-text-primary text-sm outline-none"
           >
@@ -245,8 +257,9 @@ export default function SettingsForm({ profile, userEmail, availableLists }: Pro
         <SettingRow label="Private Profile">
           <button
             onClick={() => {
+              const prev = isPrivate;
               setIsPrivate(!isPrivate);
-              autoSave({ is_private: !isPrivate });
+              autoSave({ is_private: !isPrivate }, () => setIsPrivate(prev));
             }}
             className="relative w-11 h-6 rounded-full transition-colors"
             style={{
@@ -266,8 +279,10 @@ export default function SettingsForm({ profile, userEmail, availableLists }: Pro
           <select
             value={defaultPrivacy}
             onChange={(e) => {
-              setDefaultPrivacy(e.target.value);
-              autoSave({ default_privacy: e.target.value });
+              const prev = defaultPrivacy;
+              const next = e.target.value;
+              setDefaultPrivacy(next);
+              autoSave({ default_privacy: next }, () => setDefaultPrivacy(prev));
             }}
             className="w-full py-2 px-3 rounded-lg bg-bg-input border border-border text-text-primary text-sm outline-none"
           >
@@ -279,8 +294,9 @@ export default function SettingsForm({ profile, userEmail, availableLists }: Pro
         <SettingRow label="Allow Comments">
           <button
             onClick={() => {
+              const prev = commentsEnabled;
               setCommentsEnabled(!commentsEnabled);
-              autoSave({ comments_enabled: !commentsEnabled });
+              autoSave({ comments_enabled: !commentsEnabled }, () => setCommentsEnabled(prev));
             }}
             className="relative w-11 h-6 rounded-full transition-colors"
             style={{

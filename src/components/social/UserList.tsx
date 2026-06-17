@@ -10,21 +10,28 @@ import {
   removeFollower,
   type FollowUser,
 } from "@/lib/queries/social";
+import { toastError } from "@/components/Toaster";
 
 type Props = {
   users: FollowUser[];
   currentUserId: string;
   /** True on your own followers list — lets you remove a follower. */
   allowRemove?: boolean;
+  /** Custom UI rendered when there are no users. Defaults to a plain message. */
+  emptyState?: React.ReactNode;
 };
 
 export default function UserList({
   users: initialUsers,
   currentUserId,
   allowRemove = false,
+  emptyState,
 }: Props) {
   const [users, setUsers] = useState(initialUsers);
   const [removingId, setRemovingId] = useState<string | null>(null);
+  // Per-row in-flight flag for the follow toggle so rapid taps don't fire
+  // duplicate requests and the button can show a disabled/loading state.
+  const [togglingId, setTogglingId] = useState<string | null>(null);
 
   const handleRemove = async (targetId: string) => {
     if (removingId) return;
@@ -33,14 +40,17 @@ export default function UserList({
     const result = await removeFollower(supabase, currentUserId, targetId);
     if (!("error" in result)) {
       setUsers((prev) => prev.filter((u) => u.id !== targetId));
+    } else {
+      toastError("Couldn't remove follower — check your connection.");
     }
     setRemovingId(null);
   };
 
   const handleToggleFollow = async (targetId: string) => {
     const user = users.find((u) => u.id === targetId);
-    if (!user || user.id === currentUserId) return;
+    if (!user || user.id === currentUserId || togglingId === targetId) return;
 
+    setTogglingId(targetId);
     const supabase = createClient();
 
     if (user.isFollowing || user.isPending) {
@@ -59,6 +69,7 @@ export default function UserList({
               : u
           )
         );
+        toastError("Couldn't update follow — check your connection.");
       }
     } else {
       // Follow
@@ -75,15 +86,21 @@ export default function UserList({
               : u
           )
         );
+      } else {
+        toastError("Couldn't update follow — check your connection.");
       }
     }
+
+    setTogglingId(null);
   };
 
   if (users.length === 0) {
     return (
-      <div className="text-center text-text-muted text-sm py-12">
-        No users to show.
-      </div>
+      emptyState ?? (
+        <div className="text-center text-text-muted text-sm py-12">
+          No users to show.
+        </div>
+      )
     );
   }
 
@@ -146,7 +163,8 @@ export default function UserList({
           {user.id !== currentUserId && (
             <button
               onClick={() => handleToggleFollow(user.id)}
-              className={`rounded-lg px-3 py-1.5 text-xs font-display tracking-wider uppercase transition-colors cursor-pointer ${
+              disabled={togglingId === user.id}
+              className={`rounded-lg px-3 py-1.5 text-xs font-display tracking-wider uppercase transition-colors cursor-pointer disabled:opacity-50 ${
                 user.isFollowing
                   ? "bg-bg-elevated border border-border text-text-secondary hover:bg-loss/20 hover:text-loss hover:border-loss/30"
                   : user.isPending
@@ -154,7 +172,9 @@ export default function UserList({
                   : "bg-accent text-white hover:opacity-90"
               }`}
             >
-              {user.isFollowing
+              {togglingId === user.id
+                ? "..."
+                : user.isFollowing
                 ? "Following"
                 : user.isPending
                 ? "Requested"

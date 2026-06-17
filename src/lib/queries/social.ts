@@ -564,6 +564,18 @@ export async function searchAll(
       .limit(limit),
   ]);
 
+  // Surface query failures so the caller can distinguish "search broke" from
+  // "no matches" (an all-empty result is a legitimate success).
+  const searchError =
+    usersRes.error ||
+    venuesRes.error ||
+    teamsRes.error ||
+    listsRes.error ||
+    aliasRes.error;
+  if (searchError) {
+    throw new Error(searchError.message || "Search failed");
+  }
+
   // Merge alias matches into venue results
   let venueRows = venuesRes.data || [];
   const aliasIds = (aliasRes.data || [])

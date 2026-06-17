@@ -5,6 +5,7 @@ import { useRef, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { uploadAvatar, validateImageFile } from "@/lib/avatar";
 import PhotoCropper from "@/components/PhotoCropper";
+import { toastError } from "@/components/Toaster";
 
 type AvatarUploadProps = {
   userId: string;
@@ -68,16 +69,23 @@ export default function AvatarUpload({
         ? input
         : new File([input], "avatar.jpg", { type: "image/jpeg" });
 
-    const supabase = createClient();
-    const result = await uploadAvatar(supabase, userId, file);
+    try {
+      const supabase = createClient();
+      const result = await uploadAvatar(supabase, userId, file);
 
-    setUploading(false);
-
-    if ("error" in result) {
-      setError(result.error);
-    } else {
-      setAvatarUrl(result.url);
-      onUploadComplete?.(result.url);
+      if ("error" in result) {
+        setError(result.error);
+        toastError(result.error);
+      } else {
+        setAvatarUrl(result.url);
+        onUploadComplete?.(result.url);
+      }
+    } catch {
+      const message = "Couldn't upload your photo. Try again.";
+      setError(message);
+      toastError(message);
+    } finally {
+      setUploading(false);
     }
   }
 
@@ -117,17 +125,22 @@ export default function AvatarUpload({
           )}
         </div>
 
-        {/* Upload overlay */}
-        <div
-          className="absolute inset-0 rounded-full flex items-center justify-center bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity"
-          style={{ width: size, height: size }}
-        >
-          {uploading ? (
+        {/* Uploading overlay */}
+        {uploading && (
+          <div
+            className="absolute inset-0 rounded-full flex items-center justify-center bg-black/40 transition-opacity"
+            style={{ width: size, height: size }}
+          >
             <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
-          ) : (
+          </div>
+        )}
+
+        {/* Change affordance — always visible (works on touch, not just hover) */}
+        {!uploading && (
+          <div className="absolute bottom-0 right-0 w-7 h-7 rounded-full bg-accent border-2 border-bg-card flex items-center justify-center shadow">
             <svg
-              width="20"
-              height="20"
+              width="14"
+              height="14"
               viewBox="0 0 24 24"
               fill="none"
               stroke="white"
@@ -138,8 +151,8 @@ export default function AvatarUpload({
               <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z" />
               <circle cx="12" cy="13" r="4" />
             </svg>
-          )}
-        </div>
+          </div>
+        )}
       </button>
 
       <input

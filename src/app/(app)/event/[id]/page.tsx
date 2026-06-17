@@ -20,6 +20,7 @@ import VerifiedBadge from "@/components/VerifiedBadge";
 import { CameraIcon } from "@/components/icons";
 import BackButton from "@/components/BackButton";
 import EventGallery from "@/components/event/EventGallery";
+import { formatDate } from "@/lib/formatters";
 
 export default async function EventDetailPage({
   params,
@@ -89,10 +90,12 @@ export default async function EventDetailPage({
     }
   }
 
-  const formattedDate = new Date(event.event_date + "T00:00:00").toLocaleDateString(
-    "en-US",
-    { weekday: "long", month: "long", day: "numeric", year: "numeric" }
-  );
+  const formattedDate = formatDate(event.event_date, {
+    weekday: "long",
+    month: "long",
+    day: "numeric",
+    year: "numeric",
+  });
 
   const isMatch = event.event_template === "match";
   const displayTitle = isMatch
@@ -248,9 +251,7 @@ export default async function EventDetailPage({
                 </div>
                 <div className="space-y-1.5">
                   {tournamentDays.map((day) => {
-                    const dayDate = new Date(
-                      day.event_date + "T00:00:00"
-                    ).toLocaleDateString("en-US", {
+                    const dayDate = formatDate(day.event_date, {
                       weekday: "short",
                       month: "short",
                       day: "numeric",

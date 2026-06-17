@@ -67,8 +67,8 @@ export default async function ProfilePage() {
       <StatsRow stats={stats} eventsHref="/timeline" venuesHref="/venues" />
       <BigFourSection items={bigFour} />
       <ActivityChart months={activityData.months} total={activityData.total} timelineHref="/timeline" />
-      <PinnedLists lists={pinnedLists} />
-      <BadgeSection badges={badges} tracked={trackedIncomplete} userId={user.id} showTracked={pinnedLists.length === 0} />
+      <PinnedLists lists={pinnedLists} isOwner />
+      <BadgeSection badges={badges} tracked={trackedIncomplete} userId={user.id} showTracked={pinnedLists.length === 0} isOwner />
       <LatestEvent entry={latestEvent} canEdit viewerId={user.id} />
       <SummaryRows counts={summaryCounts} passportHref={`/@${profile.username}/passport`} />
       {/* Share Profile */}

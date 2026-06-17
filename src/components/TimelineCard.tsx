@@ -10,6 +10,7 @@ import OutcomeBadge from "./profile/OutcomeBadge";
 import ShareButton from "./sharing/ShareButton";
 import VerifiedBadge from "./VerifiedBadge";
 import ImageLightbox from "./ImageLightbox";
+import { formatDate } from "@/lib/formatters";
 
 export type TimelineAuthor = {
   id: string;
@@ -71,14 +72,7 @@ export default function TimelineCard({
   const leagueData = leagueFromSlug(entry.league_slug);
   const leagueColor = leagueData?.color || "#D4872C";
 
-  const formattedDate = new Date(entry.event_date + "T00:00:00").toLocaleDateString(
-    "en-US",
-    {
-      month: "short",
-      day: "numeric",
-      year: "numeric",
-    }
-  );
+  const formattedDate = formatDate(entry.event_date);
 
   const displayTitle = entry.matchup || entry.manual_title || null;
 
@@ -303,7 +297,7 @@ export default function TimelineCard({
             onClick={() => onLike?.(entry.id)}
             aria-label={liked ? "Unlike" : "Like"}
             aria-pressed={liked}
-            className="flex items-center gap-1.5 bg-transparent border-none cursor-pointer p-0"
+            className="flex items-center gap-1.5 bg-transparent border-none cursor-pointer p-2.5 -m-2.5"
           >
             <svg
               width="16"
@@ -324,7 +318,7 @@ export default function TimelineCard({
           <button
             onClick={() => onComment?.(entry.id)}
             aria-label="Comment"
-            className="flex items-center gap-1.5 bg-transparent border-none cursor-pointer p-0"
+            className="flex items-center gap-1.5 bg-transparent border-none cursor-pointer p-2.5 -m-2.5"
           >
             <svg
               width="16"

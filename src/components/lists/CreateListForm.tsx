@@ -4,6 +4,7 @@ import { useState, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { createList, addListItem, searchVenuesForList } from "@/lib/queries/lists";
+import { toastError } from "@/components/Toaster";
 
 type VenueResult = {
   id: string;
@@ -112,12 +113,21 @@ export default function CreateListForm({ userId }: { userId: string }) {
       return;
     }
 
-    // Add items
+    // Add items — track per-item failures so we can tell the user if some
+    // didn't make it (the list itself is created either way).
+    let failedItems = 0;
     for (const item of items) {
-      await addListItem(supabase, result.id, {
+      const itemResult = await addListItem(supabase, result.id, {
         venue_id: item.venue_id,
         display_name: item.display_name,
       });
+      if ("error" in itemResult) failedItems++;
+    }
+
+    if (failedItems > 0) {
+      toastError(
+        `${failedItems} venue${failedItems === 1 ? "" : "s"} couldn't be added.`
+      );
     }
 
     router.push(`/lists/${result.id}`);

@@ -44,7 +44,7 @@ export default function ShareButton({
     return (
       <button
         onClick={handleShare}
-        className="flex items-center gap-1.5 bg-transparent border-none cursor-pointer p-0"
+        className="flex items-center gap-1.5 bg-transparent border-none cursor-pointer p-2.5 -m-2.5"
         title="Share"
         aria-label="Share"
       >
