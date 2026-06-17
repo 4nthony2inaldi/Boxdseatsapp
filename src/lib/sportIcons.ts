@@ -18,9 +18,11 @@ const SPORT_ICON_MAP: Record<string, string> = {
 const LEAGUE_SPORT_MAP: Record<string, string> = {
   nfl: "football",
   nba: "basketball",
+  wnba: "basketball",
   mlb: "baseball",
   nhl: "hockey",
   mls: "soccer",
+  nwsl: "soccer",
   "eng.1": "soccer",
   "esp.1": "soccer",
   "ger.1": "soccer",
@@ -39,6 +41,7 @@ const LEAGUE_SPORT_MAP: Record<string, string> = {
   "nascar-truck": "motorsports",
   indycar: "motorsports",
   f1: "motorsports",
+  imsa: "motorsports",
 };
 
 /**

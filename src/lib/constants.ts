@@ -37,9 +37,11 @@ export const colors = {
 export const LEAGUES = {
   NFL: { slug: "nfl", color: "#013369", icon: "/football.svg", sport: "football" },
   NBA: { slug: "nba", color: "#1D428A", icon: "/basketball.svg", sport: "basketball" },
+  WNBA: { slug: "wnba", color: "#FF6900", icon: "/basketball.svg", sport: "basketball" },
   MLB: { slug: "mlb", color: "#002D72", icon: "/baseball.svg", sport: "baseball" },
   NHL: { slug: "nhl", color: "#000000", icon: "/hockey.svg", sport: "hockey" },
   MLS: { slug: "mls", color: "#5B2C82", icon: "/soccer.svg", sport: "soccer" },
+  NWSL: { slug: "nwsl", color: "#1A2A5E", icon: "/soccer.svg", sport: "soccer" },
   EPL: { slug: "eng.1", color: "#3D195B", icon: "/soccer.svg", sport: "soccer" },
   LALIGA: { slug: "esp.1", color: "#E30613", icon: "/soccer.svg", sport: "soccer" },
   BUNDESLIGA: { slug: "ger.1", color: "#D20515", icon: "/soccer.svg", sport: "soccer" },
@@ -57,6 +59,7 @@ export const LEAGUES = {
   TRUCKS: { slug: "nascar-truck", color: "#B5121B", icon: "/motorsports.svg", sport: "motorsports" },
   INDYCAR: { slug: "indycar", color: "#C8102E", icon: "/motorsports.svg", sport: "motorsports" },
   F1: { slug: "f1", color: "#E10600", icon: "/motorsports.svg", sport: "motorsports" },
+  IMSA: { slug: "imsa", color: "#E4002B", icon: "/motorsports.svg", sport: "motorsports" },
 } as const;
 
 export type LeagueKey = keyof typeof LEAGUES;
