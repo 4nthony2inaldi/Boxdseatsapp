@@ -1,38 +1,47 @@
 import Link from "next/link";
 import { LogoWithWordmark } from "@/components/Logo";
+import { createClient } from "@/lib/supabase/server";
 
-export default function PublicLayout({
+export default async function PublicLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
+  // Public pages (shared profiles, /@user, /e/id, fan passport) also render
+  // inside the native app for logged-in users. Match AppHeader (sticky, same
+  // logo size, safe-area inset) and drop the Log in / Sign up CTA when there's
+  // a session — it only makes sense for logged-out visitors.
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
   return (
     <div className="min-h-screen bg-bg flex flex-col">
-      {/* Lightweight header so logged-out visitors on /@user or /e/id
-          always have a way into the app. The safe-area inset keeps it clear of
-          the notch when these public pages load inside the native app webview. */}
       <header
-        className="border-b border-border bg-bg/90 backdrop-blur-sm"
+        className="sticky top-0 z-50 border-b border-border bg-bg/95 backdrop-blur-sm"
         style={{ paddingTop: "env(safe-area-inset-top)" }}
       >
         <div className="max-w-lg mx-auto flex items-center justify-between px-4 py-3">
           <Link href="/" aria-label="BoxdSeats home" className="flex items-center">
-            <LogoWithWordmark size={26} />
+            <LogoWithWordmark size={36} />
           </Link>
-          <nav className="flex items-center gap-2 text-sm">
-            <Link
-              href="/login"
-              className="px-3 py-1.5 rounded-lg text-text-secondary hover:text-text-primary transition-colors"
-            >
-              Log in
-            </Link>
-            <Link
-              href="/signup"
-              className="px-3 py-1.5 rounded-lg bg-accent text-bg font-display tracking-wider uppercase text-xs hover:opacity-90 transition-opacity"
-            >
-              Sign up
-            </Link>
-          </nav>
+          {!user && (
+            <nav className="flex items-center gap-2 text-sm">
+              <Link
+                href="/login"
+                className="px-3 py-1.5 rounded-lg text-text-secondary hover:text-text-primary transition-colors"
+              >
+                Log in
+              </Link>
+              <Link
+                href="/signup"
+                className="px-3 py-1.5 rounded-lg bg-accent text-bg font-display tracking-wider uppercase text-xs hover:opacity-90 transition-opacity"
+              >
+                Sign up
+              </Link>
+            </nav>
+          )}
         </div>
       </header>
       <div className="flex-1">{children}</div>
