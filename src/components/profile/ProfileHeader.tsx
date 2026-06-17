@@ -1,7 +1,7 @@
-import Image from "next/image";
 import Link from "next/link";
 import type { ProfileData, ProfileStats } from "@/lib/queries/profile";
 import SportIcon from "@/components/SportIcon";
+import AvatarButton from "./AvatarButton";
 
 type ProfileHeaderProps = {
   profile: ProfileData;
@@ -15,12 +15,10 @@ export default function ProfileHeader({ profile, stats }: ProfileHeaderProps) {
       <div className="relative shrink-0">
         <div className="w-[72px] h-[72px] rounded-full overflow-hidden border-2 border-border">
           {profile.avatar_url ? (
-            <Image
+            <AvatarButton
               src={profile.avatar_url}
               alt={profile.display_name || profile.username}
-              width={72}
-              height={72}
-              className="w-full h-full object-cover"
+              size={72}
             />
           ) : (
             <div
