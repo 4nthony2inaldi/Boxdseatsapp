@@ -40,7 +40,7 @@ export type PassportData = {
   hidden: string[];
   /** Top 4 most-complete list sets, for the share card. */
   topComplete: PassportRing[];
-  /** Top 4 favorite teams (by stack rank), for the identity strip. */
+  /** Favorite teams (by stack rank). The page shows all; the share card uses the first 4. */
   teams: { id: string; name: string; logo_url: string | null }[];
 };
 
@@ -161,7 +161,9 @@ export async function fetchPassport(
     .sort((a, b) => b.visited / b.total - a.visited / a.total || b.visited - a.visited)
     .slice(0, 4);
 
-  // Top 4 favorite teams from the stack rank (team-backed picks only).
+  // Favorite teams from the stack rank (team-backed picks only). The passport
+  // page shows all of them (horizontally scrollable); the share card slices to
+  // the first 4 (which is what fits the card layout).
   const { data: teamFavs } = await supabase
     .from("user_league_favorites")
     .select("rank, team_id, teams(name, short_name, logo_url)")
@@ -169,7 +171,7 @@ export async function fetchPassport(
     .eq("category", "team")
     .not("team_id", "is", null)
     .order("rank", { ascending: true })
-    .limit(4);
+    .limit(20);
   const teams = (teamFavs || []).map((t) => {
     const tm = t.teams as unknown as { name: string; short_name: string | null; logo_url: string | null } | null;
     return { id: t.team_id as string, name: tm?.short_name || tm?.name || "", logo_url: tm?.logo_url || null };

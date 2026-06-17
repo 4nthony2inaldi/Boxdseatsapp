@@ -9,8 +9,12 @@ export default function PublicLayout({
   return (
     <div className="min-h-screen bg-bg flex flex-col">
       {/* Lightweight header so logged-out visitors on /@user or /e/id
-          always have a way into the app. */}
-      <header className="border-b border-border bg-bg/90 backdrop-blur-sm">
+          always have a way into the app. The safe-area inset keeps it clear of
+          the notch when these public pages load inside the native app webview. */}
+      <header
+        className="border-b border-border bg-bg/90 backdrop-blur-sm"
+        style={{ paddingTop: "env(safe-area-inset-top)" }}
+      >
         <div className="max-w-lg mx-auto flex items-center justify-between px-4 py-3">
           <Link href="/" aria-label="BoxdSeats home" className="flex items-center">
             <LogoWithWordmark size={26} />

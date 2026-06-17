@@ -67,7 +67,7 @@ export async function GET(_req: Request, { params }: { params: Promise<{ usernam
     [data.stats.winPct !== null ? `${data.stats.winPct}%` : "—", "FAN WIN%", true],
   ];
   const heroRing = data.topComplete[0] ?? null;
-  const teams = data.teams;
+  const teams = data.teams.slice(0, 4); // share card fits 4 teams
   const { landPath, bubbles } = buildPassportMap(data.venues, MAP_W, MAP_H, 20);
 
   return new ImageResponse(
