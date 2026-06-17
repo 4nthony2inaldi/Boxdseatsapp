@@ -117,6 +117,7 @@ export default function AccountSecurity() {
               value={newPassword}
               onChange={(e) => setNewPassword(e.target.value)}
               placeholder="New password (8+ characters)"
+              aria-label="New password"
               autoComplete="new-password"
               className={inputClass}
             />
@@ -125,6 +126,7 @@ export default function AccountSecurity() {
               value={confirmPassword}
               onChange={(e) => setConfirmPassword(e.target.value)}
               placeholder="Confirm new password"
+              aria-label="Confirm new password"
               autoComplete="new-password"
               className={inputClass}
             />
@@ -189,6 +191,7 @@ export default function AccountSecurity() {
             value={deleteConfirmText}
             onChange={(e) => setDeleteConfirmText(e.target.value)}
             placeholder="DELETE"
+            aria-label="Type DELETE to confirm account deletion"
             className={`${inputClass} mb-3`}
           />
           {deleteError && (

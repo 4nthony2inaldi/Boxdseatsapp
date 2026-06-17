@@ -1,6 +1,11 @@
+import type { Metadata } from "next";
 import AppHeader from "@/components/AppHeader";
 import BottomNav from "@/components/BottomNav";
 import Toaster from "@/components/Toaster";
+
+export const metadata: Metadata = {
+  robots: { index: false, follow: false },
+};
 
 export default function AppLayout({
   children,

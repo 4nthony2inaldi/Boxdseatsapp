@@ -124,7 +124,6 @@ export async function fetchFeed(
   const followingIds = (followRows || []).map((r) => r.following_id);
   // Include own entries in the feed
   const feedUserIds = [userId, ...followingIds];
-  console.log("[fetchFeed] feedUserIds:", feedUserIds.length, "userId:", userId);
 
   if (feedUserIds.length === 0) return { entries: [], hasMore: false };
 

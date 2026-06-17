@@ -37,6 +37,7 @@ export default function Timeline({ initialEntries, initialHasMore, userId, viewe
   const [isOpen, setIsOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [loadingMore, setLoadingMore] = useState(false);
+  const [loadError, setLoadError] = useState(false);
 
   // Group entries by month once per entries change (not on every render).
   const monthGroups = useMemo(() => {
@@ -211,6 +212,7 @@ export default function Timeline({ initialEntries, initialHasMore, userId, viewe
   const loadMore = useCallback(async () => {
     if (loadingMore || !hasMore) return;
     setLoadingMore(true);
+    setLoadError(false);
 
     const supabase = createClient();
     const offset = entries.length;
@@ -258,9 +260,14 @@ export default function Timeline({ initialEntries, initialHasMore, userId, viewe
       query = query.gte("event_date", `${monthFilter}-01`).lt("event_date", to);
     }
 
-    const { data } = await query;
+    const { data, error } = await query;
 
-    if (data) {
+    if (error) {
+      // Surface the failure and let the user retry, rather than silently
+      // looking like the end of the timeline.
+      setLoadError(true);
+      toastError("Couldn't load more — check your connection.");
+    } else if (data) {
       const moreAvailable = data.length > PAGE_SIZE;
       const pageData = moreAvailable ? data.slice(0, PAGE_SIZE) : data;
       setEntries((prev) => [...prev, ...pageData.map(mapLogToEntry)]);
@@ -272,7 +279,7 @@ export default function Timeline({ initialEntries, initialHasMore, userId, viewe
   }, [entries.length, hasMore, loadingMore, filter, userId, monthFilter]);
 
   const sentinelRef = useInfiniteScroll(loadMore, {
-    enabled: hasMore && !loadingMore && !loading,
+    enabled: hasMore && !loadingMore && !loading && !loadError,
   });
 
   return (
@@ -380,6 +387,18 @@ export default function Timeline({ initialEntries, initialHasMore, userId, viewe
           {[1, 2].map((i) => (
             <SkeletonTimelineCard key={`loading-${i}`} />
           ))}
+        </div>
+      )}
+
+      {/* Retry affordance when a page failed to load */}
+      {loadError && hasMore && !loadingMore && (
+        <div className="flex justify-center py-4">
+          <button
+            onClick={loadMore}
+            className="px-4 py-2 rounded-lg border border-border bg-bg-card text-sm text-text-secondary active:opacity-70 transition-opacity"
+          >
+            Tap to retry
+          </button>
         </div>
       )}
 

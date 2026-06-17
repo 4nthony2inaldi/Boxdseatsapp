@@ -164,6 +164,7 @@ export default function PhotoSection({
             {original && (
               <button
                 onClick={() => setCropping(true)}
+                aria-label="Adjust crop"
                 className="absolute bottom-2 right-2 inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-black/60 text-white text-[10px] font-semibold backdrop-blur-sm cursor-pointer border-none hover:bg-black/75"
               >
                 <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
@@ -198,6 +199,7 @@ export default function PhotoSection({
           {/* Remove button */}
           <button
             onClick={handleRemovePhoto}
+            aria-label="Remove photo"
             className="absolute top-2 right-2 w-7 h-7 rounded-full bg-black/60 flex items-center justify-center cursor-pointer border-none backdrop-blur-sm"
           >
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -211,6 +213,7 @@ export default function PhotoSection({
         <div className="flex gap-3">
           <button
             onClick={() => setShowCamera(true)}
+            aria-label="Take photo with camera"
             className="flex-1 flex flex-col items-center gap-2 py-4 rounded-lg border-2 border-dashed border-accent/40 bg-accent/5 cursor-pointer hover:border-accent/60 transition-colors"
           >
             <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#D4872C" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -223,6 +226,7 @@ export default function PhotoSection({
 
           <button
             onClick={() => fileInputRef.current?.click()}
+            aria-label="Upload photo from camera roll"
             className="flex-1 flex flex-col items-center gap-2 py-4 rounded-lg border-2 border-dashed border-border cursor-pointer hover:border-accent/30 transition-colors"
           >
             <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#5A5F72" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -236,6 +240,7 @@ export default function PhotoSection({
 
           <button
             onClick={() => setShowModeSelector(false)}
+            aria-label="Cancel"
             className="absolute -mt-7 right-0 text-[11px] text-text-muted cursor-pointer bg-transparent border-none hover:text-text-secondary"
           >
             Cancel
@@ -245,6 +250,7 @@ export default function PhotoSection({
         // Empty state: Add photo button
         <button
           onClick={handleAddPhoto}
+          aria-label="Add photo"
           className="w-full h-[100px] rounded-lg border-2 border-dashed border-border flex items-center justify-center cursor-pointer hover:border-accent/30 transition-colors bg-transparent"
         >
           <div className="flex items-center gap-2">

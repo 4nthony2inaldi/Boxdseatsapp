@@ -111,6 +111,16 @@ export default function NearbySection({ userId, initialCity, initialPage }: Prop
     return () => document.removeEventListener("mousedown", close);
   }, [pickerOpen]);
 
+  // Escape closes the city picker.
+  useEffect(() => {
+    if (!pickerOpen) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setPickerOpen(false);
+    };
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [pickerOpen]);
+
   async function selectCity(key: string) {
     setPickerOpen(false);
     setFilter("");
@@ -178,6 +188,9 @@ export default function NearbySection({ userId, initialCity, initialPage }: Prop
             />
             <div
               ref={pickerRef}
+              role="dialog"
+              aria-modal="true"
+              aria-label="Choose city"
               className="fixed inset-x-0 bottom-0 z-[60] max-h-[70dvh] flex flex-col rounded-t-2xl border-t border-x border-border bg-bg-elevated shadow-xl pb-[max(env(safe-area-inset-bottom),0.75rem)]"
             >
               <div className="mx-auto mt-2 mb-1 w-9 h-1 rounded-full bg-border" />

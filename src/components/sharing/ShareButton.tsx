@@ -46,6 +46,7 @@ export default function ShareButton({
         onClick={handleShare}
         className="flex items-center gap-1.5 bg-transparent border-none cursor-pointer p-0"
         title="Share"
+        aria-label="Share"
       >
         <svg
           width="15"

@@ -71,10 +71,9 @@ export default async function VenueDetailPage({
   return (
     <div className="px-4 pb-8 max-w-lg mx-auto">
       {/* Back button */}
-      <button
-        onClick={undefined}
-        className="hidden"
-      />
+      <div className="pt-4 pb-2">
+        <BackButton fallback="/explore" />
+      </div>
 
       {/* Hero header */}
       <div className="relative -mx-4 -mt-0 mb-5">

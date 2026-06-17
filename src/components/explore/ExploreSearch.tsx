@@ -66,6 +66,7 @@ export default function ExploreSearch() {
           value={query}
           onChange={(e) => handleChange(e.target.value)}
           placeholder="Search users, venues, teams, lists..."
+          aria-label="Search"
           className="w-full bg-bg-input rounded-xl border border-border pl-9 pr-4 py-3.5 text-sm text-text-primary placeholder:text-text-muted focus:outline-none focus:border-accent transition-colors"
         />
         {query && (
@@ -74,6 +75,7 @@ export default function ExploreSearch() {
               setQuery("");
               setResults(null);
             }}
+            aria-label="Clear search"
             className="absolute right-3 top-1/2 -translate-y-1/2 text-text-muted hover:text-text-secondary bg-transparent border-none cursor-pointer p-0"
           >
             <svg

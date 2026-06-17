@@ -143,6 +143,7 @@ export default function CommentsSection({ eventLogId, userId, logOwnerId, initia
                     {(comment.user_id === userId || logOwnerId === userId) && (
                       <button
                         onClick={() => handleDelete(comment.id)}
+                        aria-label="Delete comment"
                         className="ml-auto text-[10px] text-text-muted hover:text-loss transition-colors bg-transparent border-none cursor-pointer p-0"
                       >
                         Delete
@@ -178,6 +179,7 @@ export default function CommentsSection({ eventLogId, userId, logOwnerId, initia
           }
         }}
         placeholder="Add a comment..."
+        aria-label="Add a comment"
         className="flex-1 bg-bg-input rounded-lg border border-border px-3 py-2.5 text-sm text-text-primary placeholder:text-text-muted focus:outline-none focus:border-accent transition-colors"
       />
       <button

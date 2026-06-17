@@ -31,6 +31,15 @@ export default function BadgeDetailModal({ badge, userId, onClose }: BadgeDetail
     load();
   }, [badge.list_id, userId]);
 
+  // Escape to close.
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onClose();
+    };
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [onClose]);
+
   const completedDate = new Date(badge.completed_at);
   const dateStr = completedDate.toLocaleDateString("en-US", {
     month: "long",
@@ -49,6 +58,9 @@ export default function BadgeDetailModal({ badge, userId, onClose }: BadgeDetail
 
       {/* Modal */}
       <div
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="badge-detail-title"
         className="relative bg-bg-card rounded-t-2xl sm:rounded-2xl border border-border w-full max-w-md max-h-[85vh] overflow-hidden flex flex-col"
         onClick={(e) => e.stopPropagation()}
       >
@@ -64,7 +76,7 @@ export default function BadgeDetailModal({ badge, userId, onClose }: BadgeDetail
               <SportIcon sport={badge.list_sport} size={22} />
             </div>
             <div className="flex-1 min-w-0">
-              <h3 className="font-display text-lg text-text-primary tracking-wide truncate">
+              <h3 id="badge-detail-title" className="font-display text-lg text-text-primary tracking-wide truncate">
                 {badge.list_name}
               </h3>
               <p className="text-xs text-text-muted">
@@ -73,6 +85,7 @@ export default function BadgeDetailModal({ badge, userId, onClose }: BadgeDetail
             </div>
             <button
               onClick={onClose}
+              aria-label="Close"
               className="w-8 h-8 flex items-center justify-center rounded-full bg-bg-input text-text-muted hover:text-text-primary transition-colors"
             >
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">

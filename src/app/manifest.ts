@@ -6,6 +6,8 @@ export default function manifest(): MetadataRoute.Manifest {
     short_name: "BoxdSeats",
     description:
       "Your sports identity platform — log, track, and share your live event experiences.",
+    id: "/",
+    scope: "/",
     start_url: "/",
     display: "standalone",
     background_color: "#0D0F14",
@@ -20,6 +22,12 @@ export default function manifest(): MetadataRoute.Manifest {
         src: "/icon-512.png",
         sizes: "512x512",
         type: "image/png",
+      },
+      {
+        src: "/icon-512.png",
+        sizes: "512x512",
+        type: "image/png",
+        purpose: "maskable",
       },
     ],
   };

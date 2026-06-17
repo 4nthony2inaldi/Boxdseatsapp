@@ -25,7 +25,7 @@ function Avatar({ person, size = 40 }: { person: Person; size?: number }) {
       style={{ width: size, height: size }}
     >
       {person.avatarUrl ? (
-        <Image src={person.avatarUrl} alt="" width={size} height={size} className="w-full h-full object-cover" />
+        <Image src={person.avatarUrl} alt={person.displayName} width={size} height={size} className="w-full h-full object-cover" />
       ) : (
         <span className="font-display text-accent" style={{ fontSize: size * 0.42 }}>
           {person.displayName.charAt(0).toUpperCase()}
@@ -69,7 +69,7 @@ function VenueChips({ venues }: { venues: CompareVenue[] }) {
         >
           <div className="w-16 h-16 rounded-full overflow-hidden bg-bg-elevated flex items-center justify-center">
             {v.photo_url ? (
-              <Image src={v.photo_url} alt="" width={64} height={64} className="w-full h-full object-cover" />
+              <Image src={v.photo_url} alt={v.name} width={64} height={64} className="w-full h-full object-cover" />
             ) : (
               <SportIcon sport={v.sport} size={24} />
             )}
@@ -240,7 +240,7 @@ export default function CompareView({ me, them, data, backHref }: Props) {
                 {fandom.sharedAthletes.map((a) => (
                   <span key={a.id} className="flex items-center gap-2 rounded-full border border-border bg-bg-card pl-1.5 pr-3 py-1">
                     <span className="w-7 h-7 rounded-full bg-bg-elevated flex items-center justify-center overflow-hidden">
-                      {a.headshot_url ? <Image src={a.headshot_url} alt="" width={28} height={28} className="object-cover w-full h-full" /> : null}
+                      {a.headshot_url ? <Image src={a.headshot_url} alt={a.name} width={28} height={28} className="object-cover w-full h-full" /> : null}
                     </span>
                     <span className="text-xs text-text-primary font-medium">{a.name}</span>
                   </span>
