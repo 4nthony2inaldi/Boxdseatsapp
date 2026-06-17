@@ -1,21 +1,21 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { completeOnboarding, finalizeOnboardingExtras } from "@/lib/queries/onboarding";
+import { isNativeApp } from "@/lib/native/photoScan";
 import StepAccount from "./StepAccount";
 import StepRootFor from "./StepRootFor";
 import StepBeenThere from "./StepBeenThere";
 import StepBestGame from "./StepBestGame";
+import StepPhotoImport from "./StepPhotoImport";
 import OnboardingProgress, { type BigFourProgress } from "./OnboardingProgress";
 
 type OnboardingFlowProps = {
   userId: string;
   initialUsername: string;
 };
-
-const STEP_COUNT = 4;
 
 export default function OnboardingFlow({ userId, initialUsername }: OnboardingFlowProps) {
   const [step, setStep] = useState(0);
@@ -28,15 +28,23 @@ export default function OnboardingFlow({ userId, initialUsername }: OnboardingFl
     event: { filled: false, name: null },
   });
   const [finishing, setFinishing] = useState(false);
+  // The photo-import step only works in the native app (on-device scan), so we
+  // add it to the flow only there.
+  const [native, setNative] = useState(false);
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    if (isNativeApp()) setNative(true);
+  }, []);
+  const STEP_COUNT = native ? 5 : 4;
   const router = useRouter();
   const supabase = createClient();
 
-  async function handleFinish() {
+  async function handleFinish(dest = "/profile") {
     setFinishing(true);
     try {
       await finalizeOnboardingExtras(supabase, userId);
       await completeOnboarding(supabase);
-      router.push("/profile");
+      router.push(dest);
       router.refresh();
     } catch {
       setFinishing(false);
@@ -102,9 +110,19 @@ export default function OnboardingFlow({ userId, initialUsername }: OnboardingFl
           userId={userId}
           best={progress.event}
           onBestChange={(b) => setProgress((p) => ({ ...p, event: b }))}
-          finishing={finishing}
+          finishing={native ? false : finishing}
+          finishLabel={native ? "NEXT" : "SEE MY PROFILE"}
           onBack={() => setStep(2)}
-          onFinish={handleFinish}
+          onFinish={native ? () => setStep(4) : () => handleFinish()}
+        />
+      )}
+
+      {step === 4 && native && (
+        <StepPhotoImport
+          finishing={finishing}
+          onScan={() => handleFinish("/log/photos")}
+          onSkip={() => handleFinish("/profile")}
+          onBack={() => setStep(3)}
         />
       )}
     </div>

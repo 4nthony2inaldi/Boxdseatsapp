@@ -17,6 +17,8 @@ type Props = {
   finishing: boolean;
   onBack: () => void;
   onFinish: () => void;
+  /** Label for the primary button (e.g. "NEXT" when another step follows). */
+  finishLabel?: string;
 };
 
 function eventLabel(e: EventMatch): string {
@@ -24,7 +26,7 @@ function eventLabel(e: EventMatch): string {
   return e.tournament_name || "Event";
 }
 
-export default function StepBestGame({ userId, best, onBestChange, finishing, onBack, onFinish }: Props) {
+export default function StepBestGame({ userId, best, onBestChange, finishing, onBack, onFinish, finishLabel = "SEE MY PROFILE" }: Props) {
   // Mirror the real log flow: venue → date → event.
   const [sub, setSub] = useState<"venue" | "date" | "event">("venue");
   const [venue, setVenue] = useState<VenueResult | null>(null);
@@ -134,7 +136,7 @@ export default function StepBestGame({ userId, best, onBestChange, finishing, on
             className="flex-[2] py-3.5 rounded-xl font-display text-base tracking-widest text-white disabled:opacity-40 active:opacity-80 transition-opacity"
             style={{ background: "linear-gradient(135deg, var(--color-accent), var(--color-accent-brown))" }}
           >
-            {finishing ? "BUILDING YOUR PROFILE…" : "SEE MY PROFILE"}
+            {finishing ? "BUILDING YOUR PROFILE…" : finishLabel}
           </button>
         </div>
       </OnboardingActionBar>

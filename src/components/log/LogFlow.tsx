@@ -19,6 +19,7 @@ import StepVenue from "./StepVenue";
 import StepDate from "./StepDate";
 import StepEvent, { type ManualEntryData } from "./StepEvent";
 import StepDetails, { type DetailsData } from "./StepDetails";
+import PhotoImportBanner from "@/components/photolog/PhotoImportBanner";
 
 type LogFlowProps = {
   userId: string;
@@ -500,7 +501,10 @@ export default function LogFlow({ userId, prefillVenue, prefillEvent, editLog }:
 
       {/* Steps */}
       {step === 1 && (
-        <StepVenue userId={userId} onSelect={handleVenueSelect} />
+        <>
+          {!isEditMode && <PhotoImportBanner className="mb-4" />}
+          <StepVenue userId={userId} onSelect={handleVenueSelect} />
+        </>
       )}
 
       {step === 2 && selectedVenue && (

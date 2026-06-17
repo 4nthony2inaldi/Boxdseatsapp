@@ -3,7 +3,6 @@ import { fetchFeed } from "@/lib/queries/social";
 import { fetchNearbyEvents, type NearbyPage } from "@/lib/queries/nearby";
 import FeedList from "@/components/feed/FeedList";
 import NearbySection from "@/components/feed/NearbySection";
-import PhotoDiscoveryBanner from "@/components/feed/PhotoDiscoveryBanner";
 import PullToRefresh from "@/components/PullToRefresh";
 
 export default async function FeedPage() {
@@ -38,8 +37,6 @@ export default async function FeedPage() {
           Feed
         </h1>
       </div>
-
-      <PhotoDiscoveryBanner />
 
       <NearbySection userId={user.id} initialCity={homeCity} initialPage={nearby} />
 
