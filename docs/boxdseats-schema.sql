@@ -1136,10 +1136,15 @@ create policy "Users can update their own avatar"
 -- 11. VIEWS (convenience queries)
 -- ═══════════════════════════════════════════════════════════════
 
--- Event attendance count (all users, regardless of privacy)
--- total_logs = the "247 fans logged this game" number (includes all privacy tiers per PRD)
--- public_logs = entries visible in the event page feed (excludes hide_all)
-create or replace view event_attendance as
+-- Event attendance count.
+-- security_invoker = on so the view respects the caller's RLS on event_logs
+-- (a SECURITY DEFINER view is auto-exposed via PostgREST and would leak rows
+-- across users). Counts therefore reflect only logs the caller may see.
+-- NOTE: currently unused at runtime; if the public "247 fans logged this game"
+-- counter is built, do it with a SECURITY DEFINER *function* that returns only
+-- aggregates, not by reverting this view to definer.
+create or replace view event_attendance
+  with (security_invoker = on) as
 select
   event_id,
   count(*) as total_logs,
@@ -1148,8 +1153,10 @@ from event_logs
 where event_id is not null
 group by event_id;
 
--- User stats summary (for profile display)
-create or replace view user_stats as
+-- User stats summary (for profile display). security_invoker = on for the same
+-- reason as above. Currently unused at runtime (stats are computed directly).
+create or replace view user_stats
+  with (security_invoker = on) as
 select
   user_id,
   count(*) as total_events,
@@ -1161,3 +1168,43 @@ select
   count(*) filter (where outcome = 'draw') as draws
 from event_logs
 group by user_id;
+
+-- ───────────────────────────────────────────────────────────────────────────
+-- Security hardening (mirrors Supabase security-advisor remediation)
+-- ───────────────────────────────────────────────────────────────────────────
+
+-- Pin search_path on our own functions so it can't be hijacked by the caller's
+-- session search_path (function_search_path_mutable).
+alter function public.companion_tag_defaults() set search_path = public;
+alter function public.decrement_photo_like_count() set search_path = public;
+alter function public.increment_photo_like_count() set search_path = public;
+alter function public.update_updated_at() set search_path = public;
+alter function public.events_near(double precision, double precision, double precision, date, date, integer)
+  set search_path = public, extensions;
+
+-- SECURITY DEFINER trigger/internal functions are not meant to be called
+-- directly by clients; triggers still fire regardless of EXECUTE grants.
+revoke execute on function
+  public.auto_visit_venue(),
+  public.denotify_on_unfollow(),
+  public.denotify_on_unlike(),
+  public.handle_new_user(),
+  public.notify_on_badge(),
+  public.notify_on_comment(),
+  public.notify_on_companion_tag(),
+  public.notify_on_follow(),
+  public.notify_on_follow_accept(),
+  public.notify_on_like(),
+  public.notify_on_photo_like(),
+  public.update_comment_count(),
+  public.update_like_count(),
+  public.notification_event_target(uuid)
+from public, anon, authenticated;
+
+-- Genuine RPCs require an authenticated user (they read auth.uid()); drop the
+-- anon/public execute grant, keep authenticated.
+revoke execute on function
+  public.accept_companion_and_colog(uuid),
+  public.my_companion_tags(),
+  public.respond_to_companion_tag(uuid, text)
+from public, anon;
