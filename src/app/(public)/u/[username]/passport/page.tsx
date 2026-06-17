@@ -21,6 +21,9 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   return {
     title: `${name}'s Fan Passport | BoxdSeats`,
     description,
+    alternates: {
+      canonical: `${siteUrl}/@${username}/passport`,
+    },
     openGraph: {
       title: `${name}'s Fan Passport | BoxdSeats`,
       description,

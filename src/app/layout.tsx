@@ -19,7 +19,7 @@ const dmSans = DM_Sans({
 
 export const metadata: Metadata = {
   metadataBase: new URL(
-    process.env.NEXT_PUBLIC_SITE_URL || "https://boxdseats.com"
+    process.env.NEXT_PUBLIC_SITE_URL || "https://www.boxdseats.com"
   ),
   title: {
     default: "BoxdSeats",
@@ -28,18 +28,32 @@ export const metadata: Metadata = {
   description:
     "Your sports identity platform — log, track, and share your live event experiences.",
   applicationName: "BoxdSeats",
+  appleWebApp: {
+    capable: true,
+    title: "BoxdSeats",
+    statusBarStyle: "black-translucent",
+  },
   openGraph: {
     type: "website",
     siteName: "BoxdSeats",
     title: "BoxdSeats",
     description:
       "Your sports identity platform — log, track, and share your live event experiences.",
+    images: [
+      {
+        url: "/opengraph-image",
+        width: 1200,
+        height: 630,
+        alt: "BoxdSeats",
+      },
+    ],
   },
   twitter: {
     card: "summary_large_image",
     title: "BoxdSeats",
     description:
       "Your sports identity platform — log, track, and share your live event experiences.",
+    images: ["/opengraph-image"],
   },
 };
 
