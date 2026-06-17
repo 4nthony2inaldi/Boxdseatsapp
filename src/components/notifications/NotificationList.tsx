@@ -160,6 +160,8 @@ export default function NotificationList({
         : await declineFollowRequest(supabase, currentUserId, requesterId);
     if (!("error" in result)) {
       setHandledRequests((prev) => ({ ...prev, [requesterId]: action }));
+    } else {
+      toastError("Couldn't respond — check your connection.");
     }
     setProcessingId(null);
   }

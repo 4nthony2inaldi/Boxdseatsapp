@@ -4,6 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
 import { upsertVenueVisit } from "@/lib/queries/venue";
+import { toastError } from "@/components/Toaster";
 
 type ListItemCheckboxProps = {
   item: {
@@ -50,6 +51,7 @@ export default function ListItemCheckbox({
     if ("error" in result) {
       // Revert on failure
       setVisited(false);
+      toastError("Couldn't update — check your connection.");
     }
 
     setLoading(false);

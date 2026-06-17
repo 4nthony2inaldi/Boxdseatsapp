@@ -11,14 +11,7 @@ import {
 import Image from "next/image";
 import SportIcon from "@/components/SportIcon";
 import SectionLabel from "@/components/profile/SectionLabel";
-
-function formatDate(dateStr: string): string {
-  return new Date(dateStr + "T00:00:00").toLocaleDateString("en-US", {
-    month: "short",
-    day: "numeric",
-    year: "numeric",
-  });
-}
+import { formatDate } from "@/lib/formatters";
 
 export default async function TeamDetailPage({
   params,

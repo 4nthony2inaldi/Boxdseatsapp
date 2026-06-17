@@ -60,6 +60,14 @@ export default function AdminUserList({
 
   const visible = users.filter((u) => !removed.has(u.id));
 
+  if (visible.length === 0) {
+    return (
+      <div className="px-4 py-12 text-center text-sm text-text-muted">
+        No users to show.
+      </div>
+    );
+  }
+
   return (
     <div className="divide-y divide-border">
       {visible.map((u) => {
@@ -69,12 +77,18 @@ export default function AdminUserList({
           <div key={u.id} className="px-4 py-3 flex items-center gap-3">
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-2">
-                <Link
-                  href={u.username ? `/user/${u.username}` : "#"}
-                  className="text-sm text-text-primary font-medium truncate hover:text-accent"
-                >
-                  {u.display_name || (u.username ? `@${u.username}` : "(no name)")}
-                </Link>
+                {u.username ? (
+                  <Link
+                    href={`/user/${u.username}`}
+                    className="text-sm text-text-primary font-medium truncate hover:text-accent"
+                  >
+                    {u.display_name || `@${u.username}`}
+                  </Link>
+                ) : (
+                  <span className="text-sm text-text-primary font-medium truncate">
+                    {u.display_name || "(no name)"}
+                  </span>
+                )}
                 {u.is_admin && (
                   <span className="text-[10px] uppercase tracking-wide text-accent border border-accent/40 rounded px-1.5 py-0.5">
                     admin

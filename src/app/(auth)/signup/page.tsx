@@ -160,10 +160,11 @@ export default function SignupPage() {
             value={password}
             onChange={(e) => setPassword(e.target.value)}
             required
-            minLength={6}
+            minLength={8}
             className="w-full px-4 py-3 rounded-lg bg-bg-input border border-border text-text-primary placeholder-text-muted focus:outline-none focus:border-accent transition-colors"
             placeholder="••••••••"
           />
+          <p className="text-xs text-text-muted mt-1.5">At least 8 characters.</p>
         </div>
 
         {error && (

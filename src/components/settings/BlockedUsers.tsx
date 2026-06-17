@@ -4,6 +4,7 @@ import { useState } from "react";
 import Image from "next/image";
 import { createClient } from "@/lib/supabase/client";
 import { unblockUser, type BlockedUser } from "@/lib/queries/social";
+import { toastError } from "@/components/Toaster";
 
 type Props = {
   currentUserId: string;
@@ -14,8 +15,6 @@ export default function BlockedUsers({ currentUserId, blockedUsers }: Props) {
   const [users, setUsers] = useState(blockedUsers);
   const [processingId, setProcessingId] = useState<string | null>(null);
 
-  if (users.length === 0) return null;
-
   async function handleUnblock(userId: string) {
     if (processingId) return;
     setProcessingId(userId);
@@ -23,8 +22,25 @@ export default function BlockedUsers({ currentUserId, blockedUsers }: Props) {
     const result = await unblockUser(supabase, currentUserId, userId);
     if (!("error" in result)) {
       setUsers((prev) => prev.filter((u) => u.id !== userId));
+    } else {
+      toastError("Couldn't unblock — check your connection.");
     }
     setProcessingId(null);
+  }
+
+  if (users.length === 0) {
+    return (
+      <>
+        <div className="px-4 pt-6 pb-2">
+          <h2 className="font-display text-[13px] text-text-muted tracking-[1.5px] uppercase">
+            Blocked Users
+          </h2>
+        </div>
+        <div className="bg-bg-card border-y border-border px-4 py-6 text-center text-sm text-text-muted">
+          You haven{"'"}t blocked anyone.
+        </div>
+      </>
+    );
   }
 
   return (

@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 
 /**
@@ -12,7 +12,29 @@ export default function PullToRefresh({ children }: { children: React.ReactNode 
   const startY = useRef<number | null>(null);
   const [pull, setPull] = useState(0);
   const [refreshing, setRefreshing] = useState(false);
+  // router.refresh() inside a transition gives a real completion signal:
+  // isPending stays true until the server re-render resolves.
+  const [isPending, startTransition] = useTransition();
+  const fallbackTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const THRESHOLD = 70;
+
+  // Hide the spinner once the refresh transition actually settles. The reset is
+  // deferred to a microtask so it doesn't run synchronously inside the effect.
+  useEffect(() => {
+    if (!refreshing || isPending) return;
+    if (fallbackTimer.current) clearTimeout(fallbackTimer.current);
+    const id = requestAnimationFrame(() => {
+      setRefreshing(false);
+      setPull(0);
+    });
+    return () => cancelAnimationFrame(id);
+  }, [refreshing, isPending]);
+
+  useEffect(() => {
+    return () => {
+      if (fallbackTimer.current) clearTimeout(fallbackTimer.current);
+    };
+  }, []);
 
   function onTouchStart(e: React.TouchEvent) {
     if (window.scrollY <= 0 && !refreshing) startY.current = e.touches[0].clientY;
@@ -29,12 +51,17 @@ export default function PullToRefresh({ children }: { children: React.ReactNode 
   function onTouchEnd() {
     if (pull >= THRESHOLD * 0.4 * 1) {
       setRefreshing(true);
-      router.refresh();
-      // router.refresh() has no completion signal; settle after a beat
-      setTimeout(() => {
+      // Run the refresh inside a transition so isPending tracks real completion.
+      startTransition(() => {
+        router.refresh();
+      });
+      // Safety net: if the transition never settles (e.g. offline), don't
+      // leave the spinner up forever.
+      if (fallbackTimer.current) clearTimeout(fallbackTimer.current);
+      fallbackTimer.current = setTimeout(() => {
         setRefreshing(false);
         setPull(0);
-      }, 1200);
+      }, 8000);
     } else {
       setPull(0);
     }

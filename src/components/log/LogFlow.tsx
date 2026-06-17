@@ -20,6 +20,7 @@ import StepDate from "./StepDate";
 import StepEvent, { type ManualEntryData } from "./StepEvent";
 import StepDetails, { type DetailsData } from "./StepDetails";
 import PhotoImportBanner from "@/components/photolog/PhotoImportBanner";
+import { toastError } from "@/components/Toaster";
 
 type LogFlowProps = {
   userId: string;
@@ -217,6 +218,8 @@ export default function LogFlow({ userId, prefillVenue, prefillEvent, editLog }:
               if (dayEvent.id) {
                 await ensureVotingWindow(supabase, dayEvent.id, dayEvent.event_date);
               }
+            } else {
+              toastError("Your log was saved, but the photo didn't upload.");
             }
           }
 
@@ -306,8 +309,10 @@ export default function LogFlow({ userId, prefillVenue, prefillEvent, editLog }:
           if (selectedEvent?.id && selectedDate) {
             await ensureVotingWindow(supabase, selectedEvent.id, selectedDate);
           }
+        } else {
+          // Photo upload failure is non-blocking — the event is still saved
+          toastError("Your log was saved, but the photo didn't upload.");
         }
-        // Photo upload failure is non-blocking — the event is still saved
       }
 
       const newBadges = (result as { newBadges?: BadgeData[] }).newBadges;

@@ -37,15 +37,29 @@ export default function StepBestGame({ userId, best, onBestChange, finishing, on
 
   const inFlow = !best.filled || addingMore;
 
-  async function pickEvent(event: EventMatch) {
-    const isFirst = !best.filled;
-    const result = await logAndFeatureBestGame(supabase, userId, event.id, isFirst);
-    if ("error" in result) { toastError(result.error); return; }
-    const label = eventLabel(event);
-    setLogged((prev) => (prev.includes(label) ? prev : [...prev, label]));
-    if (isFirst) onBestChange({ filled: true, name: label });
-    // Reset the sub-flow back to the summary
-    setVenue(null); setDate(null); setSub("venue"); setAddingMore(false);
+  async function pickEvents(events: EventMatch[]) {
+    if (events.length === 0) return;
+    // The first game logged overall becomes the headliner (featured).
+    let isFirst = !best.filled;
+    let loggedAny = false;
+    let firstLabel: string | null = null;
+    for (const event of events) {
+      const result = await logAndFeatureBestGame(supabase, userId, event.id, isFirst);
+      if ("error" in result) {
+        toastError(result.error);
+        continue;
+      }
+      const label = eventLabel(event);
+      setLogged((prev) => (prev.includes(label) ? prev : [...prev, label]));
+      if (isFirst && firstLabel === null) firstLabel = label;
+      loggedAny = true;
+      isFirst = false;
+    }
+    if (firstLabel !== null) onBestChange({ filled: true, name: firstLabel });
+    if (loggedAny) {
+      // Reset the sub-flow back to the summary
+      setVenue(null); setDate(null); setSub("venue"); setAddingMore(false);
+    }
   }
 
   function handleEventSelect(event: EventMatch | null) {
@@ -53,7 +67,7 @@ export default function StepBestGame({ userId, best, onBestChange, finishing, on
       toastError("Pick the specific game from the list to set it as your best.");
       return;
     }
-    pickEvent(event);
+    pickEvents([event]);
   }
 
   return (
@@ -87,7 +101,7 @@ export default function StepBestGame({ userId, best, onBestChange, finishing, on
               venueName={venue.name}
               date={date}
               onSelect={handleEventSelect}
-              onSelectMultiDay={(events) => pickEvent(events[0])}
+              onSelectMultiDay={(events) => pickEvents(events)}
               onBack={() => setSub("date")}
             />
           )}

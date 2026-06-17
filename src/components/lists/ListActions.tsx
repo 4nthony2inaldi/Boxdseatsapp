@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { followList, unfollowList, forkList } from "@/lib/queries/lists";
+import { toastError } from "@/components/Toaster";
 
 type Props = {
   listId: string;
@@ -33,11 +34,17 @@ export default function ListActions({
     if (following) {
       setFollowing(false);
       const result = await unfollowList(supabase, userId, listId);
-      if ("error" in result) setFollowing(previous);
+      if ("error" in result) {
+        setFollowing(previous);
+        toastError("Couldn't update — check your connection.");
+      }
     } else {
       setFollowing(true);
       const result = await followList(supabase, userId, listId);
-      if ("error" in result) setFollowing(previous);
+      if ("error" in result) {
+        setFollowing(previous);
+        toastError("Couldn't update — check your connection.");
+      }
     }
     setLoading(false);
   };
@@ -52,6 +59,8 @@ export default function ListActions({
     if ("id" in result) {
       router.push(`/lists/${result.id}`);
       router.refresh();
+    } else {
+      toastError("Couldn't fork this list — check your connection.");
     }
     setForking(false);
   };

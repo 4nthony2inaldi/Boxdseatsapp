@@ -10,10 +10,41 @@ type PinnedListsProps = {
    * a comparison view (their progress vs. yours) instead of the plain list.
    */
   compareUserId?: string;
+  /**
+   * True only on the signed-in user's own profile. When their pinned-list set
+   * is empty we show a CTA inviting them to start a list, instead of a blank
+   * gap. On other users' profiles we still render nothing.
+   */
+  isOwner?: boolean;
 };
 
-export default function PinnedLists({ lists, compareUserId }: PinnedListsProps) {
-  if (lists.length === 0) return null;
+export default function PinnedLists({ lists, compareUserId, isOwner = false }: PinnedListsProps) {
+  if (lists.length === 0) {
+    if (!isOwner) return null;
+    return (
+      <div className="px-4 mb-5">
+        <SectionLabel>Pinned Lists</SectionLabel>
+        <div className="rounded-xl border border-border bg-bg-card p-6 text-center">
+          <div className="font-display text-base text-text-primary tracking-wide mb-1">
+            No Pinned Lists Yet
+          </div>
+          <p className="text-text-muted text-sm mb-4">
+            Pin a list to track your progress right here on your profile.
+          </p>
+          <Link
+            href="/lists"
+            className="inline-block px-5 py-2.5 rounded-xl text-sm font-medium text-white transition-opacity hover:opacity-90"
+            style={{
+              background:
+                "linear-gradient(135deg, var(--color-accent), var(--color-accent-brown))",
+            }}
+          >
+            Browse Lists
+          </Link>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="px-4 mb-5">

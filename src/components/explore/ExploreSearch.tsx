@@ -7,12 +7,33 @@ import { createClient } from "@/lib/supabase/client";
 import { searchAll, type SearchResults } from "@/lib/queries/social";
 import SportIcon from "@/components/SportIcon";
 import SectionLabel from "@/components/profile/SectionLabel";
+import { toastError } from "@/components/Toaster";
 
 export default function ExploreSearch() {
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<SearchResults | null>(null);
   const [loading, setLoading] = useState(false);
+  const [searchFailed, setSearchFailed] = useState(false);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const runSearch = (value: string) => {
+    if (timerRef.current) clearTimeout(timerRef.current);
+    setLoading(true);
+    setSearchFailed(false);
+    timerRef.current = setTimeout(async () => {
+      try {
+        const supabase = createClient();
+        const data = await searchAll(supabase, value);
+        setResults(data);
+      } catch {
+        setResults(null);
+        setSearchFailed(true);
+        toastError("Search failed. Check your connection and try again.");
+      } finally {
+        setLoading(false);
+      }
+    }, 300);
+  };
 
   const handleChange = (value: string) => {
     setQuery(value);
@@ -21,17 +42,12 @@ export default function ExploreSearch() {
 
     if (!value.trim()) {
       setResults(null);
+      setSearchFailed(false);
       setLoading(false);
       return;
     }
 
-    setLoading(true);
-    timerRef.current = setTimeout(async () => {
-      const supabase = createClient();
-      const data = await searchAll(supabase, value);
-      setResults(data);
-      setLoading(false);
-    }, 300);
+    runSearch(value);
   };
 
   const hasResults =
@@ -74,6 +90,7 @@ export default function ExploreSearch() {
             onClick={() => {
               setQuery("");
               setResults(null);
+              setSearchFailed(false);
             }}
             aria-label="Clear search"
             className="absolute right-3 top-1/2 -translate-y-1/2 text-text-muted hover:text-text-secondary bg-transparent border-none cursor-pointer p-0"
@@ -101,7 +118,21 @@ export default function ExploreSearch() {
         </div>
       )}
 
-      {!loading && noResults && (
+      {!loading && searchFailed && query.trim() && (
+        <div className="text-center text-sm py-8">
+          <p className="text-text-muted mb-3">
+            Something went wrong searching for &ldquo;{query}&rdquo;.
+          </p>
+          <button
+            onClick={() => runSearch(query)}
+            className="bg-bg-elevated border border-border rounded-lg px-4 py-2 text-text-secondary hover:text-accent hover:border-accent/30 transition-colors cursor-pointer"
+          >
+            Try again
+          </button>
+        </div>
+      )}
+
+      {!loading && !searchFailed && noResults && (
         <div className="text-center text-text-muted text-sm py-8">
           No results found for &ldquo;{query}&rdquo;
         </div>

@@ -93,19 +93,21 @@ export default function AppHeader() {
         <div className="flex items-center gap-4">
           <Link
             href="/notifications"
-            className="p-1 hover:opacity-80 transition-opacity relative"
+            className="p-2.5 -m-2.5 hover:opacity-80 transition-opacity"
             aria-label="Notifications"
           >
-            <BellIcon />
-            {unreadCount > 0 && (
-              <span className="absolute -top-1 -right-1 min-w-[16px] h-4 rounded-full bg-accent text-[10px] font-bold text-white flex items-center justify-center px-1">
-                {unreadCount > 99 ? "99+" : unreadCount}
-              </span>
-            )}
+            <span className="relative block">
+              <BellIcon />
+              {unreadCount > 0 && (
+                <span className="absolute -top-1 -right-1 min-w-[16px] h-4 rounded-full bg-accent text-[10px] font-bold text-white flex items-center justify-center px-1">
+                  {unreadCount > 99 ? "99+" : unreadCount}
+                </span>
+              )}
+            </span>
           </Link>
           <Link
             href="/settings"
-            className="p-1 hover:opacity-80 transition-opacity"
+            className="p-2.5 -m-2.5 hover:opacity-80 transition-opacity"
             aria-label="Settings"
           >
             <SettingsIcon />

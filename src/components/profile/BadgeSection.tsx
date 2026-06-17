@@ -12,14 +12,31 @@ type BadgeSectionProps = {
   userId: string;
   /** When true, show tracked incomplete lists as locked badges. Hidden when user has pinned lists. */
   showTracked?: boolean;
+  /**
+   * True only on the signed-in user's own profile. When they have no badges
+   * we show a brief hint instead of nothing; other users' profiles stay blank.
+   */
+  isOwner?: boolean;
 };
 
-export default function BadgeSection({ badges, tracked, userId, showTracked = false }: BadgeSectionProps) {
+export default function BadgeSection({ badges, tracked, userId, showTracked = false, isOwner = false }: BadgeSectionProps) {
   const [selectedBadge, setSelectedBadge] = useState<BadgeData | null>(null);
 
   const visibleTracked = showTracked ? tracked : [];
 
-  if (badges.length === 0 && visibleTracked.length === 0) return null;
+  if (badges.length === 0 && visibleTracked.length === 0) {
+    if (!isOwner) return null;
+    return (
+      <div className="px-4 mb-5">
+        <SectionLabel>Badges</SectionLabel>
+        <div className="rounded-xl border border-border bg-bg-card p-6 text-center">
+          <p className="text-text-muted text-sm">
+            Earn badges by completing lists.
+          </p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="px-4 mb-5">

@@ -18,7 +18,13 @@ export default async function TimelinePage({
   if (!user) {
     return (
       <div className="px-4 py-8 max-w-lg mx-auto text-center">
-        <p className="text-text-muted">Please log in to view your timeline.</p>
+        <p className="text-text-muted mb-4">Please log in to view your timeline.</p>
+        <Link
+          href="/login"
+          className="inline-block bg-accent text-bg font-display text-sm tracking-wider uppercase px-6 py-2.5 rounded-lg hover:opacity-90 transition-opacity"
+        >
+          Log in
+        </Link>
       </div>
     );
   }

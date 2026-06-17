@@ -25,6 +25,7 @@ export default function CommentSheet({
 }: Props) {
   const [comments, setComments] = useState<EventComment[] | null>(null);
   const [logOwnerId, setLogOwnerId] = useState("");
+  const [loadError, setLoadError] = useState(false);
   const [visible, setVisible] = useState(false);
 
   // Slide in after mount.
@@ -63,17 +64,23 @@ export default function CommentSheet({
     let active = true;
     const supabase = createClient();
     (async () => {
-      const [{ data: log }, fetched] = await Promise.all([
-        supabase
-          .from("event_logs")
-          .select("user_id")
-          .eq("id", eventLogId)
-          .maybeSingle(),
-        fetchEventComments(supabase, eventLogId),
-      ]);
-      if (!active) return;
-      setLogOwnerId(log?.user_id ?? "");
-      setComments(fetched);
+      try {
+        const [{ data: log }, fetched] = await Promise.all([
+          supabase
+            .from("event_logs")
+            .select("user_id")
+            .eq("id", eventLogId)
+            .maybeSingle(),
+          fetchEventComments(supabase, eventLogId),
+        ]);
+        if (!active) return;
+        setLogOwnerId(log?.user_id ?? "");
+        setComments(fetched);
+      } catch {
+        if (!active) return;
+        setLoadError(true);
+        setComments([]);
+      }
     })();
     return () => {
       active = false;
@@ -113,7 +120,11 @@ export default function CommentSheet({
 
         {/* Body */}
         <div className="flex-1 min-h-0 px-4 py-4">
-          {comments === null ? (
+          {loadError ? (
+            <div className="text-center text-text-muted text-sm py-8">
+              Couldn&apos;t load comments. Please try again.
+            </div>
+          ) : comments === null ? (
             <div className="text-center text-text-muted text-sm py-8">
               Loading…
             </div>
