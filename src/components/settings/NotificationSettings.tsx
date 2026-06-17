@@ -64,7 +64,15 @@ export default function NotificationSettings({ userId }: { userId: string }) {
   async function toggle(type: string) {
     const next = !isOn(type);
     setPrefs((p) => ({ ...p, [type]: next }));
-    if (next) await enablePush(); // ensure OS permission when enabling a type
+    if (next) {
+      // Don't claim push is on if the OS permission isn't granted.
+      const granted = await enablePush();
+      if (!granted) {
+        setPrefs((p) => ({ ...p, [type]: false }));
+        toastError("Allow notifications for BoxdSeats in iOS Settings to turn this on.");
+        return;
+      }
+    }
     const supabase = createClient();
     const { error } = await supabase
       .from("notification_preferences")
