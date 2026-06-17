@@ -138,9 +138,24 @@ export async function POST(request: Request) {
     return NextResponse.json({ skipped: "no devices" });
   }
 
+  // Resolve the actor's name so the push reads "Anthony  ·  liked your event
+  // log" rather than a nameless action (message itself stays generic).
+  let actorName: string | null = null;
+  if (record.actor_id) {
+    const { data: actor } = await supabase
+      .from("profiles")
+      .select("display_name, username")
+      .eq("id", record.actor_id)
+      .maybeSingle();
+    actorName = actor?.display_name || (actor?.username ? `@${actor.username}` : null);
+  }
+
   const payload = {
     aps: {
-      alert: { title: TITLES[record.type] || "BoxdSeats", body: record.message || "" },
+      alert: {
+        title: actorName || TITLES[record.type] || "BoxdSeats",
+        body: record.message || "",
+      },
       sound: "default",
     },
     type: record.type,
