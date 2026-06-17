@@ -70,17 +70,24 @@ export async function fetchAllLists(
   // Get user's event logs for event-type list matching
   const userEventTags = await fetchUserEventTags(supabase, userId);
 
+  // Fetch all list items in one query, grouped by list, to avoid an N+1.
+  const itemsByList = new Map<string, { venue_id: string | null; event_tag: string | null }[]>();
+  const { data: allItems } = await supabase
+    .from("list_items")
+    .select("list_id, venue_id, event_tag")
+    .in("list_id", lists.map((l) => l.id));
+  for (const item of allItems || []) {
+    const arr = itemsByList.get(item.list_id) ?? [];
+    arr.push({ venue_id: item.venue_id, event_tag: item.event_tag });
+    itemsByList.set(item.list_id, arr);
+  }
+
   const result: ListSummary[] = [];
 
   for (const list of lists) {
     let visited = 0;
 
-    // Get list items
-    const { data: items } = await supabase
-      .from("list_items")
-      .select("venue_id, event_tag")
-      .eq("list_id", list.id);
-
+    const items = itemsByList.get(list.id);
     if (items) {
       if (list.list_type === "venue") {
         for (const item of items) {

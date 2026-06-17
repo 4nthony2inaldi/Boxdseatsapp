@@ -32,18 +32,44 @@ function distMeters(aLat: number, aLng: number, bLat: number, bLng: number): num
   return 2 * R * Math.asin(Math.sqrt(s));
 }
 
+// Grid cell ~5.5km of latitude — comfortably larger than the match radius, so
+// any venue within radius of a photo is in the photo's cell or an adjacent one.
+const GRID_CELL_DEG = 0.05;
+
+function buildVenueGrid(venues: VenueGeo[]): Map<string, VenueGeo[]> {
+  const grid = new Map<string, VenueGeo[]>();
+  for (const v of venues) {
+    const k = `${Math.floor(v[1] / GRID_CELL_DEG)},${Math.floor(v[2] / GRID_CELL_DEG)}`;
+    const arr = grid.get(k) ?? [];
+    arr.push(v);
+    grid.set(k, arr);
+  }
+  return grid;
+}
+
 /**
  * Geofence each photo to its nearest venue (within radius), then collapse to
  * one (venue, date) per game — so 20 photos at one game produce a single item.
+ * Uses a spatial grid so each photo only checks venues in its 3×3 cell
+ * neighborhood (≈O(photos)) rather than every venue (O(photos × venues)).
  */
 export function matchPhotosToVenues(photos: Photo[], venues: VenueGeo[], radius = VENUE_RADIUS_M): ScanItem[] {
+  const grid = buildVenueGrid(venues);
   const seen = new Set<string>();
   const items: ScanItem[] = [];
   for (const p of photos) {
+    const gx = Math.floor(p.lat / GRID_CELL_DEG);
+    const gy = Math.floor(p.lng / GRID_CELL_DEG);
     let best: { id: string; d: number } | null = null;
-    for (const [id, vlat, vlng] of venues) {
-      const d = distMeters(p.lat, p.lng, vlat, vlng);
-      if (d <= radius && (!best || d < best.d)) best = { id, d };
+    for (let dx = -1; dx <= 1; dx++) {
+      for (let dy = -1; dy <= 1; dy++) {
+        const arr = grid.get(`${gx + dx},${gy + dy}`);
+        if (!arr) continue;
+        for (const [id, vlat, vlng] of arr) {
+          const d = distMeters(p.lat, p.lng, vlat, vlng);
+          if (d <= radius && (!best || d < best.d)) best = { id, d };
+        }
+      }
     }
     if (!best) continue;
     const key = `${best.id}|${p.date}`;
@@ -99,6 +125,13 @@ function mediaPlugin(): MediaPlugin | null {
   return (cap?.Plugins?.Media as MediaPlugin | undefined) ?? null;
 }
 
+// The venue coordinate set is static within a session — fetch + parse once.
+let venuesCache: VenueGeo[] | null = null;
+async function loadVenuesGeo(): Promise<VenueGeo[]> {
+  if (!venuesCache) venuesCache = await fetch("/venues-geo.json").then((r) => r.json());
+  return venuesCache as VenueGeo[];
+}
+
 function assetsFrom(res: unknown): unknown[] {
   const r = asObj(res);
   const arr = r?.medias ?? r?.assets ?? r?.photos ?? r?.results;
@@ -137,7 +170,7 @@ export async function scanPhotosForVenues(): Promise<ScanItem[] | null> {
     }
   }
 
-  const venues: VenueGeo[] = await fetch("/venues-geo.json").then((r) => r.json());
+  const venues = await loadVenuesGeo();
 
   const photos: Photo[] = [];
   for (const asset of assets) {
