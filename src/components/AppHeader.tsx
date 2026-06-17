@@ -82,7 +82,10 @@ export default function AppHeader() {
   }, []);
 
   return (
-    <header className="sticky top-0 z-50 border-b border-border bg-bg/95 backdrop-blur-sm">
+    <header
+      className="sticky top-0 z-50 border-b border-border bg-bg/95 backdrop-blur-sm"
+      style={{ paddingTop: "env(safe-area-inset-top)" }}
+    >
       <div className="flex items-center justify-between px-4 py-3 max-w-lg mx-auto">
         <Link href="/">
           <LogoWithWordmark size={36} />
