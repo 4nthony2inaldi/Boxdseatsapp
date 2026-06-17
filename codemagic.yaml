@@ -60,6 +60,7 @@ workflows:
           agvtool new-version -all "$(($(date +%s) / 60))"
       - name: Set up code signing (create cert + profile if missing)
         script: |
+          cd ios-app
           keychain initialize
           # Fetch the App Store provisioning profile for our bundle id, creating
           # it — and a distribution certificate + private key — if none exist
@@ -68,6 +69,8 @@ workflows:
             --type IOS_APP_STORE \
             --create
           keychain add-certificates
+          # Must run from ios-app so use-profiles patches the generated
+          # ios/App/App.xcodeproj (it operates on projects in the current tree).
           xcode-project use-profiles
       - name: Build the IPA
         script: |
