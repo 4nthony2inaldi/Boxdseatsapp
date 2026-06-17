@@ -27,6 +27,28 @@ export type TrackedListProgress = {
   visited: number;
 };
 
+type ListItem = { venue_id: string | null; event_tag: string | null };
+
+/** Fetch list_items for many lists in one query, grouped by list_id — avoids
+ *  the N+1 of querying items per list in a loop. */
+async function fetchItemsByList(
+  supabase: SupabaseClient,
+  listIds: string[]
+): Promise<Map<string, ListItem[]>> {
+  const map = new Map<string, ListItem[]>();
+  if (listIds.length === 0) return map;
+  const { data } = await supabase
+    .from("list_items")
+    .select("list_id, venue_id, event_tag")
+    .in("list_id", listIds);
+  for (const it of data || []) {
+    const arr = map.get(it.list_id as string) ?? [];
+    arr.push({ venue_id: it.venue_id, event_tag: it.event_tag });
+    map.set(it.list_id as string, arr);
+  }
+  return map;
+}
+
 // ── Fetch all earned badges for a user ──
 
 export async function fetchUserBadges(
@@ -65,6 +87,16 @@ export async function fetchUserBadges(
     }
   }
 
+  // Legacy badges (list changed since completion) need recomputed progress —
+  // batch their list_items in one query instead of one per badge.
+  const legacyListIds = badges
+    .filter((b) => {
+      const l = b.lists as unknown as { item_count: number } | null;
+      return b.is_legacy || (l && l.item_count !== b.item_count_at_completion);
+    })
+    .map((b) => b.list_id as string);
+  const itemsByList = await fetchItemsByList(supabase, legacyListIds);
+
   const result: BadgeData[] = [];
 
   for (const badge of badges) {
@@ -81,16 +113,9 @@ export async function fetchUserBadges(
     // Calculate current progress against the (potentially updated) list
     let currentVisited = 0;
     if (isLegacy) {
-      const { data: items } = await supabase
-        .from("list_items")
-        .select("venue_id, event_tag")
-        .eq("list_id", badge.list_id);
-
-      if (items) {
-        for (const item of items) {
-          if (item.venue_id && visitedVenueIds.has(item.venue_id)) currentVisited++;
-          else if (item.event_tag && userEventTags.has(item.event_tag)) currentVisited++;
-        }
+      for (const item of itemsByList.get(badge.list_id) ?? []) {
+        if (item.venue_id && visitedVenueIds.has(item.venue_id)) currentVisited++;
+        else if (item.event_tag && userEventTags.has(item.event_tag)) currentVisited++;
       }
     } else {
       currentVisited = list.item_count; // 100% since badge is current
@@ -171,22 +196,17 @@ export async function fetchTrackedIncomplete(
     }
   }
 
+  const itemsByList = await fetchItemsByList(supabase, lists.map((l) => l.id));
+
   const result: TrackedListProgress[] = [];
 
   for (const list of lists) {
     let visited = 0;
-    const { data: items } = await supabase
-      .from("list_items")
-      .select("venue_id, event_tag")
-      .eq("list_id", list.id);
-
-    if (items) {
-      for (const item of items) {
-        if (list.list_type === "venue" && item.venue_id && visitedVenueIds.has(item.venue_id)) {
-          visited++;
-        } else if (list.list_type === "event" && item.event_tag && userEventTags.has(item.event_tag)) {
-          visited++;
-        }
+    for (const item of itemsByList.get(list.id) ?? []) {
+      if (list.list_type === "venue" && item.venue_id && visitedVenueIds.has(item.venue_id)) {
+        visited++;
+      } else if (list.list_type === "event" && item.event_tag && userEventTags.has(item.event_tag)) {
+        visited++;
       }
     }
 
@@ -287,6 +307,14 @@ export async function checkAndAwardBadges(
     }
   }
 
+  // Lists still in contention (not already badged at the current count) — batch
+  // their items once rather than querying per list inside the loop (this runs
+  // on every event-log save).
+  const candidateIds = allLists
+    .filter((l) => l.item_count > 0 && existingBadgeMap.get(l.id) !== l.item_count)
+    .map((l) => l.id);
+  const itemsByList = await fetchItemsByList(supabase, candidateIds);
+
   const newBadges: BadgeData[] = [];
 
   for (const list of allLists) {
@@ -298,18 +326,11 @@ export async function checkAndAwardBadges(
 
     // Calculate progress
     let visited = 0;
-    const { data: items } = await supabase
-      .from("list_items")
-      .select("venue_id, event_tag")
-      .eq("list_id", list.id);
-
-    if (items) {
-      for (const item of items) {
-        if (list.list_type === "venue" && item.venue_id && visitedVenueIds.has(item.venue_id)) {
-          visited++;
-        } else if (list.list_type === "event" && item.event_tag && userEventTags.has(item.event_tag)) {
-          visited++;
-        }
+    for (const item of itemsByList.get(list.id) ?? []) {
+      if (list.list_type === "venue" && item.venue_id && visitedVenueIds.has(item.venue_id)) {
+        visited++;
+      } else if (list.list_type === "event" && item.event_tag && userEventTags.has(item.event_tag)) {
+        visited++;
       }
     }
 

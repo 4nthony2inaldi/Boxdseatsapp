@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, useRef, useEffect } from "react";
+import { useState, useCallback, useRef, useEffect, useMemo } from "react";
 import type { TimelineEntry } from "@/lib/queries/profile";
 import { LEAGUES } from "@/lib/constants";
 import SectionLabel from "./SectionLabel";
@@ -37,6 +37,24 @@ export default function Timeline({ initialEntries, initialHasMore, userId, viewe
   const [isOpen, setIsOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [loadingMore, setLoadingMore] = useState(false);
+
+  // Group entries by month once per entries change (not on every render).
+  const monthGroups = useMemo(() => {
+    const groups: { label: string; entries: TimelineEntry[] }[] = [];
+    let currentLabel = "";
+    for (const entry of entries) {
+      const label = new Date(entry.event_date + "T00:00:00").toLocaleDateString("en-US", {
+        month: "long",
+        year: "numeric",
+      });
+      if (label !== currentLabel) {
+        currentLabel = label;
+        groups.push({ label, entries: [] });
+      }
+      groups[groups.length - 1].entries.push(entry);
+    }
+    return groups;
+  }, [entries]);
 
   // Incremented on each filter change so stale fetches can be ignored.
   const filterRequestRef = useRef(0);
@@ -333,24 +351,8 @@ export default function Timeline({ initialEntries, initialHasMore, userId, viewe
         </div>
       )}
 
-      {!loading && entries.length > 0 && (() => {
-        const groups: { label: string; entries: typeof entries }[] = [];
-        let currentLabel = "";
-
-        for (const entry of entries) {
-          const d = new Date(entry.event_date + "T00:00:00");
-          const label = d.toLocaleDateString("en-US", {
-            month: "long",
-            year: "numeric",
-          });
-          if (label !== currentLabel) {
-            currentLabel = label;
-            groups.push({ label, entries: [] });
-          }
-          groups[groups.length - 1].entries.push(entry);
-        }
-
-        return groups.map((group) => (
+      {!loading && entries.length > 0 &&
+        monthGroups.map((group) => (
           <div key={group.label}>
             <div className="flex items-center gap-3 mt-4 mb-3 first:mt-0">
               <div className="h-px flex-1 bg-border" />
@@ -370,8 +372,7 @@ export default function Timeline({ initialEntries, initialHasMore, userId, viewe
               />
             ))}
           </div>
-        ));
-      })()}
+        ))}
 
       {/* Loading more skeleton */}
       {loadingMore && (
