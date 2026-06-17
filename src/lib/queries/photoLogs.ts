@@ -2,7 +2,12 @@ import { SupabaseClient } from "@supabase/supabase-js";
 
 export type LogPick = { eventId: string; rootingTeamId: string | null };
 
-export type CreateLogsResult = { created: number; venues: number };
+export type CreateLogsResult = {
+  created: number;
+  venues: number;
+  /** New log ids by event, so the client can attach the matched photo. */
+  logs: { eventId: string; logId: string }[];
+};
 
 type Outcome = "win" | "loss" | "draw" | "neutral";
 
@@ -17,7 +22,7 @@ export async function createLogsFromSuggestions(
   userId: string,
   picks: LogPick[]
 ): Promise<CreateLogsResult> {
-  if (!picks.length) return { created: 0, venues: 0 };
+  if (!picks.length) return { created: 0, venues: 0, logs: [] };
 
   const rootingByEvent = new Map(picks.map((p) => [p.eventId, p.rootingTeamId]));
   const eventIds = [...rootingByEvent.keys()];
@@ -28,7 +33,7 @@ export async function createLogsFromSuggestions(
       "id, venue_id, league_id, event_date, home_team_id, away_team_id, home_score, away_score, leagues(sport)"
     )
     .in("id", eventIds);
-  if (!events?.length) return { created: 0, venues: 0 };
+  if (!events?.length) return { created: 0, venues: 0, logs: [] };
 
   const { data: existing } = await supabase
     .from("event_logs")
@@ -62,10 +67,14 @@ export async function createLogsFromSuggestions(
       };
     });
 
-  if (!rows.length) return { created: 0, venues: 0 };
+  if (!rows.length) return { created: 0, venues: 0, logs: [] };
 
-  const { error } = await supabase.from("event_logs").insert(rows);
+  const { data: inserted, error } = await supabase
+    .from("event_logs")
+    .insert(rows)
+    .select("id, event_id");
   if (error) throw new Error(error.message);
 
-  return { created: rows.length, venues: new Set(rows.map((r) => r.venue_id)).size };
+  const logs = (inserted || []).map((r) => ({ eventId: r.event_id as string, logId: r.id as string }));
+  return { created: logs.length, venues: new Set(rows.map((r) => r.venue_id)).size, logs };
 }
