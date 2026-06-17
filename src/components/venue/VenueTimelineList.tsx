@@ -9,11 +9,17 @@ type Props = {
 export default function VenueTimelineList({ entries }: Props) {
   return (
     <div>
-      {entries.map((entry) => (
-        <Link key={entry.id} href={entry.event_id ? `/event/${entry.event_id}` : "#"}>
-          <TimelineCard entry={entry as TimelineCardEntry} />
-        </Link>
-      ))}
+      {entries.map((entry) =>
+        entry.event_id ? (
+          <Link key={entry.id} href={`/event/${entry.event_id}`}>
+            <TimelineCard entry={entry as TimelineCardEntry} />
+          </Link>
+        ) : (
+          <div key={entry.id}>
+            <TimelineCard entry={entry as TimelineCardEntry} />
+          </div>
+        )
+      )}
     </div>
   );
 }

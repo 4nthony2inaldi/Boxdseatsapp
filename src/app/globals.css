@@ -26,6 +26,14 @@ body {
   font-family: var(--font-body);
 }
 
+/* iOS Safari zooms the viewport when focusing a field whose font is < 16px.
+   Pin form controls to 16px so focusing an input never triggers that jump. */
+input,
+textarea,
+select {
+  font-size: 16px;
+}
+
 /* Utility class for display font */
 .font-display {
   font-family: var(--font-display);

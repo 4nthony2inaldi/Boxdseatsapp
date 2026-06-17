@@ -22,6 +22,7 @@ export default function FeedList({ initialEntries, initialHasMore, userId }: Pro
   const [entries, setEntries] = useState(initialEntries);
   const [hasMore, setHasMore] = useState(initialHasMore);
   const [loadingMore, setLoadingMore] = useState(false);
+  const [loadError, setLoadError] = useState(false);
   const [commentLogId, setCommentLogId] = useState<string | null>(null);
 
   const handleLike = async (entryId: string) => {
@@ -71,24 +72,27 @@ export default function FeedList({ initialEntries, initialHasMore, userId }: Pro
   const loadMore = useCallback(async () => {
     if (loadingMore || !hasMore) return;
     setLoadingMore(true);
+    setLoadError(false);
 
-    const offset = entries.length;
-    const res = await fetch(
-      `/api/feed?offset=${offset}&limit=${PAGE_SIZE}`
-    );
-
-    if (res.ok) {
+    try {
+      const offset = entries.length;
+      const res = await fetch(`/api/feed?offset=${offset}&limit=${PAGE_SIZE}`);
+      if (!res.ok) throw new Error(`feed ${res.status}`);
       const data = await res.json();
       setEntries((prev) => [...prev, ...data.entries]);
       setHasMore(data.hasMore);
-    } else {
-      setHasMore(false);
+    } catch {
+      // Keep hasMore true so the user can retry; surface the failure instead
+      // of silently looking like the end of the feed.
+      setLoadError(true);
+      toastError("Couldn't load more posts — check your connection.");
+    } finally {
+      setLoadingMore(false);
     }
-    setLoadingMore(false);
   }, [entries.length, hasMore, loadingMore]);
 
   const sentinelRef = useInfiniteScroll(loadMore, {
-    enabled: hasMore && !loadingMore,
+    enabled: hasMore && !loadingMore && !loadError,
   });
 
   if (entries.length === 0) {
@@ -138,6 +142,18 @@ export default function FeedList({ initialEntries, initialHasMore, userId }: Pro
           {[1, 2].map((i) => (
             <SkeletonFeedCard key={`loading-${i}`} />
           ))}
+        </div>
+      )}
+
+      {/* Retry affordance when a page failed to load */}
+      {loadError && hasMore && !loadingMore && (
+        <div className="flex justify-center py-4">
+          <button
+            onClick={loadMore}
+            className="px-4 py-2 rounded-lg border border-border bg-bg-card text-sm text-text-secondary active:opacity-70 transition-opacity"
+          >
+            Tap to retry
+          </button>
         </div>
       )}
 
