@@ -4,11 +4,16 @@ import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import SportIcon from "@/components/SportIcon";
 import { toastError } from "@/components/Toaster";
+import { createClient } from "@/lib/supabase/client";
+import { isNativeApp, loadPhotoFile } from "@/lib/native/photoScan";
+import { uploadEventPhoto, updateEventLogPhoto } from "@/lib/photos";
 import type { PhotoSuggestion, SuggestionTeam } from "@/lib/queries/photoSuggestions";
 
 type Props = {
   suggestions: PhotoSuggestion[];
   unknownTeams: SuggestionTeam[];
+  /** venueId|date -> representative photo identifier, for auto-attach. */
+  photoByKey?: Record<string, string>;
 };
 
 type RowState = { included: boolean; rootingTeamId: string | null };
@@ -28,7 +33,7 @@ function resultText(s: PhotoSuggestion, rooting: string | null): { label: string
   return { label: `Tied ${mine}–${opp}`, tone: "muted" };
 }
 
-export default function PhotoSuggestionsView({ suggestions, unknownTeams }: Props) {
+export default function PhotoSuggestionsView({ suggestions, unknownTeams, photoByKey = {} }: Props) {
   const router = useRouter();
   const [rows, setRows] = useState<Record<string, RowState>>(() =>
     Object.fromEntries(
@@ -38,6 +43,7 @@ export default function PhotoSuggestionsView({ suggestions, unknownTeams }: Prop
   const [rootedTeams, setRootedTeams] = useState<Set<string>>(new Set());
   const [bulkOpen, setBulkOpen] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [status, setStatus] = useState("");
   const [done, setDone] = useState<{ created: number; venues: number } | null>(null);
 
   const teamName = useMemo(() => {
@@ -83,11 +89,38 @@ export default function PhotoSuggestionsView({ suggestions, unknownTeams }: Prop
     });
   };
 
+  // Best-effort: attach the matched photo to each new log. Native only; a
+  // failure here never blocks the log itself.
+  async function attachPhotos(picked: PhotoSuggestion[], logs: { eventId: string; logId: string }[]) {
+    if (!isNativeApp() || logs.length === 0) return;
+    const logByEvent = new Map(logs.map((l) => [l.eventId, l.logId]));
+    const jobs = picked
+      .map((s) => ({ s, logId: logByEvent.get(s.eventId), photoId: photoByKey[`${s.venueId}|${s.date}`] }))
+      .filter((j): j is { s: PhotoSuggestion; logId: string; photoId: string } => !!j.logId && !!j.photoId);
+    if (jobs.length === 0) return;
+    setStatus("Adding your photos…");
+    const supabase = createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
+    for (const { s, logId, photoId } of jobs) {
+      try {
+        const file = await loadPhotoFile(photoId);
+        if (!file) continue;
+        const up = await uploadEventPhoto(supabase, user.id, logId, file);
+        if ("url" in up) {
+          await updateEventLogPhoto(supabase, logId, user.id, up.url, "upload", `${s.date}T12:00:00Z`, false);
+        }
+      } catch {
+        /* skip this one — attachment is best-effort */
+      }
+    }
+  }
+
   const commit = async () => {
     setSaving(true);
-    const picks = suggestions
-      .filter((s) => rows[s.eventId].included)
-      .map((s) => ({ eventId: s.eventId, rootingTeamId: rows[s.eventId].rootingTeamId }));
+    setStatus("Logging…");
+    const picked = suggestions.filter((s) => rows[s.eventId].included);
+    const picks = picked.map((s) => ({ eventId: s.eventId, rootingTeamId: rows[s.eventId].rootingTeamId }));
     try {
       const res = await fetch("/api/photo-logs", {
         method: "POST",
@@ -96,11 +129,13 @@ export default function PhotoSuggestionsView({ suggestions, unknownTeams }: Prop
       });
       if (!res.ok) throw new Error();
       const result = await res.json();
+      await attachPhotos(picked, result.logs ?? []);
       setDone({ created: result.created, venues: result.venues });
     } catch {
       toastError("Couldn't save those logs — try again.");
     } finally {
       setSaving(false);
+      setStatus("");
     }
   };
 
@@ -251,8 +286,15 @@ export default function PhotoSuggestionsView({ suggestions, unknownTeams }: Prop
         })}
       </div>
 
+      <p className="px-4 mt-4 text-center text-xs text-text-muted">
+        Missing some games? Make sure BoxdSeats can access all your photos in Settings → Photos.
+      </p>
+
       {/* Commit bar */}
-      <div className="fixed bottom-0 inset-x-0 border-t border-border bg-bg/95 backdrop-blur px-4 py-3">
+      <div
+        className="fixed bottom-0 inset-x-0 border-t border-border bg-bg/95 backdrop-blur px-4 pt-3"
+        style={{ paddingBottom: "max(env(safe-area-inset-bottom), 0.75rem)" }}
+      >
         <div className="max-w-lg mx-auto">
           <button
             onClick={commit}
@@ -260,7 +302,7 @@ export default function PhotoSuggestionsView({ suggestions, unknownTeams }: Prop
             className="w-full py-3.5 rounded-xl font-display text-base tracking-widest text-white disabled:opacity-40 transition-opacity"
             style={{ background: "linear-gradient(135deg, var(--color-accent), var(--color-accent-brown))" }}
           >
-            {saving ? "Logging…" : `Log ${includedCount} ${includedCount === 1 ? "game" : "games"}`}
+            {saving ? (status || "Logging…") : `Log ${includedCount} ${includedCount === 1 ? "game" : "games"}`}
           </button>
         </div>
       </div>

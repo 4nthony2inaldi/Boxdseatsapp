@@ -1,7 +1,7 @@
-export type ScanItem = { venueId: string; date: string };
+export type ScanItem = { venueId: string; date: string; photoId?: string };
 
 type VenueGeo = [string, number, number]; // [venueId, lat, lng]
-type Photo = { lat: number; lng: number; date: string }; // date = local YYYY-MM-DD
+type Photo = { lat: number; lng: number; date: string; id?: string }; // date = local YYYY-MM-DD
 
 const VENUE_RADIUS_M = 350;
 
@@ -49,7 +49,7 @@ export function matchPhotosToVenues(photos: Photo[], venues: VenueGeo[], radius 
     const key = `${best.id}|${p.date}`;
     if (seen.has(key)) continue;
     seen.add(key);
-    items.push({ venueId: best.id, date: p.date });
+    items.push({ venueId: best.id, date: p.date, photoId: p.id });
   }
   return items;
 }
@@ -81,9 +81,18 @@ function isoDateOf(asset: unknown): string | null {
   return null;
 }
 
+function identifierOf(asset: unknown): string | undefined {
+  const a = asObj(asset);
+  const v = a?.identifier ?? a?.id ?? a?.localIdentifier;
+  return typeof v === "string" ? v : undefined;
+}
+
 // ── the scan ───────────────────────────────────────────────────────────────
 
-type MediaPlugin = { getMedias?: (opts: Record<string, unknown>) => Promise<unknown> };
+type MediaPlugin = {
+  getMedias?: (opts: Record<string, unknown>) => Promise<unknown>;
+  getMediaByIdentifier?: (opts: { identifier: string }) => Promise<{ path?: string }>;
+};
 
 function mediaPlugin(): MediaPlugin | null {
   const cap = (window as unknown as { Capacitor?: { Plugins?: Record<string, unknown> } }).Capacitor;
@@ -137,8 +146,28 @@ export async function scanPhotosForVenues(): Promise<ScanItem[] | null> {
     if (!c || !iso) continue;
     const date = localEventDate(iso);
     if (!date) continue;
-    photos.push({ lat: c.lat, lng: c.lng, date });
+    photos.push({ lat: c.lat, lng: c.lng, date, id: identifierOf(asset) });
   }
 
   return matchPhotosToVenues(photos, venues);
+}
+
+/**
+ * Load a full-quality photo (by its library identifier) as a File for upload —
+ * used to auto-attach the matched photo to a log. Native only; returns null if
+ * unavailable, so callers treat attachment as best-effort.
+ */
+export async function loadPhotoFile(identifier: string): Promise<File | null> {
+  if (!isNativeApp()) return null;
+  const Media = mediaPlugin();
+  const cap = (window as unknown as { Capacitor?: { convertFileSrc?: (p: string) => string } }).Capacitor;
+  if (!Media?.getMediaByIdentifier || !cap?.convertFileSrc) return null;
+  try {
+    const { path } = await Media.getMediaByIdentifier({ identifier });
+    if (!path) return null;
+    const blob = await fetch(cap.convertFileSrc(path)).then((r) => r.blob());
+    return new File([blob], "photo.jpg", { type: blob.type || "image/jpeg" });
+  } catch {
+    return null;
+  }
 }

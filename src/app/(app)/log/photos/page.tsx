@@ -9,23 +9,35 @@ import type { PhotoSuggestionsResult } from "@/lib/queries/photoSuggestions";
 
 type State = "intro" | "scanning" | "loading" | "ready" | "empty" | "error";
 
+function Spinner({ message }: { message: string }) {
+  return (
+    <div className="max-w-lg mx-auto px-4 py-24 flex flex-col items-center text-center">
+      <div className="w-8 h-8 border-2 border-text-muted/30 border-t-accent rounded-full animate-spin mb-4" />
+      <p className="text-text-secondary text-sm">{message}</p>
+    </div>
+  );
+}
+
 /**
- * Photo discovery flow: a privacy-first intro (priming screen) → on-device
- * scan → review the games we found → bulk-log. The native scan hands off
- * (venue, date) pairs; if it already did (sessionStorage), we skip straight to
- * the review.
+ * Photo discovery flow: privacy-first intro → on-device scan → review the games
+ * we found → bulk-log.
  */
 export default function PhotoLogPage() {
   const router = useRouter();
   const [state, setState] = useState<State>("intro");
   const [webFallback, setWebFallback] = useState(false);
   const [data, setData] = useState<PhotoSuggestionsResult | null>(null);
+  // venueId|date -> representative photo identifier, for auto-attach on commit.
+  const [photoByKey, setPhotoByKey] = useState<Record<string, string>>({});
 
   async function resolve(items: ScanItem[]) {
     if (!items.length) {
       setState("empty");
       return;
     }
+    setPhotoByKey(
+      Object.fromEntries(items.filter((i) => i.photoId).map((i) => [`${i.venueId}|${i.date}`, i.photoId as string]))
+    );
     setState("loading");
     try {
       const res = await fetch("/api/photo-suggestions", {
@@ -46,7 +58,7 @@ export default function PhotoLogPage() {
     setState("scanning");
     const items = await scanPhotosForVenues();
     if (items === null) {
-      // No native photo access (web) — stay on the intro with a gentle note.
+      // No native photo access (web) — back to the intro with a gentle note.
       setWebFallback(true);
       setState("intro");
       return;
@@ -55,30 +67,27 @@ export default function PhotoLogPage() {
   }
 
   if (state === "ready" && data) {
-    return <PhotoSuggestionsView suggestions={data.suggestions} unknownTeams={data.unknownTeams} />;
+    return <PhotoSuggestionsView suggestions={data.suggestions} unknownTeams={data.unknownTeams} photoByKey={photoByKey} />;
   }
 
-  if (state === "intro" || state === "scanning") {
-    return (
-      <PhotoScanIntro
-        onScan={handleScan}
-        onCancel={() => router.back()}
-        webFallback={webFallback}
-        scanning={state === "scanning"}
-      />
-    );
+  if (state === "intro") {
+    return <PhotoScanIntro onScan={handleScan} onCancel={() => router.back()} webFallback={webFallback} />;
   }
 
-  const message =
-    state === "loading"
-      ? "Looking through your photos…"
-      : state === "error"
-        ? "Something went wrong. Please try again."
-        : "No new games found in your photos.";
+  if (state === "scanning") return <Spinner message="Scanning your photos…" />;
+  if (state === "loading") return <Spinner message="Finding your games…" />;
 
+  // empty / error
   return (
     <div className="max-w-lg mx-auto px-4 py-20 text-center">
-      <p className="text-text-secondary text-sm">{message}</p>
+      <p className="text-text-secondary text-sm">
+        {state === "error" ? "Something went wrong. Please try again." : "No new games found in your photos."}
+      </p>
+      {state === "empty" && (
+        <p className="text-text-muted text-xs mt-3 leading-5">
+          If you only allowed access to some photos, allow access to all photos in Settings → Photos to find more.
+        </p>
+      )}
     </div>
   );
 }
