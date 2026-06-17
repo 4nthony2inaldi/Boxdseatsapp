@@ -59,30 +59,14 @@ workflows:
           /usr/libexec/PlistBuddy -c "Add :ITSAppUsesNonExemptEncryption bool false" "$PLIST" 2>/dev/null \
             || /usr/libexec/PlistBuddy -c "Set :ITSAppUsesNonExemptEncryption false" "$PLIST"
           CI=1 npx cap sync ios
-      - name: Enable push entitlement (aps-environment)
+      - name: Enable push (entitlement + AppDelegate forwarding)
         script: |
           cd ios-app
-          # Push capability can't be toggled in Xcode's UI on CI, so write the
-          # entitlements file and point the App target at it programmatically.
-          cat > ios/App/App/App.entitlements <<'PLIST'
-          <?xml version="1.0" encoding="UTF-8"?>
-          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
-          <plist version="1.0">
-          <dict>
-            <key>aps-environment</key>
-            <string>production</string>
-          </dict>
-          </plist>
-          PLIST
+          # Push capability can't be toggled in Xcode's UI on CI; this script
+          # writes the entitlement, wires CODE_SIGN_ENTITLEMENTS, and injects
+          # the APNs forwarding methods Capacitor's template AppDelegate omits.
           gem install xcodeproj --no-document >/dev/null 2>&1 || sudo gem install xcodeproj --no-document
-          ruby -e '
-            require "xcodeproj"
-            p = Xcodeproj::Project.open("ios/App/App.xcodeproj")
-            t = p.targets.find { |x| x.name == "App" }
-            t.build_configurations.each { |c| c.build_settings["CODE_SIGN_ENTITLEMENTS"] = "App/App.entitlements" }
-            p.save
-            puts "CODE_SIGN_ENTITLEMENTS set for App target"
-          '
+          ruby scripts/configure-push.rb
       - name: Set build number
         script: |
           cd ios-app/ios/App
