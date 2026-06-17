@@ -50,10 +50,17 @@ async function fetchJSON(url, attempt = 0) {
     return await res.json();
   } catch (err) { if (attempt >= 6) throw err; await sleep(800 * 2 ** attempt); return fetchJSON(url, attempt + 1); }
 }
-async function runSQL(query) {
+async function runSQL(query, attempt = 0) {
   const res = await fetch(`https://api.supabase.com/v1/projects/${PROJECT}/database/query`, {
     method: "POST", headers: { Authorization: `Bearer ${PAT}`, "Content-Type": "application/json" }, body: JSON.stringify({ query }),
   });
+  // The Management API throttles (429) under sustained insert load; retry with
+  // exponential backoff instead of crashing the whole backfill.
+  if (res.status === 429 || res.status >= 500) {
+    if (attempt >= 8) throw new Error(`Management API ${res.status} after retries: ${await res.text()}`);
+    await sleep(1000 * 2 ** attempt);
+    return runSQL(query, attempt + 1);
+  }
   if (!res.ok) throw new Error(`Management API ${res.status}: ${await res.text()}`);
   return res.json();
 }
@@ -155,7 +162,11 @@ for (const slug of LEAGUE_SLUGS) {
   for (let i = 0; i < venueList.length; i += 200) {
     const batch = venueList.slice(i, i + 200);
     const values = batch.map(([espn, vv]) => `(${sqlLit(vv.name)}, ${sqlLit(vv.city)}, ${sqlLit(vv.state)}, 'US', 'active', jsonb_build_object('espn', ${sqlLit(espn)}))`).join(",\n");
-    const rows = await runSQL(`insert into venues (name, city, state, country, status, external_ids) values\n${values} returning id, external_ids->>'espn' as espn;`);
+    // Idempotent on the partial unique index uq_venues_espn_id: a no-op DO
+    // UPDATE still RETURNs the existing row's id, so concurrent/re-runs that
+    // hit an already-created venue (college arenas are shared across ncaam/
+    // ncaaw) resolve its id instead of erroring on a duplicate key.
+    const rows = await runSQL(`insert into venues (name, city, state, country, status, external_ids) values\n${values} on conflict ((external_ids->>'espn')) where (external_ids ? 'espn') do update set external_ids = venues.external_ids returning id, external_ids->>'espn' as espn;`);
     for (const r of rows) venueByEspn.set(r.espn, r.id);
   }
   console.log(`  created ${venueList.length} venues`);
