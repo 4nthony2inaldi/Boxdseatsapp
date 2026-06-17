@@ -49,6 +49,10 @@ workflows:
           DESC="BoxdSeats reads the date and location saved in your photos to find games you've attended. Your photos aren't uploaded."
           /usr/libexec/PlistBuddy -c "Add :NSPhotoLibraryUsageDescription string $DESC" "$PLIST" 2>/dev/null \
             || /usr/libexec/PlistBuddy -c "Set :NSPhotoLibraryUsageDescription $DESC" "$PLIST"
+          # App uses only standard HTTPS/TLS (exempt encryption) — declare it so
+          # TestFlight doesn't block every build on the export-compliance prompt.
+          /usr/libexec/PlistBuddy -c "Add :ITSAppUsesNonExemptEncryption bool false" "$PLIST" 2>/dev/null \
+            || /usr/libexec/PlistBuddy -c "Set :ITSAppUsesNonExemptEncryption false" "$PLIST"
           CI=1 npx cap sync ios
       - name: Set build number
         script: |
