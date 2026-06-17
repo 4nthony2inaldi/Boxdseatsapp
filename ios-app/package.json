@@ -4,6 +4,7 @@
   "private": true,
   "description": "BoxdSeats native iOS shell (Capacitor). Loads the live web app and adds on-device photo scanning for game discovery.",
   "devDependencies": {
+    "@capacitor/assets": "^3.0.5",
     "@capacitor/cli": "^6.1.0"
   },
   "dependencies": {
