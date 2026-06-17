@@ -139,49 +139,98 @@ function assetsFrom(res: unknown): unknown[] {
   return Array.isArray(res) ? res : [];
 }
 
+export type ScanProgress =
+  | { phase: "reading" }
+  | { phase: "scanning"; processed: number; total: number }
+  | { phase: "matching" };
+
+export type ScanOptions = {
+  /** Only consider photos from the last N months. Undefined = as far back as
+   *  the library fetch reaches. Shorter ranges also fetch fewer photos. */
+  monthsBack?: number;
+  onProgress?: (p: ScanProgress) => void;
+};
+
+// Yield to the event loop so React can paint progress between batches.
+const yieldToUI = () => new Promise<void>((r) => setTimeout(r, 0));
+
 /**
  * Native-only: read photo date + location on-device via the Media plugin,
  * geofence against the bundled venue list, and return one (venue, date) per
  * game. No coordinates or images leave the device — only the resulting
  * (venue, date) pairs are sent on to look up the games. Returns null on the
  * web (no photo-library access).
+ *
+ * `monthsBack` bounds the scan (the library is fetched newest-first, so we stop
+ * as soon as we pass the cutoff). `onProgress` reports phase + counts so the UI
+ * can show a real progress bar.
  */
-export async function scanPhotosForVenues(): Promise<ScanItem[] | null> {
+export async function scanPhotosForVenues(opts: ScanOptions = {}): Promise<ScanItem[] | null> {
+  const { monthsBack, onProgress } = opts;
   if (!isNativeApp()) return null;
   const Media = mediaPlugin();
   if (!Media?.getMedias) return null;
 
-  // Option names vary by plugin version — try a few and take the first that
-  // returns assets.
+  onProgress?.({ phase: "reading" });
+
+  // Fetch fewer photos for shorter ranges (generous per-month headroom) so a
+  // quick scan stays quick; the exact date cutoff is enforced below.
+  const quantity = monthsBack ? Math.min(50000, monthsBack * 2500) : 50000;
   const attempts: Record<string, unknown>[] = [
-    { quantity: 10000, types: "photos", sort: [{ key: "creationDate", ascending: false }] },
-    { quantity: 10000, type: "photos" },
-    { quantity: 10000 },
+    { quantity, types: "photos", sort: [{ key: "creationDate", ascending: false }] },
+    { quantity, type: "photos" },
+    { quantity },
     {},
   ];
   let assets: unknown[] = [];
-  for (const opts of attempts) {
+  let sortedDesc = false;
+  for (let ai = 0; ai < attempts.length; ai++) {
     try {
-      const res = await Media.getMedias(opts);
+      const res = await Media.getMedias(attempts[ai]);
       const a = assetsFrom(res);
-      if (a.length) { assets = a; break; }
+      if (a.length) {
+        assets = a;
+        sortedDesc = ai === 0; // only the first attempt requests newest-first
+        break;
+      }
     } catch {
       /* try next shape */
     }
   }
 
   const venues = await loadVenuesGeo();
+  const cutoff = monthsBack ? Date.now() - monthsBack * 30.5 * 86400 * 1000 : null;
 
   const photos: Photo[] = [];
-  for (const asset of assets) {
-    const c = coordsOf(asset);
+  const total = assets.length;
+  for (let i = 0; i < total; i++) {
+    const asset = assets[i];
     const iso = isoDateOf(asset);
-    if (!c || !iso) continue;
-    const date = localEventDate(iso);
-    if (!date) continue;
-    photos.push({ lat: c.lat, lng: c.lng, date, id: identifierOf(asset) });
+
+    let older = false;
+    if (cutoff && iso) {
+      const t = Date.parse(iso);
+      older = !Number.isNaN(t) && t < cutoff;
+    }
+    // Newest-first: once past the cutoff, everything after is older too.
+    if (older && sortedDesc) break;
+
+    if (!older) {
+      const c = coordsOf(asset);
+      if (c && iso) {
+        const date = localEventDate(iso);
+        if (date) photos.push({ lat: c.lat, lng: c.lng, date, id: identifierOf(asset) });
+      }
+    }
+
+    if (i % 250 === 0) {
+      onProgress?.({ phase: "scanning", processed: i, total });
+      await yieldToUI();
+    }
   }
 
+  onProgress?.({ phase: "matching" });
+  await yieldToUI();
   return matchPhotosToVenues(photos, venues);
 }
 

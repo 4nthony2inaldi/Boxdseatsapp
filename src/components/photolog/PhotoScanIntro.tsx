@@ -3,12 +3,19 @@
 import { useState } from "react";
 
 type Props = {
-  onScan: () => void;
+  onScan: (monthsBack?: number) => void;
   onCancel: () => void;
   /** True when there's no native photo access (web) — show the gentle note. */
   webFallback?: boolean;
   scanning?: boolean;
 };
+
+const RANGES: { label: string; months?: number }[] = [
+  { label: "3 mo", months: 3 },
+  { label: "1 yr", months: 12 },
+  { label: "2 yr", months: 24 },
+  { label: "All time", months: undefined },
+];
 
 const svg = "0 0 24 24";
 
@@ -58,6 +65,7 @@ function Bullet({ icon, bold, rest }: { icon: React.ReactNode; bold: string; res
 
 export default function PhotoScanIntro({ onScan, onCancel, webFallback, scanning }: Props) {
   const [howOpen, setHowOpen] = useState(false);
+  const [rangeIdx, setRangeIdx] = useState(1); // default: last 1 year
 
   return (
     <div className="max-w-lg mx-auto px-5 pt-8 pb-10">
@@ -106,9 +114,36 @@ export default function PhotoScanIntro({ onScan, onCancel, webFallback, scanning
         </p>
       )}
 
-      <div className="mt-8 space-y-2">
+      <div className="mt-6">
+        <p className="text-xs text-text-muted tracking-wide uppercase font-display mb-2">How far back?</p>
+        <div className="grid grid-cols-4 gap-2">
+          {RANGES.map((r, i) => {
+            const active = i === rangeIdx;
+            return (
+              <button
+                key={r.label}
+                onClick={() => setRangeIdx(i)}
+                aria-pressed={active}
+                className="py-2 rounded-lg text-xs font-medium transition-colors"
+                style={{
+                  background: active ? "rgba(212,135,44,0.15)" : "var(--color-bg-input)",
+                  border: `1px solid ${active ? "var(--color-accent)" : "var(--color-border)"}`,
+                  color: active ? "var(--color-accent)" : "var(--color-text-secondary)",
+                }}
+              >
+                {r.label}
+              </button>
+            );
+          })}
+        </div>
+        <p className="text-[11px] text-text-muted leading-5 mt-2">
+          A shorter range scans faster. Pick a longer one to dig up older games.
+        </p>
+      </div>
+
+      <div className="mt-6 space-y-2">
         <button
-          onClick={onScan}
+          onClick={() => onScan(RANGES[rangeIdx].months)}
           disabled={scanning}
           className="w-full py-3.5 rounded-xl font-display text-base tracking-widest text-white disabled:opacity-50 transition-opacity"
           style={{ background: "linear-gradient(135deg, var(--color-accent), var(--color-accent-brown))" }}
