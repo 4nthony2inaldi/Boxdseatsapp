@@ -24,9 +24,9 @@ workflows:
     integrations:
       app_store_connect: BoxdSeats ASC
     environment:
-      ios_signing:
-        distribution_type: app_store
-        bundle_identifier: com.boxdseats.app
+      # Signing is done explicitly in a script step below (so it produces a
+      # real log) rather than via Codemagic's managed `ios_signing` block,
+      # whose failures surface as an opaque pre-build error with no log.
       node: 20
       xcode: latest
       cocoapods: default
@@ -58,8 +58,17 @@ workflows:
         script: |
           cd ios-app/ios/App
           agvtool new-version -all "$(($(date +%s) / 60))"
-      - name: Apply signing profiles
-        script: xcode-project use-profiles
+      - name: Set up code signing (create cert + profile if missing)
+        script: |
+          keychain initialize
+          # Fetch the App Store provisioning profile for our bundle id, creating
+          # it — and a distribution certificate + private key — if none exist
+          # yet (fresh account). Runs as a logged step, unlike managed signing.
+          app-store-connect fetch-signing-files "com.boxdseats.app" \
+            --type IOS_APP_STORE \
+            --create
+          keychain add-certificates
+          xcode-project use-profiles
       - name: Build the IPA
         script: |
           cd ios-app
