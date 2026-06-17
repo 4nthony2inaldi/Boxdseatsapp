@@ -141,13 +141,15 @@ export async function POST(request: Request) {
   // Resolve the actor's name so the push reads "Anthony  ·  liked your event
   // log" rather than a nameless action (message itself stays generic).
   let actorName: string | null = null;
+  let actorUsername: string | null = null;
   if (record.actor_id) {
     const { data: actor } = await supabase
       .from("profiles")
       .select("display_name, username")
       .eq("id", record.actor_id)
       .maybeSingle();
-    actorName = actor?.display_name || (actor?.username ? `@${actor.username}` : null);
+    actorUsername = actor?.username ?? null;
+    actorName = actor?.display_name || (actorUsername ? `@${actorUsername}` : null);
   }
 
   const payload = {
@@ -161,6 +163,7 @@ export async function POST(request: Request) {
     type: record.type,
     targetId: record.target_id,
     targetType: record.target_type,
+    actorUsername,
   };
 
   const results = await sendAll(tokens, payload, apnsJwt(), process.env.APNS_BUNDLE_ID!);

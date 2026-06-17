@@ -3,6 +3,7 @@ import AppHeader from "@/components/AppHeader";
 import BottomNav from "@/components/BottomNav";
 import Toaster from "@/components/Toaster";
 import PushRegistrar from "@/components/native/PushRegistrar";
+import PushOptIn from "@/components/native/PushOptIn";
 
 export const metadata: Metadata = {
   robots: { index: false, follow: false },
@@ -20,6 +21,7 @@ export default function AppLayout({
       <BottomNav />
       <Toaster />
       <PushRegistrar />
+      <PushOptIn />
     </div>
   );
 }
