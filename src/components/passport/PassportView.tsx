@@ -108,16 +108,16 @@ export default function PassportView({ username, displayName, avatarUrl, data, e
         </div>
       </div>
 
-      {/* Teams */}
+      {/* Teams — show all the user roots for; scroll horizontally past what fits */}
       {teams.length > 0 && (
-        <div className="px-4 mt-5">
-          <div className="font-display text-[11px] text-text-muted tracking-[1.5px] uppercase mb-2">Teams</div>
-          <div className="flex gap-3">
+        <div className="mt-5">
+          <div className="font-display text-[11px] text-text-muted tracking-[1.5px] uppercase mb-2 px-4">Teams</div>
+          <div className="flex gap-3 overflow-x-auto px-4 scroll-fade-x" style={{ scrollbarWidth: "none" }}>
             {teams.map((t) => (
               <Link
                 key={t.id}
                 href={`/team/${t.id}`}
-                className="w-14 h-14 rounded-full bg-bg-elevated flex items-center justify-center overflow-hidden hover:opacity-80 transition-opacity"
+                className="w-14 h-14 flex-shrink-0 rounded-full bg-bg-elevated flex items-center justify-center overflow-hidden hover:opacity-80 transition-opacity"
               >
                 {t.logo_url ? (
                   <Image src={t.logo_url} alt={t.name} width={44} height={44} className="object-contain" />
