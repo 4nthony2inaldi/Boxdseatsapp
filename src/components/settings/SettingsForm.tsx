@@ -7,6 +7,7 @@ import type { SettingsProfile, AvailableList } from "@/lib/queries/settings";
 import { updateProfile } from "@/lib/queries/settings";
 import AvatarUpload from "@/components/AvatarUpload";
 import AccountSecurity from "@/components/settings/AccountSecurity";
+import NotificationSettings from "@/components/settings/NotificationSettings";
 import UsernameEditor from "@/components/settings/UsernameEditor";
 import SportIcon from "@/components/SportIcon";
 import { SPORTS_LIST } from "@/lib/sportIcons";
@@ -321,6 +322,9 @@ export default function SettingsForm({ profile, userEmail, availableLists }: Pro
       >
         {saved ? "Saved ✓" : "Saving..."}
       </div>
+
+      {/* Push notifications (native only) */}
+      <NotificationSettings userId={profile.id} />
 
       {/* Account */}
       <SectionHeader>Account</SectionHeader>

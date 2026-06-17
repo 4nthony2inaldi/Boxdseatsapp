@@ -4,6 +4,7 @@ import { useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { followUser, unfollowUser } from "@/lib/queries/social";
 import { toastError } from "@/components/Toaster";
+import { maybeOfferPush } from "@/lib/native/push";
 
 type Props = {
   targetUserId: string;
@@ -56,6 +57,8 @@ export default function FollowButton({
         setIsFollowing(newFollowing);
         setIsPending(newPending);
         onFollowChange?.(newFollowing, newPending);
+        // Meaningful moment — offer push opt-in (native, once, soft prompt).
+        void maybeOfferPush();
       }
     }
 
