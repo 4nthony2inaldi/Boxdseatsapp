@@ -153,30 +153,9 @@ export default function StepDate({
     viewYear < today.getFullYear() ||
     (viewYear === today.getFullYear() && viewMonth < today.getMonth());
 
-  // Today shortcut
-  const handleToday = () => {
-    const dateStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-${String(today.getDate()).padStart(2, "0")}`;
-    setViewYear(today.getFullYear());
-    setViewMonth(today.getMonth());
-    onSelect(dateStr);
-  };
-
   return (
     <div>
       <div className="text-[13px] text-text-secondary mb-5">{venueName}</div>
-
-      {/* Today shortcut */}
-      <button
-        onClick={handleToday}
-        className="w-full mb-4 p-3 rounded-lg bg-accent/10 border border-accent/30 text-accent text-sm font-medium cursor-pointer hover:bg-accent/15 transition-colors"
-      >
-        Today &mdash;{" "}
-        {today.toLocaleDateString("en-US", {
-          month: "short",
-          day: "numeric",
-          year: "numeric",
-        })}
-      </button>
 
       {/* Loading */}
       {loading && (
@@ -260,15 +239,16 @@ export default function StepDate({
             </button>
           </div>
 
-          {autoJumped && (
+          {autoJumped && !jumpOpen && (
             <p className="text-[11px] text-text-muted text-center -mt-2 mb-3">
               Jumped to this venue&apos;s most recent event month
             </p>
           )}
 
-          {/* Quick jump: year grid, then months of the chosen year */}
+          {/* Quick jump: year grid, then months of the chosen year (replaces
+              the day grid, like a standard calendar's month/year picker) */}
           {jumpOpen && (
-            <div className="mb-4 rounded-xl border border-border bg-bg-elevated p-3">
+            <div className="pt-1 pb-2">
               {jumpYear === null ? (
                 <>
                   <div className="font-display text-[10px] text-text-muted tracking-[1.5px] uppercase mb-2 text-center">
@@ -341,6 +321,8 @@ export default function StepDate({
             </div>
           )}
 
+          {!jumpOpen && (
+            <>
           {/* Day headers */}
           <div className="grid grid-cols-7 gap-1 text-center mb-1">
             {dayLabels.map((d, i) => (
@@ -393,6 +375,8 @@ export default function StepDate({
               );
             })}
           </div>
+            </>
+          )}
         </div>
       )}
 
