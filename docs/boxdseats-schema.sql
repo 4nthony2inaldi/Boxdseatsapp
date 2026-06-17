@@ -1208,3 +1208,52 @@ revoke execute on function
   public.my_companion_tags(),
   public.respond_to_companion_tag(uuid, text)
 from public, anon;
+
+-- ───────────────────────────────────────────────────────────────────────────
+-- Push notifications (iOS via APNs)
+-- ───────────────────────────────────────────────────────────────────────────
+-- Device push tokens (one row per device per user). The send path uses the
+-- service role and bypasses RLS; users only manage their own tokens.
+create table if not exists public.device_tokens (
+  id            uuid primary key default uuid_generate_v4(),
+  user_id       uuid not null references auth.users(id) on delete cascade,
+  token         text not null,
+  platform      text not null default 'ios',
+  environment   text not null default 'production',
+  created_at    timestamptz not null default now(),
+  updated_at    timestamptz not null default now(),
+  unique (user_id, token)
+);
+alter table public.device_tokens enable row level security;
+create policy "Users manage their own device tokens" on public.device_tokens
+  for all to authenticated using (user_id = auth.uid()) with check (user_id = auth.uid());
+create index if not exists idx_device_tokens_user on public.device_tokens(user_id);
+
+-- Database webhook: on a new notification, call the Next.js push endpoint,
+-- which signs an APNs request and delivers to the recipient's devices
+-- (honoring notification_preferences.push_enabled). The shared secret is read
+-- at runtime from a private config table (base64) rather than embedded here.
+create extension if not exists pg_net;
+create schema if not exists private;
+create table if not exists private.config (key text primary key, value text);
+revoke all on private.config from anon, authenticated;
+-- insert into private.config(key,value) values ('push_secret_b64', '<base64 of PUSH_WEBHOOK_SECRET>');
+
+create or replace function public.notify_push() returns trigger
+language plpgsql security definer set search_path = public as $$
+declare secret text;
+begin
+  select convert_from(decode(value, 'base64'), 'utf8') into secret
+    from private.config where key = 'push_secret_b64';
+  perform net.http_post(
+    url := 'https://www.boxdseats.com/api/push',
+    body := jsonb_build_object('record', to_jsonb(NEW)),
+    headers := jsonb_build_object('Content-Type', 'application/json', 'Authorization', 'Bearer ' || secret)
+  );
+  return NEW;
+end; $$;
+revoke execute on function public.notify_push() from public, anon, authenticated;
+
+drop trigger if exists trg_notify_push on public.notifications;
+create trigger trg_notify_push after insert on public.notifications
+  for each row execute function public.notify_push();
