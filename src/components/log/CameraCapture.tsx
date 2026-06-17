@@ -66,6 +66,15 @@ export default function CameraCapture({ onCapture, onClose }: CameraCaptureProps
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // Escape closes the camera (same as the close/cancel button).
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onClose();
+    };
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [onClose]);
+
   const handleCapture = () => {
     const video = videoRef.current;
     const canvas = canvasRef.current;
@@ -115,7 +124,12 @@ export default function CameraCapture({ onCapture, onClose }: CameraCaptureProps
 
   if (error) {
     return (
-      <div className="fixed inset-x-0 top-0 h-dvh z-[60] bg-black flex flex-col items-center justify-center px-6">
+      <div
+        className="fixed inset-x-0 top-0 h-dvh z-[60] bg-black flex flex-col items-center justify-center px-6"
+        role="dialog"
+        aria-modal="true"
+        aria-label="Camera"
+      >
         <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="#C83C2C" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
           <circle cx="12" cy="12" r="10" />
           <line x1="12" y1="8" x2="12" y2="12" />
@@ -133,7 +147,12 @@ export default function CameraCapture({ onCapture, onClose }: CameraCaptureProps
   }
 
   return (
-    <div className="fixed inset-x-0 top-0 h-dvh z-[60] bg-black flex flex-col">
+    <div
+      className="fixed inset-x-0 top-0 h-dvh z-[60] bg-black flex flex-col"
+      role="dialog"
+      aria-modal="true"
+      aria-label="Camera"
+    >
       {/* Viewfinder */}
       <div className="flex-1 relative overflow-hidden">
         {captured ? (
@@ -201,6 +220,7 @@ export default function CameraCapture({ onCapture, onClose }: CameraCaptureProps
           <div className="flex items-center justify-between">
             <button
               onClick={onClose}
+              aria-label="Close camera"
               className="w-12 h-12 flex items-center justify-center cursor-pointer bg-transparent border-none"
             >
               <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -213,6 +233,7 @@ export default function CameraCapture({ onCapture, onClose }: CameraCaptureProps
             <button
               onClick={handleCapture}
               disabled={starting}
+              aria-label="Take photo"
               className="cursor-pointer bg-transparent border-none p-0 disabled:opacity-50"
             >
               <div className="w-[72px] h-[72px] rounded-full border-4 border-white p-1">
@@ -223,6 +244,7 @@ export default function CameraCapture({ onCapture, onClose }: CameraCaptureProps
             {/* Flip camera */}
             <button
               onClick={handleFlipCamera}
+              aria-label="Switch camera"
               className="w-12 h-12 flex items-center justify-center cursor-pointer bg-transparent border-none"
             >
               <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">

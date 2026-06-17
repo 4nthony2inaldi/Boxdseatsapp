@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import Cropper, { type Area } from "react-easy-crop";
 
 type PhotoCropperProps = {
@@ -75,6 +75,15 @@ export default function PhotoCropper({
     setAreaPixels(pixels);
   }, []);
 
+  // Escape behaves like Cancel.
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onCancel();
+    };
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [onCancel]);
+
   const handleApply = async () => {
     if (!areaPixels || working) return;
     setWorking(true);
@@ -91,7 +100,12 @@ export default function PhotoCropper({
   return (
     // h-dvh (not inset-0) so the footer stays above mobile Safari's toolbar;
     // z-[60] so the z-50 bottom nav can't cover the Apply button
-    <div className="fixed inset-x-0 top-0 h-dvh z-[60] bg-black flex flex-col">
+    <div
+      className="fixed inset-x-0 top-0 h-dvh z-[60] bg-black flex flex-col"
+      role="dialog"
+      aria-modal="true"
+      aria-label="Adjust crop"
+    >
       {/* Header */}
       <div className="flex items-center justify-between px-4 py-3 shrink-0">
         <button

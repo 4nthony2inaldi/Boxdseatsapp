@@ -119,6 +119,8 @@ export default function EventGallery({ photos: initialPhotos, currentUserId }: E
               {/* Like button */}
               <button
                 onClick={() => handleLike(photo.event_log_id)}
+                aria-label="Like photo"
+                aria-pressed={photo.liked_by_me}
                 className="flex items-center gap-1.5 bg-transparent border-none cursor-pointer p-1"
               >
                 <svg

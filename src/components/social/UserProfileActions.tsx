@@ -77,6 +77,8 @@ export default function UserProfileActions({
     <div className="relative" ref={menuRef}>
       <button
         onClick={() => setIsOpen(!isOpen)}
+        aria-label="More options"
+        aria-haspopup="menu"
         className="w-8 h-8 flex items-center justify-center rounded-lg bg-bg-elevated border border-border cursor-pointer hover:opacity-80 transition-opacity"
       >
         <svg

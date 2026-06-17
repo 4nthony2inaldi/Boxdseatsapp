@@ -87,7 +87,7 @@ export default function PassportView({ username, displayName, avatarUrl, data, e
       <div className="flex items-center gap-3 px-4 pt-4 pb-3">
         <div className="w-12 h-12 rounded-full overflow-hidden flex-shrink-0 bg-bg-elevated flex items-center justify-center">
           {avatarUrl ? (
-            <Image src={avatarUrl} alt="" width={48} height={48} className="w-full h-full object-cover" />
+            <Image src={avatarUrl} alt={name} width={48} height={48} className="w-full h-full object-cover" />
           ) : (
             <span className="font-display text-lg text-accent">{name.charAt(name.startsWith("@") ? 1 : 0).toUpperCase()}</span>
           )}
@@ -161,7 +161,7 @@ export default function PassportView({ username, displayName, avatarUrl, data, e
               <Link key={v.venue_id} href={`/venue/${v.venue_id}`} className="flex flex-col items-center text-center w-20 flex-shrink-0 hover:opacity-80 transition-opacity">
                 <div className="w-16 h-16 rounded-full overflow-hidden bg-bg-elevated flex items-center justify-center">
                   {v.photo_url ? (
-                    <Image src={v.photo_url} alt="" width={64} height={64} className="w-full h-full object-cover" />
+                    <Image src={v.photo_url} alt={v.name} width={64} height={64} className="w-full h-full object-cover" />
                   ) : (
                     <SportIcon sport={v.sport} size={24} />
                   )}

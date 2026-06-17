@@ -395,7 +395,7 @@ export default async function EventDetailPage({
                     >
                       {c.avatar_url ? (
                         // eslint-disable-next-line @next/next/no-img-element
-                        <img src={c.avatar_url} alt="" className="w-4 h-4 rounded-full object-cover" />
+                        <img src={c.avatar_url} alt={c.display_name || `@${c.username}`} className="w-4 h-4 rounded-full object-cover" />
                       ) : null}
                       @{c.username}
                       {i < userLog.companions.length - 1 ? "," : ""}

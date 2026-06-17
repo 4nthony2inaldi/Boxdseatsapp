@@ -301,6 +301,8 @@ export default function TimelineCard({
         <div className="flex items-center gap-5 border-t border-border pt-2.5">
           <button
             onClick={() => onLike?.(entry.id)}
+            aria-label={liked ? "Unlike" : "Like"}
+            aria-pressed={liked}
             className="flex items-center gap-1.5 bg-transparent border-none cursor-pointer p-0"
           >
             <svg
@@ -321,6 +323,7 @@ export default function TimelineCard({
           </button>
           <button
             onClick={() => onComment?.(entry.id)}
+            aria-label="Comment"
             className="flex items-center gap-1.5 bg-transparent border-none cursor-pointer p-0"
           >
             <svg

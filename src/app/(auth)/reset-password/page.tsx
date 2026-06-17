@@ -107,6 +107,7 @@ export default function ResetPasswordPage() {
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               placeholder="you@example.com"
+              aria-label="Email"
               required
               autoComplete="email"
               className={`${inputClass} mb-4`}
@@ -165,6 +166,7 @@ export default function ResetPasswordPage() {
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               placeholder="New password (8+ characters)"
+              aria-label="New password"
               autoComplete="new-password"
               className={`${inputClass} mb-3`}
             />
@@ -173,6 +175,7 @@ export default function ResetPasswordPage() {
               value={confirm}
               onChange={(e) => setConfirm(e.target.value)}
               placeholder="Confirm new password"
+              aria-label="Confirm new password"
               autoComplete="new-password"
               className={`${inputClass} mb-4`}
             />
