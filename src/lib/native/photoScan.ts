@@ -154,6 +154,23 @@ export type ScanOptions = {
 // Yield to the event loop so React can paint progress between batches.
 const yieldToUI = () => new Promise<void>((r) => setTimeout(r, 0));
 
+// Reject if a promise doesn't settle in time, so a stalled native call can't
+// leave the scan spinning forever.
+function withTimeout<T>(p: Promise<T>, ms: number): Promise<T> {
+  return Promise.race([
+    p,
+    new Promise<T>((_, reject) => setTimeout(() => reject(new Error("timeout")), ms)),
+  ]);
+}
+
+/** Thrown when the photo library can't be read (denied access or a stall). */
+export class PhotoReadError extends Error {
+  constructor() {
+    super("photo-read-failed");
+    this.name = "PhotoReadError";
+  }
+}
+
 /**
  * Native-only: read photo date + location on-device via the Media plugin,
  * geofence against the bundled venue list, and return one (venue, date) per
@@ -177,27 +194,38 @@ export async function scanPhotosForVenues(opts: ScanOptions = {}): Promise<ScanI
   // very generous per-month headroom (~260/day) so an in-range photo is never
   // truncated before the exact date cutoff below can see it.
   const quantity = monthsBack ? Math.min(50000, monthsBack * 8000) : 50000;
+  // Minimal thumbnails: we only read GPS/date/identifier and never touch the
+  // image, so skip the costly per-photo thumbnail generation that otherwise
+  // makes getMedias crawl (or appear to hang) on large libraries.
+  const thumb = { thumbnailWidth: 1, thumbnailHeight: 1, thumbnailQuality: 1 };
   const attempts: Record<string, unknown>[] = [
-    { quantity, types: "photos", sort: [{ key: "creationDate", ascending: false }] },
-    { quantity, type: "photos" },
-    { quantity },
+    { quantity, types: "photos", ...thumb, sort: [{ key: "creationDate", ascending: false }] },
+    { quantity, type: "photos", ...thumb },
+    { quantity, ...thumb },
     {},
   ];
   let assets: unknown[] = [];
   let sortedDesc = false;
+  let readOk = false;
   for (let ai = 0; ai < attempts.length; ai++) {
     try {
-      const res = await Media.getMedias(attempts[ai]);
+      const res = await withTimeout(Media.getMedias(attempts[ai]), 30000);
+      readOk = true; // the plugin responded; this opts shape is supported
       const a = assetsFrom(res);
       if (a.length) {
         assets = a;
         sortedDesc = ai === 0; // only the first attempt requests newest-first
         break;
       }
-    } catch {
-      /* try next shape */
+    } catch (e) {
+      // A hang (timeout) means the plugin is stalled — don't retry other shapes,
+      // just surface the error. A plain rejection means a bad opts shape: try next.
+      if (e instanceof Error && e.message === "timeout") break;
     }
   }
+  // Nothing responded (denied access or a stall) — fail loudly instead of
+  // returning [] (which reads as "no games found") or spinning forever.
+  if (!readOk) throw new PhotoReadError();
 
   const venues = await loadVenuesGeo();
   const cutoff = monthsBack ? Date.now() - monthsBack * 30.5 * 86400 * 1000 : null;

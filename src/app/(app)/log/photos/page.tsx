@@ -44,6 +44,9 @@ function ScanProgressView({ progress }: { progress: ScanProgress | null }) {
         </div>
       )}
       <p className="text-text-secondary text-sm">{label}</p>
+      {pct === null && (
+        <p className="text-text-muted text-xs mt-2">Large libraries can take a moment.</p>
+      )}
     </div>
   );
 }
@@ -58,6 +61,7 @@ export default function PhotoLogPage() {
   const [webFallback, setWebFallback] = useState(false);
   const [data, setData] = useState<PhotoSuggestionsResult | null>(null);
   const [progress, setProgress] = useState<ScanProgress | null>(null);
+  const [readError, setReadError] = useState(false);
   // venueId|date -> representative photo identifier, for auto-attach on commit.
   const [photoByKey, setPhotoByKey] = useState<Record<string, string>>({});
 
@@ -87,15 +91,22 @@ export default function PhotoLogPage() {
 
   async function handleScan(monthsBack?: number) {
     setProgress({ phase: "reading" });
+    setReadError(false);
     setState("scanning");
-    const items = await scanPhotosForVenues({ monthsBack, onProgress: setProgress });
-    if (items === null) {
-      // No native photo access (web) — back to the intro with a gentle note.
-      setWebFallback(true);
-      setState("intro");
-      return;
+    try {
+      const items = await scanPhotosForVenues({ monthsBack, onProgress: setProgress });
+      if (items === null) {
+        // No native photo access (web) — back to the intro with a gentle note.
+        setWebFallback(true);
+        setState("intro");
+        return;
+      }
+      await resolve(items);
+    } catch {
+      // Stalled or denied photo read — never leave the spinner running.
+      setReadError(true);
+      setState("error");
     }
-    await resolve(items);
   }
 
   if (state === "ready" && data) {
@@ -113,13 +124,27 @@ export default function PhotoLogPage() {
   return (
     <div className="max-w-lg mx-auto px-4 py-20 text-center">
       <p className="text-text-secondary text-sm">
-        {state === "error" ? "Something went wrong. Please try again." : "No new games found in your photos."}
+        {state === "error"
+          ? readError
+            ? 'Couldn’t read your photos. Open Settings → BoxdSeats → Photos and choose “All Photos,” then try again — or pick a shorter time range.'
+            : "Something went wrong. Please try again."
+          : "No new games found in your photos."}
       </p>
       {state === "empty" && (
         <p className="text-text-muted text-xs mt-3 leading-5">
           If you only allowed access to some photos, allow access to all photos in Settings → Photos to find more.
         </p>
       )}
+      <button
+        onClick={() => {
+          setReadError(false);
+          setState("intro");
+        }}
+        className="mt-5 px-5 py-2.5 rounded-xl text-sm font-medium text-white transition-opacity"
+        style={{ background: "linear-gradient(135deg, var(--color-accent), var(--color-accent-brown))" }}
+      >
+        Try again
+      </button>
     </div>
   );
 }
