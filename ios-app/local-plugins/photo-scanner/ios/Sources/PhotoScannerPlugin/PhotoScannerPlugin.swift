@@ -47,19 +47,38 @@ public class PhotoScannerPlugin: CAPPlugin, CAPBridgedPlugin {
             call.resolve(["photos": photos])
         }
 
-        let status = PHPhotoLibrary.authorizationStatus(for: .readWrite)
-        if status == .authorized || status == .limited {
-            run()
-        } else if status == .notDetermined {
-            PHPhotoLibrary.requestAuthorization(for: .readWrite) { newStatus in
-                if newStatus == .authorized || newStatus == .limited {
-                    run()
-                } else {
-                    call.reject("denied")
+        ensureAuthorized { granted in
+            if granted { run() } else { call.reject("denied") }
+        }
+    }
+
+    /// Resolve read authorization, using the iOS 14+ read/write + limited-access
+    /// API where available and falling back to the pre-14 API otherwise.
+    private func ensureAuthorized(_ completion: @escaping (Bool) -> Void) {
+        if #available(iOS 14, *) {
+            let status = PHPhotoLibrary.authorizationStatus(for: .readWrite)
+            switch status {
+            case .authorized, .limited:
+                completion(true)
+            case .notDetermined:
+                PHPhotoLibrary.requestAuthorization(for: .readWrite) { s in
+                    completion(s == .authorized || s == .limited)
                 }
+            default:
+                completion(false)
             }
         } else {
-            call.reject("denied")
+            let status = PHPhotoLibrary.authorizationStatus()
+            switch status {
+            case .authorized:
+                completion(true)
+            case .notDetermined:
+                PHPhotoLibrary.requestAuthorization { s in
+                    completion(s == .authorized)
+                }
+            default:
+                completion(false)
+            }
         }
     }
 
