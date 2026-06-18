@@ -32,7 +32,7 @@ function listOptionLabel(list: AvailableList, currentUserId: string): string {
 
 function SectionHeader({ children }: { children: React.ReactNode }) {
   return (
-    <h2 className="font-display text-[13px] text-text-muted tracking-[1.5px] uppercase mt-6 mb-3 px-4">
+    <h2 className="font-display text-[13px] text-text-muted tracking-[2px] uppercase mt-6 mb-3 px-4">
       {children}
     </h2>
   );

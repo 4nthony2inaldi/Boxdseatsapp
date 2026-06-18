@@ -32,7 +32,7 @@ export default function BlockedUsers({ currentUserId, blockedUsers }: Props) {
     return (
       <>
         <div className="px-4 pt-6 pb-2">
-          <h2 className="font-display text-[13px] text-text-muted tracking-[1.5px] uppercase">
+          <h2 className="font-display text-[13px] text-text-muted tracking-[2px] uppercase">
             Blocked Users
           </h2>
         </div>
@@ -46,7 +46,7 @@ export default function BlockedUsers({ currentUserId, blockedUsers }: Props) {
   return (
     <>
       <div className="px-4 pt-6 pb-2">
-        <h2 className="font-display text-[13px] text-text-muted tracking-[1.5px] uppercase">
+        <h2 className="font-display text-[13px] text-text-muted tracking-[2px] uppercase">
           Blocked Users
         </h2>
       </div>

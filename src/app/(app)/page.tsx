@@ -41,7 +41,7 @@ export default async function FeedPage() {
       <NearbySection userId={user.id} initialCity={homeCity} initialPage={nearby} />
 
       <div className="px-4 mb-2.5">
-        <span className="font-display text-[13px] text-text-muted tracking-[1.5px] uppercase">
+        <span className="font-display text-[13px] text-text-muted tracking-[2px] uppercase">
           From Friends
         </span>
       </div>
