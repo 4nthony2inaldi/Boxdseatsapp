@@ -6,10 +6,12 @@ import { createClient } from "@supabase/supabase-js";
  * Keeps team-sport events fresh from ESPN's public scoreboards:
  *  - ingests upcoming/scheduled games (so fans can log from the venue),
  *  - attaches final scores once games complete,
- *  - corrects dates for postponed games.
+ *  - corrects dates for postponed games,
+ *  - removes games ESPN has dropped (cancelled / unnecessary "if necessary"
+ *    playoff games) that were never played and that nobody logged.
  *
  * Runs on a Vercel Cron (see vercel.json). Requires CRON_SECRET bearer auth.
- * Query params: ?days=3 (lookback), ?ahead=2 (lookahead), ?dryRun=1
+ * Query params: ?days=10 (lookback), ?ahead=2 (lookahead), ?dryRun=1
  */
 
 const LEAGUE_PATHS: Record<string, string> = {
@@ -74,7 +76,10 @@ async function handleSync(request: Request) {
   }
 
   const url = new URL(request.url);
-  const lookback = Math.min(parseInt(url.searchParams.get("days") || "3", 10), 14);
+  // Lookback is generous (default 10d) so a final that posts late — or a cron
+  // run that missed the game's day — still gets its score backfilled instead of
+  // falling permanently out of the window with a stale/empty score.
+  const lookback = Math.min(parseInt(url.searchParams.get("days") || "10", 10), 21);
   const lookahead = Math.min(parseInt(url.searchParams.get("ahead") || "2", 10), 7);
   const dryRun = url.searchParams.get("dryRun") === "1";
 
@@ -125,6 +130,7 @@ async function handleSync(request: Request) {
       inserted: 0,
       scoresUpdated: 0,
       dateCorrected: 0,
+      removed: 0,
       skipped: 0,
       venuesCreated: 0,
     };
@@ -170,7 +176,12 @@ async function handleSync(request: Request) {
       continue;
     }
 
+    // Every game ESPN returns for this window — anything we hold that's NOT in
+    // here may have been dropped by ESPN (cancelled / unnecessary playoff game).
+    const seenEspnIds = new Set<string>();
+
     for (const ev of payload.events || []) {
+      seenEspnIds.add(String(ev.id));
       const comp = ev.competitions?.[0];
       if (!comp) continue;
       // Exhibitions (All-Star etc.) are excluded — same policy as the seeder
@@ -180,16 +191,9 @@ async function handleSync(request: Request) {
       }
       const home = comp.competitors?.find((c) => c.homeAway === "home");
       const away = comp.competitors?.find((c) => c.homeAway === "away");
-      const homeId = teamByEspn.get(String(home?.team?.id ?? ""));
-      const awayId = teamByEspn.get(String(away?.team?.id ?? ""));
-      if (!homeId || !awayId) {
-        stats.skipped++; // unknown teams = exhibition/foreign side
-        continue;
-      }
 
       // Season typing: 1 = preseason (kept, labeled), 2 = regular,
-      // 3 = postseason, 4 = offseason (skipped). MLS rarely reports
-      // preseason here; unmatched friendly opponents are skipped above.
+      // 3 = postseason, 4 = offseason (skipped).
       const seasonType = ev.season?.type;
       if (seasonType === 4) {
         stats.skipped++;
@@ -204,6 +208,11 @@ async function handleSync(request: Request) {
       const awayScore = completed && away?.score != null ? parseInt(away.score, 10) : null;
       const eventDate = localDate(ev.date);
 
+      // Existing event: refresh its score/date. We matched it by ESPN event id,
+      // so this needs no team resolution — which matters for leagues whose teams
+      // aren't keyed by a plain ESPN id (national teams are stored as "fifa:478"
+      // while ESPN's scoreboard returns "478"). Resolving teams first here would
+      // skip every World Cup game and leave scores stuck at their seeded value.
       const found = existingByEspn.get(String(ev.id));
       if (found) {
         const updates: Record<string, unknown> = {};
@@ -222,6 +231,15 @@ async function handleSync(request: Request) {
           if (updates.home_score !== undefined) stats.scoresUpdated++;
           if (updates.event_date !== undefined) stats.dateCorrected++;
         }
+        continue;
+      }
+
+      // New event: inserting it needs our home/away team ids. (Unmatched teams
+      // are exhibitions/foreign sides we don't carry — skip.)
+      const homeId = teamByEspn.get(String(home?.team?.id ?? ""));
+      const awayId = teamByEspn.get(String(away?.team?.id ?? ""));
+      if (!homeId || !awayId) {
+        stats.skipped++;
         continue;
       }
 
@@ -292,6 +310,39 @@ async function handleSync(request: Request) {
         }
       }
       stats.inserted++;
+    }
+
+    // Reconcile cancellations. A game we hold in this window that ESPN no longer
+    // lists, is already past, and was never played (no score) is almost always a
+    // cancelled or unnecessary "if necessary" playoff game — nobody could have
+    // attended it. Remove those so they stop showing in the feed, but never
+    // delete one a user has logged. Guarded on a non-empty ESPN response so a
+    // transient empty fetch can't trigger a mass delete.
+    if ((payload.events?.length ?? 0) > 0) {
+      const todayStr = new Date().toISOString().slice(0, 10);
+      const orphans = (existing || []).filter((e) => {
+        const espn = (e.external_ids as Record<string, string>)?.espn;
+        return (
+          !!espn &&
+          !seenEspnIds.has(String(espn)) &&
+          e.home_score === null &&
+          e.away_score === null &&
+          e.event_date < todayStr
+        );
+      });
+      if (orphans.length > 0) {
+        const ids = orphans.map((o) => o.id);
+        const { data: withLogs } = await supabase
+          .from("event_logs")
+          .select("event_id")
+          .in("event_id", ids);
+        const logged = new Set((withLogs || []).map((l) => l.event_id as string));
+        const removable = ids.filter((id) => !logged.has(id));
+        if (removable.length > 0 && !dryRun) {
+          await supabase.from("events").delete().in("id", removable);
+        }
+        stats.removed = removable.length;
+      }
     }
   }
 
