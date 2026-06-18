@@ -102,7 +102,9 @@ export async function fetchPhotoSuggestions(
 
   const teamObj = (t: TeamRel): SuggestionTeam => ({
     id: t?.id ?? "",
-    name: t?.short_name || t?.name || "",
+    // Prefer the full name ("Philadelphia Eagles") over the nickname ("Eagles"),
+    // which is ambiguous on its own — the city/location disambiguates it.
+    name: t?.name || t?.short_name || "",
     logo: t?.logo_url ?? null,
   });
 
