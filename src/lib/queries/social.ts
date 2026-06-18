@@ -20,6 +20,8 @@ export type FeedEntry = {
   matchup: string | null;
   home_team_short: string | null;
   away_team_short: string | null;
+  home_team_city: string | null;
+  away_team_city: string | null;
   home_score: number | null;
   away_score: number | null;
   sport: string | null;
@@ -154,8 +156,8 @@ export async function fetchFeed(
       leagues(slug, name),
       events!event_logs_event_id_fkey(
         home_score, away_score,
-        home_team:teams!events_home_team_id_fkey(name, short_name, abbreviation),
-        away_team:teams!events_away_team_id_fkey(name, short_name, abbreviation),
+        home_team:teams!events_home_team_id_fkey(name, short_name, abbreviation, city),
+        away_team:teams!events_away_team_id_fkey(name, short_name, abbreviation, city),
         tournament_name
       )
     `
@@ -211,8 +213,8 @@ export async function fetchFeed(
       const event = log.events as unknown as {
         home_score: number | null;
         away_score: number | null;
-        home_team: { name: string; short_name: string; abbreviation: string } | null;
-        away_team: { name: string; short_name: string; abbreviation: string } | null;
+        home_team: { name: string; short_name: string; abbreviation: string; city: string | null } | null;
+        away_team: { name: string; short_name: string; abbreviation: string; city: string | null } | null;
         tournament_name: string | null;
       } | null;
 
@@ -247,6 +249,8 @@ export async function fetchFeed(
         matchup,
         home_team_short: event?.home_team?.short_name || null,
         away_team_short: event?.away_team?.short_name || null,
+        home_team_city: event?.home_team?.city || null,
+        away_team_city: event?.away_team?.city || null,
         home_score: event?.home_score ?? null,
         away_score: event?.away_score ?? null,
         sport: log.sport,

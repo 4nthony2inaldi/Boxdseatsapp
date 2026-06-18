@@ -37,6 +37,8 @@ export type TimelineCardEntry = {
   matchup: string | null;
   home_team_short: string | null;
   away_team_short: string | null;
+  home_team_city: string | null;
+  away_team_city: string | null;
   home_score: number | null;
   away_score: number | null;
   sport: string | null;
@@ -70,11 +72,33 @@ export default function TimelineCard({
 }: TimelineCardProps) {
   const [photoOpen, setPhotoOpen] = useState(false);
   const leagueData = leagueFromSlug(entry.league_slug);
-  const leagueColor = leagueData?.color || "#D4872C";
 
   const formattedDate = formatDate(entry.event_date);
 
   const displayTitle = entry.matchup || entry.manual_title || null;
+  // Team matchups render as a two-row mini-scoreboard (small city + nickname);
+  // tournaments/manual entries keep the single display title.
+  const isTeamMatchup = !!(entry.home_team_short && entry.away_team_short);
+  const matchupInner = isTeamMatchup ? (
+    <div className="space-y-0.5">
+      {[
+        { key: "home", city: entry.home_team_city, short: entry.home_team_short, score: entry.home_score },
+        { key: "away", city: entry.away_team_city, short: entry.away_team_short, score: entry.away_score },
+      ].map((t) => (
+        <div key={t.key} className="flex items-baseline justify-between gap-3 leading-tight">
+          <span className="min-w-0 truncate">
+            {t.city && <span className="text-xs text-text-muted">{t.city} </span>}
+            <span className="font-display text-lg text-text-primary tracking-wide">{t.short}</span>
+          </span>
+          {t.score != null && (
+            <span className="font-display text-lg text-text-primary tabular-nums shrink-0">{t.score}</span>
+          )}
+        </div>
+      ))}
+    </div>
+  ) : displayTitle ? (
+    <div className="font-display text-xl text-text-primary tracking-wide leading-tight">{displayTitle}</div>
+  ) : null;
 
   return (
     <div className="bg-bg-card rounded-xl border border-border overflow-hidden mb-3">
@@ -124,10 +148,7 @@ export default function TimelineCard({
         <div className="flex items-center justify-between mb-2">
           <div className="flex items-center gap-2">
             <SportIcon sport={leagueData?.sport} src={leagueData?.icon} size={20} />
-            <span
-              className="font-display text-xs tracking-[1.5px] uppercase opacity-90"
-              style={{ color: leagueColor }}
-            >
+            <span className="font-display text-xs tracking-[1.5px] uppercase text-text-secondary">
               {leagueLabelFromSlug(entry.league_slug) || ""}
             </span>
             <OutcomeBadge outcome={entry.outcome} />
@@ -164,17 +185,13 @@ export default function TimelineCard({
         </div>
 
         {/* Matchup line */}
-        {displayTitle && (
+        {matchupInner && (
           entry.event_id ? (
-            <Link href={`/event/${entry.event_id}`} className="block">
-              <div className="font-display text-xl text-text-primary tracking-wide leading-tight mb-1 cursor-pointer hover:opacity-80">
-                {displayTitle}
-              </div>
+            <Link href={`/event/${entry.event_id}`} className="block mb-1 cursor-pointer hover:opacity-80">
+              {matchupInner}
             </Link>
           ) : (
-            <div className="font-display text-xl text-text-primary tracking-wide leading-tight mb-1">
-              {displayTitle}
-            </div>
+            <div className="mb-1">{matchupInner}</div>
           )
         )}
 
