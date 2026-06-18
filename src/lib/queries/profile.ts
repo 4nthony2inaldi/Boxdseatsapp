@@ -70,6 +70,8 @@ export type TimelineEntry = {
   matchup: string | null;
   home_team_short: string | null;
   away_team_short: string | null;
+  home_team_city: string | null;
+  away_team_city: string | null;
   home_score: number | null;
   away_score: number | null;
   sport: string | null;
@@ -478,8 +480,8 @@ export async function fetchTimeline(
       leagues(slug, name),
       events!event_logs_event_id_fkey(
         home_score, away_score,
-        home_team:teams!events_home_team_id_fkey(name, short_name, abbreviation),
-        away_team:teams!events_away_team_id_fkey(name, short_name, abbreviation),
+        home_team:teams!events_home_team_id_fkey(name, short_name, abbreviation, city),
+        away_team:teams!events_away_team_id_fkey(name, short_name, abbreviation, city),
         tournament_name
       )
     `
@@ -521,14 +523,16 @@ export async function fetchTimeline(
     const event = log.events as unknown as {
       home_score: number | null;
       away_score: number | null;
-      home_team: { name: string; short_name: string; abbreviation: string } | null;
-      away_team: { name: string; short_name: string; abbreviation: string } | null;
+      home_team: { name: string; short_name: string; abbreviation: string; city: string | null } | null;
+      away_team: { name: string; short_name: string; abbreviation: string; city: string | null } | null;
       tournament_name: string | null;
     } | null;
 
     let matchup: string | null = null;
     let homeTeamShort: string | null = event?.home_team?.short_name || null;
     let awayTeamShort: string | null = event?.away_team?.short_name || null;
+    const homeTeamCity: string | null = event?.home_team?.city || null;
+    const awayTeamCity: string | null = event?.away_team?.city || null;
     let homeScore: number | null = event?.home_score ?? null;
     let awayScore: number | null = event?.away_score ?? null;
 
@@ -576,6 +580,8 @@ export async function fetchTimeline(
       event_id: log.event_id,
       matchup,
       home_team_short: homeTeamShort,
+      home_team_city: homeTeamCity,
+      away_team_city: awayTeamCity,
       away_team_short: awayTeamShort,
       home_score: homeScore,
       away_score: awayScore,

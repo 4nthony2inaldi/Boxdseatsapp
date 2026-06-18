@@ -178,8 +178,8 @@ export default function Timeline({ initialEntries, initialHasMore, userId, viewe
         leagues(slug, name),
         events!event_logs_event_id_fkey(
           home_score, away_score,
-          home_team:teams!events_home_team_id_fkey(short_name, abbreviation),
-          away_team:teams!events_away_team_id_fkey(short_name, abbreviation),
+          home_team:teams!events_home_team_id_fkey(name, short_name, abbreviation, city),
+          away_team:teams!events_away_team_id_fkey(name, short_name, abbreviation, city),
           tournament_name
         )
       `
@@ -241,8 +241,8 @@ export default function Timeline({ initialEntries, initialHasMore, userId, viewe
         leagues(slug, name),
         events!event_logs_event_id_fkey(
           home_score, away_score,
-          home_team:teams!events_home_team_id_fkey(short_name, abbreviation),
-          away_team:teams!events_away_team_id_fkey(short_name, abbreviation),
+          home_team:teams!events_home_team_id_fkey(name, short_name, abbreviation, city),
+          away_team:teams!events_away_team_id_fkey(name, short_name, abbreviation, city),
           tournament_name
         )
       `
@@ -430,21 +430,23 @@ function mapLogToEntry(log: Record<string, unknown>): TimelineEntry {
   const event = log.events as {
     home_score: number | null;
     away_score: number | null;
-    home_team: { short_name: string; abbreviation: string } | null;
-    away_team: { short_name: string; abbreviation: string } | null;
+    home_team: { name: string; short_name: string; abbreviation: string; city: string | null } | null;
+    away_team: { name: string; short_name: string; abbreviation: string; city: string | null } | null;
     tournament_name: string | null;
   } | null;
 
   let matchup: string | null = null;
   let homeTeamShort: string | null = event?.home_team?.short_name || null;
   let awayTeamShort: string | null = event?.away_team?.short_name || null;
+  const homeTeamCity: string | null = event?.home_team?.city || null;
+  const awayTeamCity: string | null = event?.away_team?.city || null;
   let homeScore: number | null = event?.home_score ?? null;
   let awayScore: number | null = event?.away_score ?? null;
 
   if (event?.home_team && event?.away_team) {
     const hs = event.home_score ?? "";
     const as_ = event.away_score ?? "";
-    matchup = `${event.home_team.short_name} ${hs} — ${event.away_team.short_name} ${as_}`;
+    matchup = `${event.home_team.name} ${hs} — ${event.away_team.name} ${as_}`;
   } else if (event?.tournament_name) {
     matchup = event.tournament_name;
   }
@@ -484,6 +486,8 @@ function mapLogToEntry(log: Record<string, unknown>): TimelineEntry {
     matchup,
     home_team_short: homeTeamShort,
     away_team_short: awayTeamShort,
+    home_team_city: homeTeamCity,
+    away_team_city: awayTeamCity,
     home_score: homeScore,
     away_score: awayScore,
     sport: log.sport as string | null,
