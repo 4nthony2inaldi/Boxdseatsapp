@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import SportIcon from "@/components/SportIcon";
 import { toastError } from "@/components/Toaster";
@@ -18,9 +18,42 @@ type Props = {
 
 type RowState = { included: boolean; rootingTeamId: string | null };
 
+// How matched photos are handled when logging. Default is "skip" — we never
+// upload a photo unless the user opts in, since not every photo is one they
+// want public.
+type PhotoMode = "skip" | "all" | "review";
+
 function fmtDate(d: string) {
   const dt = new Date(d + "T00:00:00");
   return dt.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+}
+
+/** Lazily loads + previews a matched photo (full-res, scaled down by the img)
+ *  so the user can review it before it's attached. Best-effort: shows nothing
+ *  on failure. */
+function PhotoPreview({ photoId }: { photoId: string }) {
+  const [url, setUrl] = useState<string | null>(null);
+  useEffect(() => {
+    let revoked = false;
+    let objectUrl: string | null = null;
+    loadPhotoFile(photoId)
+      .then((file) => {
+        if (!file || revoked) return;
+        objectUrl = URL.createObjectURL(file);
+        setUrl(objectUrl);
+      })
+      .catch(() => {});
+    return () => {
+      revoked = true;
+      if (objectUrl) URL.revokeObjectURL(objectUrl);
+    };
+  }, [photoId]);
+
+  if (!url) {
+    return <div className="w-14 h-14 rounded-lg bg-bg-elevated animate-pulse flex-shrink-0" />;
+  }
+  // eslint-disable-next-line @next/next/no-img-element
+  return <img src={url} alt="Matched photo" className="w-14 h-14 rounded-lg object-cover flex-shrink-0" />;
 }
 
 /** "Won 4–1" / "Lost 1–4" / "Tied" / "Logged" (no score or neutral). */
@@ -45,6 +78,18 @@ export default function PhotoSuggestionsView({ suggestions, unknownTeams, photoB
   const [saving, setSaving] = useState(false);
   const [status, setStatus] = useState("");
   const [done, setDone] = useState<{ created: number; venues: number } | null>(null);
+  const [photoMode, setPhotoMode] = useState<PhotoMode>("skip");
+  // In "review" mode, which games' photos to keep (default keep all that have one).
+  const [keepPhoto, setKeepPhoto] = useState<Record<string, boolean>>({});
+
+  // A matched photo only exists on native, and only for some games.
+  const photoIdFor = (s: PhotoSuggestion): string | undefined =>
+    isNativeApp() ? photoByKey[`${s.venueId}|${s.date}`] : undefined;
+  const anyPhotos = useMemo(
+    () => isNativeApp() && suggestions.some((s) => photoByKey[`${s.venueId}|${s.date}`]),
+    [suggestions, photoByKey]
+  );
+  const photoKept = (eventId: string) => keepPhoto[eventId] !== false;
 
   const teamName = useMemo(() => {
     const m = new Map<string, string>();
@@ -89,12 +134,14 @@ export default function PhotoSuggestionsView({ suggestions, unknownTeams, photoB
     });
   };
 
-  // Best-effort: attach the matched photo to each new log. Native only; a
-  // failure here never blocks the log itself.
+  // Best-effort: attach the matched photo to each new log. Native only, and
+  // only when the user opted in (mode "all", or "review" for the games they
+  // kept). A failure here never blocks the log itself.
   async function attachPhotos(picked: PhotoSuggestion[], logs: { eventId: string; logId: string }[]) {
-    if (!isNativeApp() || logs.length === 0) return;
+    if (!isNativeApp() || photoMode === "skip" || logs.length === 0) return;
     const logByEvent = new Map(logs.map((l) => [l.eventId, l.logId]));
     const jobs = picked
+      .filter((s) => photoMode === "all" || photoKept(s.eventId))
       .map((s) => ({ s, logId: logByEvent.get(s.eventId), photoId: photoByKey[`${s.venueId}|${s.date}`] }))
       .filter((j): j is { s: PhotoSuggestion; logId: string; photoId: string } => !!j.logId && !!j.photoId);
     if (jobs.length === 0) return;
@@ -214,6 +261,37 @@ export default function PhotoSuggestionsView({ suggestions, unknownTeams, photoB
         </div>
       )}
 
+      {/* Photo handling — only when we actually matched on-device photos */}
+      {anyPhotos && (
+        <div className="px-4 mb-3">
+          <div className="text-xs text-text-muted mb-1.5">Your matched photos</div>
+          <div className="flex rounded-xl border border-border bg-bg-card p-1 gap-1">
+            {([
+              { key: "skip", label: "Don't add" },
+              { key: "review", label: "Review" },
+              { key: "all", label: "Add all" },
+            ] as const).map((opt) => (
+              <button
+                key={opt.key}
+                onClick={() => setPhotoMode(opt.key)}
+                className={`flex-1 py-2 rounded-lg text-xs font-medium transition-colors ${
+                  photoMode === opt.key ? "bg-accent/15 text-accent" : "text-text-secondary"
+                }`}
+              >
+                {opt.label}
+              </button>
+            ))}
+          </div>
+          <p className="text-[11px] text-text-muted mt-1.5">
+            {photoMode === "skip"
+              ? "Logs are saved without any photos."
+              : photoMode === "all"
+                ? "The matched photo is added to each game you log."
+                : "Check the photos you want to keep — the rest aren't uploaded."}
+          </p>
+        </div>
+      )}
+
       {/* Suggestion cards */}
       <div className="px-4 space-y-2">
         {suggestions.map((s) => {
@@ -281,6 +359,32 @@ export default function PhotoSuggestionsView({ suggestions, unknownTeams, photoB
                   </div>
                 )}
               </div>
+
+              {/* Photo review — pick which matched photos to attach */}
+              {photoMode === "review" && st.included && photoIdFor(s) && (
+                <button
+                  onClick={() =>
+                    setKeepPhoto((prev) => ({ ...prev, [s.eventId]: !photoKept(s.eventId) }))
+                  }
+                  className="w-full flex items-center gap-3 px-3 pb-3 -mt-1 text-left"
+                >
+                  <PhotoPreview photoId={photoIdFor(s)!} />
+                  <span className="flex-1 text-xs text-text-secondary">
+                    {photoKept(s.eventId) ? "This photo will be added" : "Photo skipped"}
+                  </span>
+                  <span
+                    className={`w-6 h-6 rounded-full border flex items-center justify-center flex-shrink-0 ${
+                      photoKept(s.eventId) ? "bg-accent border-accent" : "border-border"
+                    }`}
+                  >
+                    {photoKept(s.eventId) && (
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                        <polyline points="20 6 9 17 4 12" />
+                      </svg>
+                    )}
+                  </span>
+                </button>
+              )}
             </div>
           );
         })}
