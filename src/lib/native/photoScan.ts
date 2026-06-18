@@ -125,6 +125,18 @@ function mediaPlugin(): MediaPlugin | null {
   return (cap?.Plugins?.Media as MediaPlugin | undefined) ?? null;
 }
 
+// Our custom native plugin (preferred): reads geotagged photo metadata with no
+// thumbnails, and fetches a full-res image by identifier for auto-attach.
+type NativeScannedPhoto = { id?: string; timestamp?: number; lat?: number; lng?: number };
+type PhotoScannerPlugin = {
+  scan?: (opts: { monthsBack?: number }) => Promise<{ photos?: NativeScannedPhoto[] }>;
+  getFullImage?: (opts: { id: string }) => Promise<{ base64?: string; mimeType?: string }>;
+};
+function photoScannerPlugin(): PhotoScannerPlugin | null {
+  const cap = (window as unknown as { Capacitor?: { Plugins?: Record<string, unknown> } }).Capacitor;
+  return (cap?.Plugins?.PhotoScanner as PhotoScannerPlugin | undefined) ?? null;
+}
+
 // The venue coordinate set is static within a session — fetch + parse once.
 let venuesCache: VenueGeo[] | null = null;
 async function loadVenuesGeo(): Promise<VenueGeo[]> {
@@ -185,6 +197,41 @@ export class PhotoReadError extends Error {
 export async function scanPhotosForVenues(opts: ScanOptions = {}): Promise<ScanItem[] | null> {
   const { monthsBack, onProgress } = opts;
   if (!isNativeApp()) return null;
+
+  // Preferred fast path: our custom PhotoScanner plugin enumerates PHAssets
+  // natively and returns ONLY geotagged photos' date + coordinates + identifier
+  // (no thumbnails, no in-memory image data), so it covers the whole library in
+  // one cheap call regardless of size. Falls through to the Media plugin below
+  // if it isn't registered (e.g. an older build that predates the plugin).
+  const Scanner = photoScannerPlugin();
+  if (Scanner?.scan) {
+    try {
+      onProgress?.({ phase: "reading" });
+      const res = await withTimeout(Scanner.scan({ monthsBack }), 60000);
+      const raw = Array.isArray(res?.photos) ? res.photos : [];
+      const venues = await loadVenuesGeo();
+      const photos: Photo[] = [];
+      const total = raw.length;
+      for (let i = 0; i < total; i++) {
+        const p = raw[i];
+        if (typeof p?.lat !== "number" || typeof p?.lng !== "number" || typeof p?.timestamp !== "number") continue;
+        const date = localEventDate(new Date(p.timestamp).toISOString());
+        if (date) photos.push({ lat: p.lat, lng: p.lng, date, id: p.id });
+        if (i % 250 === 0) {
+          onProgress?.({ phase: "scanning", processed: i, total });
+          await yieldToUI();
+        }
+      }
+      onProgress?.({ phase: "matching" });
+      await yieldToUI();
+      return matchPhotosToVenues(photos, venues);
+    } catch (e) {
+      // A stall (timeout) is a real failure — surface it. Any other rejection
+      // (older plugin, unexpected shape) falls through to the Media path.
+      if (e instanceof Error && e.message === "timeout") throw new PhotoReadError();
+    }
+  }
+
   const Media = mediaPlugin();
   if (!Media?.getMedias) return null;
 
@@ -274,6 +321,25 @@ export async function scanPhotosForVenues(opts: ScanOptions = {}): Promise<ScanI
  */
 export async function loadPhotoFile(identifier: string): Promise<File | null> {
   if (!isNativeApp()) return null;
+
+  // Preferred: our PhotoScanner plugin returns the full-res image as base64,
+  // which is the path that actually works for auto-attach (the Media plugin has
+  // no reliable by-identifier full-image fetch in the remote-shell setup).
+  const Scanner = photoScannerPlugin();
+  if (Scanner?.getFullImage) {
+    try {
+      const { base64, mimeType } = await Scanner.getFullImage({ id: identifier });
+      if (base64) {
+        const bytes = Uint8Array.from(atob(base64), (c) => c.charCodeAt(0));
+        const type = mimeType || "image/jpeg";
+        const ext = type.includes("png") ? "png" : "jpg";
+        return new File([bytes], `photo.${ext}`, { type });
+      }
+    } catch {
+      // fall through to the Media plugin path
+    }
+  }
+
   const Media = mediaPlugin();
   const cap = (window as unknown as { Capacitor?: { convertFileSrc?: (p: string) => string } }).Capacitor;
   if (!Media?.getMediaByIdentifier || !cap?.convertFileSrc) return null;
