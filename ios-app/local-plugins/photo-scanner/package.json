@@ -1,0 +1,24 @@
+{
+  "name": "photo-scanner",
+  "version": "1.0.0",
+  "description": "BoxdSeats native photo metadata scan + full-res fetch (Capacitor plugin)",
+  "main": "dist/index.js",
+  "module": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "files": [
+    "dist/",
+    "ios/",
+    "PhotoScanner.podspec"
+  ],
+  "capacitor": {
+    "ios": {
+      "src": "ios"
+    }
+  },
+  "devDependencies": {
+    "@capacitor/core": "^6.1.0"
+  },
+  "peerDependencies": {
+    "@capacitor/core": "^6.0.0"
+  }
+}
