@@ -11,10 +11,10 @@ type Props = {
 };
 
 const RANGES: { label: string; months?: number }[] = [
+  { label: "1 mo", months: 1 },
   { label: "3 mo", months: 3 },
   { label: "1 yr", months: 12 },
-  { label: "2 yr", months: 24 },
-  { label: "All time", months: undefined },
+  { label: "All", months: undefined },
 ];
 
 const svg = "0 0 24 24";
@@ -65,7 +65,7 @@ function Bullet({ icon, bold, rest }: { icon: React.ReactNode; bold: string; res
 
 export default function PhotoScanIntro({ onScan, onCancel, webFallback, scanning }: Props) {
   const [howOpen, setHowOpen] = useState(false);
-  const [rangeIdx, setRangeIdx] = useState(1); // default: last 1 year
+  const [rangeIdx, setRangeIdx] = useState(2); // default: last 1 year
 
   return (
     <div className="max-w-lg mx-auto px-5 pt-8 pb-10">
