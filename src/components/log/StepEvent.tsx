@@ -284,7 +284,7 @@ export default function StepEvent({
           const leagueData = leagueFromSlug(event.league_slug);
           const displayTitle =
             event.home_team_short && event.away_team_short
-              ? `${event.away_team_short} @ ${event.home_team_short}`
+              ? `${event.away_team_name || event.away_team_short} @ ${event.home_team_name || event.home_team_short}`
               : event.tournament_name || "Event";
 
           const scoreDisplay =

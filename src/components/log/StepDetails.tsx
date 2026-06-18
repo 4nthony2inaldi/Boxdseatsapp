@@ -82,7 +82,7 @@ export default function StepDetails({
 
   const eventTitle =
     selectedEvent?.home_team_short && selectedEvent?.away_team_short
-      ? `${selectedEvent.away_team_short} @ ${selectedEvent.home_team_short}`
+      ? `${selectedEvent.away_team_name || selectedEvent.away_team_short} @ ${selectedEvent.home_team_name || selectedEvent.home_team_short}`
       : selectedEvent?.tournament_name || manualTitle || "Event";
 
   // Teams for rooting interest
@@ -171,11 +171,11 @@ export default function StepDetails({
           <div className="flex gap-2">
             {[
               {
-                label: selectedEvent!.home_team_short!,
+                label: selectedEvent!.home_team_name || selectedEvent!.home_team_short!,
                 id: selectedEvent!.home_team_id!,
               },
               {
-                label: selectedEvent!.away_team_short!,
+                label: selectedEvent!.away_team_name || selectedEvent!.away_team_short!,
                 id: selectedEvent!.away_team_id!,
               },
               { label: "Neutral", id: null },

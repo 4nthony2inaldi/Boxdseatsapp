@@ -154,8 +154,8 @@ export async function fetchFeed(
       leagues(slug, name),
       events!event_logs_event_id_fkey(
         home_score, away_score,
-        home_team:teams!events_home_team_id_fkey(short_name, abbreviation),
-        away_team:teams!events_away_team_id_fkey(short_name, abbreviation),
+        home_team:teams!events_home_team_id_fkey(name, short_name, abbreviation),
+        away_team:teams!events_away_team_id_fkey(name, short_name, abbreviation),
         tournament_name
       )
     `
@@ -211,8 +211,8 @@ export async function fetchFeed(
       const event = log.events as unknown as {
         home_score: number | null;
         away_score: number | null;
-        home_team: { short_name: string; abbreviation: string } | null;
-        away_team: { short_name: string; abbreviation: string } | null;
+        home_team: { name: string; short_name: string; abbreviation: string } | null;
+        away_team: { name: string; short_name: string; abbreviation: string } | null;
         tournament_name: string | null;
       } | null;
 
@@ -220,7 +220,9 @@ export async function fetchFeed(
       if (event?.home_team && event?.away_team) {
         const hs = event.home_score ?? "";
         const as_ = event.away_score ?? "";
-        matchup = `${event.home_team.short_name} ${hs} — ${event.away_team.short_name} ${as_}`;
+        // Full team name (e.g. "Boston College Eagles") so the matchup isn't
+        // ambiguous — many teams share a nickname.
+        matchup = `${event.home_team.name} ${hs} — ${event.away_team.name} ${as_}`;
       } else if (event?.tournament_name) {
         matchup = event.tournament_name;
       }
