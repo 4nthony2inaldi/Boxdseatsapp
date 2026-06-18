@@ -1,4 +1,5 @@
 import Link from "next/link";
+import type { ReactNode } from "react";
 import type { ProfileData, ProfileStats } from "@/lib/queries/profile";
 import SportIcon from "@/components/SportIcon";
 import AvatarButton from "./AvatarButton";
@@ -6,9 +7,12 @@ import AvatarButton from "./AvatarButton";
 type ProfileHeaderProps = {
   profile: ProfileData;
   stats: ProfileStats;
+  /** Right-aligned actions (e.g. follow + more menu) shown on the bio line,
+   *  under the fan record. Omitted on your own profile. */
+  actions?: ReactNode;
 };
 
-export default function ProfileHeader({ profile, stats }: ProfileHeaderProps) {
+export default function ProfileHeader({ profile, stats, actions }: ProfileHeaderProps) {
   return (
     <div className="flex items-start px-4 pt-6 gap-4 mb-5">
       {/* Avatar with sport badge */}
@@ -74,9 +78,18 @@ export default function ProfileHeader({ profile, stats }: ProfileHeaderProps) {
             </div>
           </Link>
         </div>
-        {profile.bio && (
-          <div className="text-xs text-text-secondary leading-relaxed mt-2">
-            {profile.bio}
+        {(profile.bio || actions) && (
+          <div className="flex items-start justify-between gap-3 mt-2">
+            {profile.bio ? (
+              <div className="text-xs text-text-secondary leading-relaxed flex-1 min-w-0">
+                {profile.bio}
+              </div>
+            ) : (
+              <div className="flex-1" />
+            )}
+            {actions && (
+              <div className="flex items-center gap-2 shrink-0">{actions}</div>
+            )}
           </div>
         )}
       </div>

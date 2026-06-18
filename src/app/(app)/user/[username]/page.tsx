@@ -88,20 +88,25 @@ export default async function UserProfilePage({ params }: Props) {
   if (isGated) {
     return (
       <div className="max-w-lg mx-auto pb-5">
-        <ProfileHeader profile={profile} stats={stats} />
-        <div className="px-4 mb-3 flex items-center gap-2">
-          <FollowButton
-            targetUserId={profile.id}
-            currentUserId={user.id}
-            initialIsFollowing={followRel.isFollowing}
-            initialIsPending={followRel.isPending}
-          />
-          <UserProfileActions
-            targetUserId={profile.id}
-            currentUserId={user.id}
-            targetUsername={profile.username}
-          />
-        </div>
+        <ProfileHeader
+          profile={profile}
+          stats={stats}
+          actions={
+            <>
+              <FollowButton
+                targetUserId={profile.id}
+                currentUserId={user.id}
+                initialIsFollowing={followRel.isFollowing}
+                initialIsPending={followRel.isPending}
+              />
+              <UserProfileActions
+                targetUserId={profile.id}
+                currentUserId={user.id}
+                targetUsername={profile.username}
+              />
+            </>
+          }
+        />
         <StatsRow
           stats={stats}
           followersHref={`/user/${username}/followers`}
@@ -152,36 +157,26 @@ export default async function UserProfilePage({ params }: Props) {
 
   return (
     <div className="max-w-lg mx-auto pb-5">
-      <ProfileHeader profile={profile} stats={stats} />
-      <div className="px-4 mb-3 flex items-center gap-2">
-        <FollowButton
-          targetUserId={profile.id}
-          currentUserId={user.id}
-          initialIsFollowing={followRel.isFollowing}
-          initialIsPending={followRel.isPending}
-        />
-        <Link
-          href={`/user/${username}/compare`}
-          className="flex items-center gap-1.5 rounded-lg px-4 py-1.5 text-xs font-display tracking-wider uppercase bg-bg-elevated border border-border text-text-secondary hover:text-accent hover:border-accent/40 transition-colors"
-        >
-          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <path d="M16 3h5v5" />
-            <path d="M8 3H3v5" />
-            <path d="M21 3l-7 7" />
-            <path d="M3 3l7 7" />
-            <path d="M16 21h5v-5" />
-            <path d="M8 21H3v-5" />
-            <path d="M21 21l-7-7" />
-            <path d="M3 21l7-7" />
-          </svg>
-          Compare
-        </Link>
-        <UserProfileActions
-          targetUserId={profile.id}
-          currentUserId={user.id}
-          targetUsername={profile.username}
-        />
-      </div>
+      <ProfileHeader
+        profile={profile}
+        stats={stats}
+        actions={
+          <>
+            <FollowButton
+              targetUserId={profile.id}
+              currentUserId={user.id}
+              initialIsFollowing={followRel.isFollowing}
+              initialIsPending={followRel.isPending}
+            />
+            <UserProfileActions
+              targetUserId={profile.id}
+              currentUserId={user.id}
+              targetUsername={profile.username}
+              compareHref={`/user/${username}/compare`}
+            />
+          </>
+        }
+      />
       <StatsRow
         stats={stats}
         eventsHref={`/user/${username}/timeline`}
