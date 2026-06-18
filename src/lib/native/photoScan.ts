@@ -1,4 +1,22 @@
+import { createClient } from "@/lib/supabase/client";
+
 export type ScanItem = { venueId: string; date: string; photoId?: string };
+
+// Temporary diagnostics — capture what getMedias actually does on a device that
+// fails to read. Best-effort; strip with the photo_scan_debug table once solved.
+async function dbgScan(event: string, detail: unknown): Promise<void> {
+  try {
+    const supabase = createClient();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    await supabase
+      .from("photo_scan_debug")
+      .insert({ user_id: user?.id ?? null, event, detail: JSON.stringify(detail).slice(0, 500) });
+  } catch {
+    /* best-effort */
+  }
+}
 
 type VenueGeo = [string, number, number]; // [venueId, lat, lng]
 type Photo = { lat: number; lng: number; date: string; id?: string }; // date = local YYYY-MM-DD
@@ -207,17 +225,22 @@ export async function scanPhotosForVenues(opts: ScanOptions = {}): Promise<ScanI
   let assets: unknown[] = [];
   let sortedDesc = false;
   let readOk = false;
+  await dbgScan("start", { monthsBack: monthsBack ?? "all", quantity });
   for (let ai = 0; ai < attempts.length; ai++) {
+    const t0 = Date.now();
     try {
       const res = await withTimeout(Media.getMedias(attempts[ai]), 30000);
       readOk = true; // the plugin responded; this opts shape is supported
       const a = assetsFrom(res);
+      await dbgScan("attempt-ok", { ai, ms: Date.now() - t0, count: a.length });
       if (a.length) {
         assets = a;
         sortedDesc = ai === 0; // only the first attempt requests newest-first
         break;
       }
     } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e);
+      await dbgScan("attempt-fail", { ai, ms: Date.now() - t0, msg });
       // A hang (timeout) means the plugin is stalled — don't retry other shapes,
       // just surface the error. A plain rejection means a bad opts shape: try next.
       if (e instanceof Error && e.message === "timeout") break;
@@ -225,7 +248,15 @@ export async function scanPhotosForVenues(opts: ScanOptions = {}): Promise<ScanI
   }
   // Nothing responded (denied access or a stall) — fail loudly instead of
   // returning [] (which reads as "no games found") or spinning forever.
-  if (!readOk) throw new PhotoReadError();
+  if (!readOk) {
+    await dbgScan("read-failed", { quantity });
+    throw new PhotoReadError();
+  }
+  await dbgScan("assets", { count: assets.length, sortedDesc });
+  if (assets.length) {
+    const a0 = asObj(assets[0]);
+    await dbgScan("sample", { keys: a0 ? Object.keys(a0) : null });
+  }
 
   const venues = await loadVenuesGeo();
   const cutoff = monthsBack ? Date.now() - monthsBack * 30.5 * 86400 * 1000 : null;
