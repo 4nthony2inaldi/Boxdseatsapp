@@ -160,9 +160,14 @@ export default async function EventDetailPage({
         <div className="bg-bg-card rounded-xl border border-border p-5 mb-5">
           <div className="flex items-center justify-center gap-6">
             {/* Away team */}
-            <div className="text-center flex-1">
+            <div className="text-center flex-1 min-w-0">
+              {event.away_team_city && (
+                <div className="text-[11px] text-text-muted truncate">
+                  {event.away_team_city}
+                </div>
+              )}
               <div className="font-display text-xl text-text-primary tracking-wider">
-                {event.away_team_abbr || event.away_team_short || "AWAY"}
+                {event.away_team_short || event.away_team_abbr || "AWAY"}
               </div>
               <div className="font-display text-4xl text-text-primary mt-1">
                 {event.away_score ?? "—"}
@@ -175,9 +180,14 @@ export default async function EventDetailPage({
             </div>
 
             {/* Home team */}
-            <div className="text-center flex-1">
+            <div className="text-center flex-1 min-w-0">
+              {event.home_team_city && (
+                <div className="text-[11px] text-text-muted truncate">
+                  {event.home_team_city}
+                </div>
+              )}
               <div className="font-display text-xl text-text-primary tracking-wider">
-                {event.home_team_abbr || event.home_team_short || "HOME"}
+                {event.home_team_short || event.home_team_abbr || "HOME"}
               </div>
               <div className="font-display text-4xl text-text-primary mt-1">
                 {event.home_score ?? "—"}

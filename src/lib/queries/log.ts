@@ -25,6 +25,8 @@ export type EventMatch = {
   away_team_id: string | null;
   home_team_short: string | null;
   away_team_short: string | null;
+  home_team_name: string | null;
+  away_team_name: string | null;
   home_score: number | null;
   away_score: number | null;
   tournament_name: string | null;
@@ -303,8 +305,8 @@ export async function fetchEventForPrefill(
        home_team_id, away_team_id, home_score, away_score,
        tournament_name, tournament_id, day_number,
        leagues(name, slug, sport),
-       home_team:teams!events_home_team_id_fkey(short_name),
-       away_team:teams!events_away_team_id_fkey(short_name),
+       home_team:teams!events_home_team_id_fkey(name, short_name),
+       away_team:teams!events_away_team_id_fkey(name, short_name),
        venues!events_venue_id_fkey(id, name, city, state, primary_sport)`
     )
     .eq("id", eventId)
@@ -312,8 +314,8 @@ export async function fetchEventForPrefill(
   if (!data) return null;
 
   const league = data.leagues as unknown as { name: string; slug: string; sport: string } | null;
-  const home = data.home_team as unknown as { short_name: string } | null;
-  const away = data.away_team as unknown as { short_name: string } | null;
+  const home = data.home_team as unknown as { name: string; short_name: string } | null;
+  const away = data.away_team as unknown as { name: string; short_name: string } | null;
   const venue = data.venues as unknown as {
     id: string; name: string; city: string; state: string | null; primary_sport: string | null;
   } | null;
@@ -340,6 +342,8 @@ export async function fetchEventForPrefill(
       away_team_id: data.away_team_id,
       home_team_short: home?.short_name || null,
       away_team_short: away?.short_name || null,
+      home_team_name: home?.name || null,
+      away_team_name: away?.name || null,
       home_score: data.home_score,
       away_score: data.away_score,
       tournament_name: data.tournament_name,
@@ -372,8 +376,8 @@ export async function findEventsAtVenueOnDate(
       home_team_id, away_team_id, home_score, away_score,
       tournament_name, tournament_id, day_number,
       leagues(name, slug, sport),
-      home_team:teams!events_home_team_id_fkey(short_name),
-      away_team:teams!events_away_team_id_fkey(short_name)
+      home_team:teams!events_home_team_id_fkey(name, short_name),
+      away_team:teams!events_away_team_id_fkey(name, short_name)
     `
     )
     .eq("venue_id", venueId)
@@ -399,8 +403,8 @@ export async function findEventsAtVenueOnDate(
         home_team_id, away_team_id, home_score, away_score,
         tournament_name, tournament_id, day_number,
         leagues(name, slug, sport),
-        home_team:teams!events_home_team_id_fkey(short_name),
-        away_team:teams!events_away_team_id_fkey(short_name)
+        home_team:teams!events_home_team_id_fkey(name, short_name),
+        away_team:teams!events_away_team_id_fkey(name, short_name)
       `
       )
       .eq("venue_id", venueId)
@@ -419,8 +423,8 @@ export async function findEventsAtVenueOnDate(
       slug: string;
       sport: string;
     } | null;
-    const homeTeam = e.home_team as unknown as { short_name: string } | null;
-    const awayTeam = e.away_team as unknown as { short_name: string } | null;
+    const homeTeam = e.home_team as unknown as { name: string; short_name: string } | null;
+    const awayTeam = e.away_team as unknown as { name: string; short_name: string } | null;
 
     return {
       id: e.id,
@@ -434,6 +438,8 @@ export async function findEventsAtVenueOnDate(
       away_team_id: e.away_team_id,
       home_team_short: homeTeam?.short_name || null,
       away_team_short: awayTeam?.short_name || null,
+      home_team_name: homeTeam?.name || null,
+      away_team_name: awayTeam?.name || null,
       home_score: e.home_score,
       away_score: e.away_score,
       tournament_name: e.tournament_name,
@@ -465,8 +471,8 @@ export async function fetchTournamentDays(
       home_team_id, away_team_id, home_score, away_score,
       tournament_name, tournament_id, day_number,
       leagues(name, slug, sport),
-      home_team:teams!events_home_team_id_fkey(short_name),
-      away_team:teams!events_away_team_id_fkey(short_name)
+      home_team:teams!events_home_team_id_fkey(name, short_name),
+      away_team:teams!events_away_team_id_fkey(name, short_name)
     `
     )
     .eq("tournament_id", tournamentId)
@@ -481,8 +487,8 @@ export async function fetchTournamentDays(
       slug: string;
       sport: string;
     } | null;
-    const homeTeam = e.home_team as unknown as { short_name: string } | null;
-    const awayTeam = e.away_team as unknown as { short_name: string } | null;
+    const homeTeam = e.home_team as unknown as { name: string; short_name: string } | null;
+    const awayTeam = e.away_team as unknown as { name: string; short_name: string } | null;
 
     return {
       id: e.id,
@@ -496,6 +502,8 @@ export async function fetchTournamentDays(
       away_team_id: e.away_team_id,
       home_team_short: homeTeam?.short_name || null,
       away_team_short: awayTeam?.short_name || null,
+      home_team_name: homeTeam?.name || null,
+      away_team_name: awayTeam?.name || null,
       home_score: e.home_score,
       away_score: e.away_score,
       tournament_name: e.tournament_name,
@@ -688,8 +696,8 @@ export async function fetchEventLogForEdit(
         home_team_id, away_team_id, home_score, away_score,
         tournament_name, tournament_id, day_number,
         leagues(name, slug, sport),
-        home_team:teams!events_home_team_id_fkey(short_name),
-        away_team:teams!events_away_team_id_fkey(short_name)
+        home_team:teams!events_home_team_id_fkey(name, short_name),
+        away_team:teams!events_away_team_id_fkey(name, short_name)
       `
       )
       .eq("id", log.event_id)
@@ -702,9 +710,11 @@ export async function fetchEventLogForEdit(
         sport: string;
       } | null;
       const homeTeam = eventData.home_team as unknown as {
+        name: string;
         short_name: string;
       } | null;
       const awayTeam = eventData.away_team as unknown as {
+        name: string;
         short_name: string;
       } | null;
 
@@ -720,6 +730,8 @@ export async function fetchEventLogForEdit(
         away_team_id: eventData.away_team_id,
         home_team_short: homeTeam?.short_name || null,
         away_team_short: awayTeam?.short_name || null,
+        home_team_name: homeTeam?.name || null,
+        away_team_name: awayTeam?.name || null,
         home_score: eventData.home_score,
         away_score: eventData.away_score,
         tournament_name: eventData.tournament_name,

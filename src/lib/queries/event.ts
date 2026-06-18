@@ -12,6 +12,8 @@ export type EventDetail = {
   away_team_short: string | null;
   home_team_abbr: string | null;
   away_team_abbr: string | null;
+  home_team_city: string | null;
+  away_team_city: string | null;
   home_score: number | null;
   away_score: number | null;
   tournament_name: string | null;
@@ -108,8 +110,8 @@ export async function fetchEventDetail(
       cover_photo_url, cover_photo_event_log_id,
       venues!events_venue_id_fkey(name),
       leagues(name, slug, sport),
-      home_team:teams!events_home_team_id_fkey(short_name, abbreviation),
-      away_team:teams!events_away_team_id_fkey(short_name, abbreviation)
+      home_team:teams!events_home_team_id_fkey(short_name, abbreviation, city),
+      away_team:teams!events_away_team_id_fkey(short_name, abbreviation, city)
     `)
     .eq("id", eventId)
     .single();
@@ -118,8 +120,8 @@ export async function fetchEventDetail(
 
   const venue = data.venues as unknown as { name: string } | null;
   const league = data.leagues as unknown as { name: string; slug: string; sport: string } | null;
-  const homeTeam = data.home_team as unknown as { short_name: string; abbreviation: string } | null;
-  const awayTeam = data.away_team as unknown as { short_name: string; abbreviation: string } | null;
+  const homeTeam = data.home_team as unknown as { short_name: string; abbreviation: string; city: string | null } | null;
+  const awayTeam = data.away_team as unknown as { short_name: string; abbreviation: string; city: string | null } | null;
 
   const slug = league?.slug || "";
   const config = LEAGUE_CONFIG[slug] || { icon: "", color: "#D4872C" };
@@ -134,6 +136,8 @@ export async function fetchEventDetail(
     away_team_short: awayTeam?.short_name || null,
     home_team_abbr: homeTeam?.abbreviation || null,
     away_team_abbr: awayTeam?.abbreviation || null,
+    home_team_city: homeTeam?.city || null,
+    away_team_city: awayTeam?.city || null,
     home_score: data.home_score,
     away_score: data.away_score,
     tournament_name: data.tournament_name,
