@@ -37,8 +37,8 @@ export type TimelineCardEntry = {
   matchup: string | null;
   home_team_short: string | null;
   away_team_short: string | null;
-  home_team_city: string | null;
-  away_team_city: string | null;
+  home_team_abbr: string | null;
+  away_team_abbr: string | null;
   home_score: number | null;
   away_score: number | null;
   sport: string | null;
@@ -76,24 +76,26 @@ export default function TimelineCard({
   const formattedDate = formatDate(entry.event_date);
 
   const displayTitle = entry.matchup || entry.manual_title || null;
-  // Team matchups render as a two-row mini-scoreboard (small city + nickname);
-  // tournaments/manual entries keep the single display title.
+  // Team matchups render on one compact line — a small, un-bold location
+  // abbreviation before each nickname (e.g. "NYY Yankees 4 — SD Padres 3").
+  // Tournaments/manual entries keep the single display title.
   const isTeamMatchup = !!(entry.home_team_short && entry.away_team_short);
   const matchupInner = isTeamMatchup ? (
-    <div className="space-y-0.5">
+    <div className="font-display text-lg text-text-primary tracking-wide leading-tight">
       {[
-        { key: "home", city: entry.home_team_city, short: entry.home_team_short, score: entry.home_score },
-        { key: "away", city: entry.away_team_city, short: entry.away_team_short, score: entry.away_score },
-      ].map((t) => (
-        <div key={t.key} className="flex items-baseline justify-between gap-3 leading-tight">
-          <span className="min-w-0 truncate">
-            {t.city && <span className="text-xs text-text-muted">{t.city} </span>}
-            <span className="font-display text-lg text-text-primary tracking-wide">{t.short}</span>
-          </span>
-          {t.score != null && (
-            <span className="font-display text-lg text-text-primary tabular-nums shrink-0">{t.score}</span>
+        { key: "home", abbr: entry.home_team_abbr, short: entry.home_team_short, score: entry.home_score },
+        { key: "away", abbr: entry.away_team_abbr, short: entry.away_team_short, score: entry.away_score },
+      ].map((t, i) => (
+        <span key={t.key}>
+          {i > 0 && <span className="text-text-muted"> — </span>}
+          {t.abbr && (
+            <span className="font-sans text-[11px] font-normal text-text-muted tracking-normal">
+              {t.abbr}{" "}
+            </span>
           )}
-        </div>
+          {t.short}
+          {t.score != null && ` ${t.score}`}
+        </span>
       ))}
     </div>
   ) : displayTitle ? (
