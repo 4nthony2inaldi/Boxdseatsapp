@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { blockUser, reportContent } from "@/lib/queries/social";
@@ -9,12 +10,15 @@ type Props = {
   targetUserId: string;
   currentUserId: string;
   targetUsername: string;
+  /** When set, a "Compare" item links here (head-to-head view). */
+  compareHref?: string;
 };
 
 export default function UserProfileActions({
   targetUserId,
   currentUserId,
   targetUsername,
+  compareHref,
 }: Props) {
   const [isOpen, setIsOpen] = useState(false);
   const [showReport, setShowReport] = useState(false);
@@ -95,7 +99,29 @@ export default function UserProfileActions({
       </button>
 
       {isOpen && !showReport && (
-        <div className="absolute right-0 top-full mt-1 bg-bg-elevated border border-border rounded-lg py-1 z-30 min-w-[140px] shadow-lg">
+        <div className="absolute right-0 top-full mt-1 bg-bg-elevated border border-border rounded-lg py-1 z-30 min-w-[160px] shadow-lg">
+          {compareHref && (
+            <>
+              <Link
+                href={compareHref}
+                onClick={() => setIsOpen(false)}
+                className="flex items-center gap-2 w-full text-left px-3 py-2 text-xs text-text-secondary hover:bg-bg-input transition-colors"
+              >
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M16 3h5v5" />
+                  <path d="M8 3H3v5" />
+                  <path d="M21 3l-7 7" />
+                  <path d="M3 3l7 7" />
+                  <path d="M16 21h5v-5" />
+                  <path d="M8 21H3v-5" />
+                  <path d="M21 21l-7-7" />
+                  <path d="M3 21l7-7" />
+                </svg>
+                Compare
+              </Link>
+              <div className="my-1 border-t border-border" />
+            </>
+          )}
           <button
             onClick={() => {
               setShowReport(true);
