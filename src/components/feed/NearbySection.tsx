@@ -171,7 +171,7 @@ export default function NearbySection({ userId, initialCity, initialPage }: Prop
           onClick={() => setPickerOpen(!pickerOpen)}
           className="flex items-center gap-1.5 bg-transparent border-none p-2 -m-2 cursor-pointer"
         >
-          <span className="font-display text-[13px] text-text-muted tracking-[1.5px] uppercase">
+          <span className="font-display text-[13px] text-text-muted tracking-[2px] uppercase">
             Around {metro ? metro.label : "You"}
           </span>
           <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="var(--color-accent)" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">

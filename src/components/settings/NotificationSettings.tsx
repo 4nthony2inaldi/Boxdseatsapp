@@ -88,7 +88,7 @@ export default function NotificationSettings({ userId }: { userId: string }) {
 
   return (
     <>
-      <h2 className="font-display text-[13px] text-text-muted tracking-[1.5px] uppercase mt-6 mb-3 px-4">
+      <h2 className="font-display text-[13px] text-text-muted tracking-[2px] uppercase mt-6 mb-3 px-4">
         Push Notifications
       </h2>
       <div className="bg-bg-card border-y border-border">
