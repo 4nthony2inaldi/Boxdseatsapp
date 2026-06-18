@@ -30,6 +30,7 @@ export type EventDetail = {
   sport: string | null;
   cover_photo_url: string | null;
   cover_photo_event_log_id: string | null;
+  venue_photo_url: string | null;
 };
 
 export type TournamentDayAttendance = {
@@ -108,7 +109,7 @@ export async function fetchEventDetail(
       home_team_id, away_team_id, home_score, away_score,
       tournament_name, tournament_id, day_number, venue_id,
       cover_photo_url, cover_photo_event_log_id,
-      venues!events_venue_id_fkey(name),
+      venues!events_venue_id_fkey(name, photo_url),
       leagues(name, slug, sport),
       home_team:teams!events_home_team_id_fkey(short_name, abbreviation, city),
       away_team:teams!events_away_team_id_fkey(short_name, abbreviation, city)
@@ -118,7 +119,7 @@ export async function fetchEventDetail(
 
   if (!data) return null;
 
-  const venue = data.venues as unknown as { name: string } | null;
+  const venue = data.venues as unknown as { name: string; photo_url: string | null } | null;
   const league = data.leagues as unknown as { name: string; slug: string; sport: string } | null;
   const homeTeam = data.home_team as unknown as { short_name: string; abbreviation: string; city: string | null } | null;
   const awayTeam = data.away_team as unknown as { short_name: string; abbreviation: string; city: string | null } | null;
@@ -154,6 +155,7 @@ export async function fetchEventDetail(
     sport: league?.sport || null,
     cover_photo_url: data.cover_photo_url || null,
     cover_photo_event_log_id: data.cover_photo_event_log_id || null,
+    venue_photo_url: venue?.photo_url || null,
   };
 }
 

@@ -128,6 +128,22 @@ export default async function EventDetailPage({
               </span>
             </div>
           </div>
+        ) : event.venue_photo_url ? (
+          <div className="relative">
+            <Image
+              src={event.venue_photo_url}
+              alt={event.venue_name || "Venue"}
+              width={600}
+              height={176}
+              sizes="(max-width: 512px) 100vw, 512px"
+              quality={75}
+              className="w-full h-44 object-cover"
+            />
+            <div className="absolute inset-0 bg-gradient-to-t from-bg via-transparent to-transparent" />
+            <div className="absolute bottom-2 right-3 flex items-center gap-1 bg-black/50 backdrop-blur-sm rounded-full px-2 py-0.5">
+              <span className="text-[10px] text-white/80">{event.venue_name}</span>
+            </div>
+          </div>
         ) : (
           <div
             className="h-28"
@@ -136,7 +152,7 @@ export default async function EventDetailPage({
             }}
           />
         )}
-        <div className={`px-4 ${coverCredit ? "-mt-8" : "-mt-10"}`}>
+        <div className={`px-4 ${coverCredit || event.venue_photo_url ? "-mt-8" : "-mt-10"}`}>
           <div className="flex items-center gap-2 mb-2">
             <SportIcon src={event.league_icon} size={22} />
             <span
