@@ -211,10 +211,11 @@ export async function scanPhotosForVenues(opts: ScanOptions = {}): Promise<ScanI
   // Fetch fewer photos for shorter ranges so a quick scan stays quick, with
   // very generous per-month headroom (~260/day) so an in-range photo is never
   // truncated before the exact date cutoff below can see it.
-  // getMedias materializes `quantity` photos in one bridge call, so a huge
-  // number stalls (50k timed out at 30s on a real device). Keep it modest —
-  // the date cutoff below still bounds results to the chosen range.
-  const quantity = monthsBack ? Math.min(8000, monthsBack * 1500) : 8000;
+  // getMedias materializes `quantity` photos in one bridge call. Measured on a
+  // real device: ~2.7s base + ~0.7ms/photo, so 50k (~38s) blew the old 30s
+  // timeout. With a 60s budget, 30k (~24s) is safe and reaches ~3–4 years back
+  // on a dense library. The date cutoff still bounds results to the range.
+  const quantity = monthsBack ? Math.min(30000, monthsBack * 1500) : 30000;
   // Minimal thumbnails: we only read GPS/date/identifier and never touch the
   // image, so skip the costly per-photo thumbnail generation that otherwise
   // makes getMedias crawl (or appear to hang) on large libraries.
