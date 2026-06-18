@@ -20,8 +20,8 @@ export type FeedEntry = {
   matchup: string | null;
   home_team_short: string | null;
   away_team_short: string | null;
-  home_team_city: string | null;
-  away_team_city: string | null;
+  home_team_abbr: string | null;
+  away_team_abbr: string | null;
   home_score: number | null;
   away_score: number | null;
   sport: string | null;
@@ -249,8 +249,8 @@ export async function fetchFeed(
         matchup,
         home_team_short: event?.home_team?.short_name || null,
         away_team_short: event?.away_team?.short_name || null,
-        home_team_city: event?.home_team?.city || null,
-        away_team_city: event?.away_team?.city || null,
+        home_team_abbr: event?.home_team?.abbreviation || null,
+        away_team_abbr: event?.away_team?.abbreviation || null,
         home_score: event?.home_score ?? null,
         away_score: event?.away_score ?? null,
         sport: log.sport,

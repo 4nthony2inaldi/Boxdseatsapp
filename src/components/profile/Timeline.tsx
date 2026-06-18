@@ -438,8 +438,8 @@ function mapLogToEntry(log: Record<string, unknown>): TimelineEntry {
   let matchup: string | null = null;
   let homeTeamShort: string | null = event?.home_team?.short_name || null;
   let awayTeamShort: string | null = event?.away_team?.short_name || null;
-  const homeTeamCity: string | null = event?.home_team?.city || null;
-  const awayTeamCity: string | null = event?.away_team?.city || null;
+  const homeTeamAbbr: string | null = event?.home_team?.abbreviation || null;
+  const awayTeamAbbr: string | null = event?.away_team?.abbreviation || null;
   let homeScore: number | null = event?.home_score ?? null;
   let awayScore: number | null = event?.away_score ?? null;
 
@@ -486,8 +486,8 @@ function mapLogToEntry(log: Record<string, unknown>): TimelineEntry {
     matchup,
     home_team_short: homeTeamShort,
     away_team_short: awayTeamShort,
-    home_team_city: homeTeamCity,
-    away_team_city: awayTeamCity,
+    home_team_abbr: homeTeamAbbr,
+    away_team_abbr: awayTeamAbbr,
     home_score: homeScore,
     away_score: awayScore,
     sport: log.sport as string | null,
