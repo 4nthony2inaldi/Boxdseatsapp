@@ -211,7 +211,10 @@ export async function scanPhotosForVenues(opts: ScanOptions = {}): Promise<ScanI
   // Fetch fewer photos for shorter ranges so a quick scan stays quick, with
   // very generous per-month headroom (~260/day) so an in-range photo is never
   // truncated before the exact date cutoff below can see it.
-  const quantity = monthsBack ? Math.min(50000, monthsBack * 8000) : 50000;
+  // getMedias materializes `quantity` photos in one bridge call, so a huge
+  // number stalls (50k timed out at 30s on a real device). Keep it modest —
+  // the date cutoff below still bounds results to the chosen range.
+  const quantity = monthsBack ? Math.min(8000, monthsBack * 1500) : 8000;
   // Minimal thumbnails: we only read GPS/date/identifier and never touch the
   // image, so skip the costly per-photo thumbnail generation that otherwise
   // makes getMedias crawl (or appear to hang) on large libraries.
@@ -229,7 +232,7 @@ export async function scanPhotosForVenues(opts: ScanOptions = {}): Promise<ScanI
   for (let ai = 0; ai < attempts.length; ai++) {
     const t0 = Date.now();
     try {
-      const res = await withTimeout(Media.getMedias(attempts[ai]), 30000);
+      const res = await withTimeout(Media.getMedias(attempts[ai]), 60000);
       readOk = true; // the plugin responded; this opts shape is supported
       const a = assetsFrom(res);
       await dbgScan("attempt-ok", { ai, ms: Date.now() - t0, count: a.length });
