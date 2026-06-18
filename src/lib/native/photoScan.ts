@@ -1,9 +1,13 @@
 export type ScanItem = { venueId: string; date: string; photoId?: string };
 
-type VenueGeo = [string, number, number]; // [venueId, lat, lng]
+type VenueGeo = [string, number, number, number?]; // [venueId, lat, lng, radiusMeters?]
 type Photo = { lat: number; lng: number; date: string; id?: string }; // date = local YYYY-MM-DD
 
-const VENUE_RADIUS_M = 350;
+// Fallback match radius when a venue carries no explicit one. Kept tight so a
+// dense-city arena (e.g. MSG, which has an event almost every night) doesn't
+// vacuum up unrelated street photos. Sprawling venues — tennis grounds, golf
+// courses, racetracks — carry a larger per-venue radius in venues-geo.json.
+const VENUE_RADIUS_M = 175;
 
 export function isNativeApp(): boolean {
   if (typeof window === "undefined") return false;
@@ -65,9 +69,11 @@ export function matchPhotosToVenues(photos: Photo[], venues: VenueGeo[], radius 
       for (let dy = -1; dy <= 1; dy++) {
         const arr = grid.get(`${gx + dx},${gy + dy}`);
         if (!arr) continue;
-        for (const [id, vlat, vlng] of arr) {
+        for (const v of arr) {
+          const [id, vlat, vlng] = v;
+          const r = v[3] ?? radius; // each venue may define its own match radius
           const d = distMeters(p.lat, p.lng, vlat, vlng);
-          if (d <= radius && (!best || d < best.d)) best = { id, d };
+          if (d <= r && (!best || d < best.d)) best = { id, d };
         }
       }
     }

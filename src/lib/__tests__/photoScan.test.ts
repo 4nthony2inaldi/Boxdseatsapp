@@ -57,9 +57,19 @@ describe("matchPhotosToVenues", () => {
     expect(items).toHaveLength(2);
   });
 
+  it("honors a per-venue radius (4th element) over the default", () => {
+    // Photo ~400m north of the venue: outside the default fence, inside a
+    // venue that declares a larger one (e.g. a tennis ground).
+    const photo = [{ lat: 40.0036, lng: -74.0, date: "2024-06-01" }];
+    expect(matchPhotosToVenues(photo, [["arena", 40.0, -74.0]])).toEqual([]);
+    expect(matchPhotosToVenues(photo, [["grounds", 40.0, -74.0, 600]])).toEqual([
+      { venueId: "grounds", date: "2024-06-01", photoId: undefined },
+    ]);
+  });
+
   it("matches across a grid-cell boundary (3x3 neighborhood)", () => {
     // Venue just below a 0.05° cell line, photo just above it (~22m apart):
-    // different grid cells, well within the 350m radius — must still match.
+    // different grid cells, well within the default radius — must still match.
     const boundaryVenues: [string, number, number][] = [["arena", 0.0499, 0.0499]];
     const items = matchPhotosToVenues([{ lat: 0.0501, lng: 0.0501, date: "2024-06-01" }], boundaryVenues);
     expect(items).toEqual([{ venueId: "arena", date: "2024-06-01", photoId: undefined }]);
