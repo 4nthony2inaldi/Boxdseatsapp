@@ -29,7 +29,7 @@ export default function ProfileHeader({ profile, stats, actions }: ProfileHeader
               className="w-full h-full flex items-center justify-center"
               style={{
                 background:
-                  "linear-gradient(135deg, #D4872C 0%, #7B5B3A 100%)",
+                  "linear-gradient(135deg, var(--color-accent), var(--color-accent-brown))",
               }}
             >
               <span className="font-display text-3xl text-white">

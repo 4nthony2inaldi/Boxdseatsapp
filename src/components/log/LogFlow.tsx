@@ -413,7 +413,7 @@ export default function LogFlow({ userId, prefillVenue, prefillEvent, editLog }:
             className="h-full rounded-full transition-all"
             style={{
               width: `${(multiDaySaveProgress.saved / multiDaySaveProgress.total) * 100}%`,
-              background: "linear-gradient(135deg, #D4872C, #7B5B3A)",
+              background: "linear-gradient(135deg, var(--color-accent), var(--color-accent-brown))",
             }}
           />
         </div>
@@ -499,7 +499,7 @@ export default function LogFlow({ userId, prefillVenue, prefillEvent, editLog }:
 
       {/* Error */}
       {error && (
-        <div className="bg-loss/10 border border-loss/30 rounded-lg px-3 py-2 mb-4 text-sm text-loss">
+        <div className="bg-loss/10 border border-loss/30 rounded-xl px-3 py-2 mb-4 text-sm text-loss">
           {error}
         </div>
       )}

@@ -130,7 +130,7 @@ export default function CameraCapture({ onCapture, onClose }: CameraCaptureProps
         aria-modal="true"
         aria-label="Camera"
       >
-        <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="#C83C2C" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="var(--color-loss)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
           <circle cx="12" cy="12" r="10" />
           <line x1="12" y1="8" x2="12" y2="12" />
           <line x1="12" y1="16" x2="12.01" y2="16" />
@@ -206,7 +206,7 @@ export default function CameraCapture({ onCapture, onClose }: CameraCaptureProps
             >
               <div
                 className="w-14 h-14 rounded-full flex items-center justify-center"
-                style={{ background: "linear-gradient(135deg, #D4872C, #7B5B3A)" }}
+                style={{ background: "linear-gradient(135deg, var(--color-accent), var(--color-accent-brown))" }}
               >
                 <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
                   <polyline points="20 6 9 17 4 12" />
