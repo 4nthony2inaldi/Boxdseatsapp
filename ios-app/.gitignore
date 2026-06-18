@@ -1,3 +1,6 @@
 node_modules/
-ios/
+# Only ignore the generated Capacitor Xcode project at the root, NOT the `ios/`
+# source dir of our local plugin (local-plugins/photo-scanner/ios), which must
+# be committed so `cap sync` can find it on CI.
+/ios/
 package-lock.json
