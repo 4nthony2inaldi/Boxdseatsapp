@@ -241,7 +241,7 @@ export default function StepEvent({
             }`}
             style={
               selectedDays.size > 0
-                ? { background: "linear-gradient(135deg, #D4872C, #7B5B3A)" }
+                ? { background: "linear-gradient(135deg, var(--color-accent), var(--color-accent-brown))" }
                 : undefined
             }
           >
@@ -473,7 +473,7 @@ export default function StepEvent({
             style={
               manualTitle.trim()
                 ? {
-                    background: "linear-gradient(135deg, #D4872C, #7B5B3A)",
+                    background: "linear-gradient(135deg, var(--color-accent), var(--color-accent-brown))",
                   }
                 : undefined
             }

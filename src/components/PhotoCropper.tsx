@@ -173,7 +173,7 @@ export default function PhotoCropper({
           disabled={working || !areaPixels}
           className="w-full py-3.5 rounded-xl text-white font-display text-lg tracking-[2px] cursor-pointer border-none disabled:opacity-50"
           style={{
-            background: "linear-gradient(135deg, #D4872C, #7B5B3A)",
+            background: "linear-gradient(135deg, var(--color-accent), var(--color-accent-brown))",
           }}
         >
           {working ? "CROPPING..." : "APPLY CROP"}

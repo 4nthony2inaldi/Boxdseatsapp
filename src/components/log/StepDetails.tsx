@@ -441,7 +441,7 @@ export default function StepDetails({
         disabled={saving}
         className="w-full py-3.5 rounded-xl text-white font-display text-lg tracking-[2px] cursor-pointer border-none disabled:opacity-50 disabled:cursor-default"
         style={{
-          background: "linear-gradient(135deg, #D4872C, #7B5B3A)",
+          background: "linear-gradient(135deg, var(--color-accent), var(--color-accent-brown))",
           boxShadow: "0 4px 20px rgba(212, 135, 44, 0.25)",
         }}
       >

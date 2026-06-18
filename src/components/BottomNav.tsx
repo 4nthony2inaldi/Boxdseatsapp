@@ -91,7 +91,7 @@ export default function BottomNav() {
                 <div
                   className="w-14 h-14 rounded-full flex items-center justify-center shadow-lg"
                   style={{
-                    background: "linear-gradient(135deg, #D4872C 0%, #E8A44E 100%)",
+                    background: "linear-gradient(135deg, var(--color-accent), var(--color-accent-hover))",
                     boxShadow: "0 4px 20px rgba(212, 135, 44, 0.4)",
                   }}
                 >
