@@ -6,6 +6,7 @@ import Image from "next/image";
 import { createClient } from "@/lib/supabase/client";
 import { togglePhotoLike, type GalleryPhoto } from "@/lib/queries/event";
 import VerifiedBadge from "@/components/VerifiedBadge";
+import ReportButton from "@/components/social/ReportButton";
 
 type EventGalleryProps = {
   photos: GalleryPhoto[];
@@ -116,7 +117,11 @@ export default function EventGallery({ photos: initialPhotos, currentUserId }: E
                 </span>
               </Link>
 
-              {/* Like button */}
+              {/* Report (others' photos) + Like */}
+              <div className="flex items-center gap-3">
+              {photo.user_id !== currentUserId && (
+                <ReportButton targetType="event_log" targetId={photo.event_log_id} reporterId={currentUserId} label="photo" />
+              )}
               <button
                 onClick={() => handleLike(photo.event_log_id)}
                 aria-label="Like photo"
@@ -143,6 +148,7 @@ export default function EventGallery({ photos: initialPhotos, currentUserId }: E
                   {photo.photo_like_count}
                 </span>
               </button>
+              </div>
             </div>
           </div>
         </div>
