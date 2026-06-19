@@ -10,6 +10,13 @@ const SPORT_LABEL: Record<string, string> = {
   hockey: "Hockey", soccer: "Soccer", golf: "Golf", tennis: "Tennis", motorsports: "Motorsports",
 };
 
+function initials(name: string): string {
+  const parts = name.trim().split(/\s+/).filter(Boolean);
+  if (parts.length === 0) return "?";
+  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
+  return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+}
+
 function Ring({ ring }: { ring: PassportRing }) {
   const R = 30;
   const C = 2 * Math.PI * R;
@@ -63,7 +70,7 @@ type Props = {
 };
 
 export default function PassportView({ username, displayName, avatarUrl, data, editHref, backHref }: Props) {
-  const { stats, venues, topVenues, rings, sports, hidden, teams } = data;
+  const { stats, venues, topVenues, rings, sports, players, playersTotal, hidden, teams } = data;
   const show = (k: string) => !hidden.includes(k);
   const maxSportGames = Math.max(1, ...sports.map((s) => s.games));
   const name = displayName || `@${username}`;
@@ -187,6 +194,35 @@ export default function PassportView({ username, displayName, avatarUrl, data, e
                   <div className="h-full rounded-full" style={{ width: `${(s.games / maxSportGames) * 100}%`, background: "linear-gradient(90deg, var(--color-accent-brown), var(--color-accent))" }} />
                 </div>
                 <div className="w-10 text-right text-xs text-text-muted">{s.games}</div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Players you've seen */}
+      {show("players") && players.length > 0 && (
+        <div className="mt-7">
+          <div className="flex items-baseline gap-2 mb-3 px-4">
+            <div className="font-display text-[11px] text-text-muted tracking-[1.5px] uppercase">Players you&apos;ve seen</div>
+            <div className="text-[10px] text-text-muted">{playersTotal.toLocaleString()} total</div>
+          </div>
+          <div className="flex gap-3 overflow-x-auto px-4 scroll-fade-x" style={{ scrollbarWidth: "none" }}>
+            {players.map((p) => (
+              <div key={p.id} className="flex flex-col items-center text-center w-20 flex-shrink-0">
+                <div className="relative">
+                  <div className="w-16 h-16 rounded-full overflow-hidden bg-bg-elevated flex items-center justify-center">
+                    {p.headshot_url ? (
+                      <Image src={p.headshot_url} alt={p.name} width={64} height={64} className="w-full h-full object-cover" />
+                    ) : (
+                      <span className="font-display text-base text-text-secondary">{initials(p.name)}</span>
+                    )}
+                  </div>
+                  <span className="absolute -bottom-0.5 -right-0.5 rounded-full bg-accent text-bg text-[10px] font-display leading-none px-1.5 py-0.5">
+                    {p.count}×
+                  </span>
+                </div>
+                <div className="text-[11px] text-text-primary font-medium mt-1.5 leading-tight line-clamp-2">{p.name}</div>
               </div>
             ))}
           </div>

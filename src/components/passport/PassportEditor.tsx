@@ -12,6 +12,7 @@ const SECTIONS = [
   { key: "rings", label: "Bucket list" },
   { key: "topVenues", label: "Top venues" },
   { key: "sports", label: "By sport" },
+  { key: "players", label: "Players you've seen" },
 ];
 
 export default function PassportEditor({
