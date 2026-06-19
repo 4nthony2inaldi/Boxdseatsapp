@@ -48,6 +48,9 @@ export async function updateSession(request: NextRequest) {
     request.nextUrl.pathname.startsWith("/@") ||
     request.nextUrl.pathname.startsWith("/u/") ||
     request.nextUrl.pathname.startsWith("/e/") ||
+    // Legal pages must be reachable logged-out (App Store review, web links).
+    request.nextUrl.pathname === "/privacy" ||
+    request.nextUrl.pathname === "/terms" ||
     // API routes authenticate themselves (session check or bearer secret);
     // redirecting them to /login breaks Vercel Cron and JSON clients.
     request.nextUrl.pathname.startsWith("/api/");
