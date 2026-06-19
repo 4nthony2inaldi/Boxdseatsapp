@@ -5,6 +5,7 @@ import { useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { postComment, deleteComment, type EventComment } from "@/lib/queries/event";
 import { formatRelative } from "@/lib/formatters";
+import ReportButton from "@/components/social/ReportButton";
 
 type Props = {
   eventLogId: string;
@@ -126,15 +127,20 @@ export default function CommentsSection({ eventLogId, userId, logOwnerId, initia
                     <span className="text-[10px] text-text-muted">
                       {formatRelative(comment.created_at)}
                     </span>
-                    {(comment.user_id === userId || logOwnerId === userId) && (
-                      <button
-                        onClick={() => handleDelete(comment.id)}
-                        aria-label="Delete comment"
-                        className="ml-auto text-[10px] text-text-muted hover:text-loss transition-colors bg-transparent border-none cursor-pointer p-2.5 -m-2.5"
-                      >
-                        Delete
-                      </button>
-                    )}
+                    <span className="ml-auto flex items-center gap-3">
+                      {comment.user_id !== userId && (
+                        <ReportButton targetType="comment" targetId={comment.id} reporterId={userId} label="comment" />
+                      )}
+                      {(comment.user_id === userId || logOwnerId === userId) && (
+                        <button
+                          onClick={() => handleDelete(comment.id)}
+                          aria-label="Delete comment"
+                          className="text-[10px] text-text-muted hover:text-loss transition-colors bg-transparent border-none cursor-pointer p-2.5 -m-2.5"
+                        >
+                          Delete
+                        </button>
+                      )}
+                    </span>
                   </div>
                   <div className="text-[13px] text-text-secondary leading-relaxed mt-0.5">
                     {comment.body}
