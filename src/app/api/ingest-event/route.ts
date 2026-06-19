@@ -29,6 +29,17 @@ export async function POST(request: Request) {
   const { data: { user } } = await auth.auth.getUser();
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
+  // Only ingest events the caller actually logged. This keeps the endpoint
+  // from being used to drive arbitrary ESPN fetches / writes for any event id.
+  const { data: logRow } = await auth
+    .from("event_logs")
+    .select("id")
+    .eq("user_id", user.id)
+    .eq("event_id", eventId)
+    .limit(1)
+    .maybeSingle();
+  if (!logRow) return NextResponse.json({ status: "forbidden" }, { status: 403 });
+
   const service = createServiceClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.SUPABASE_SERVICE_ROLE_KEY!

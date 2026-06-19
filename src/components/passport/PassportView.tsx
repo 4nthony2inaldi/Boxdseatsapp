@@ -218,7 +218,10 @@ export default function PassportView({ username, displayName, avatarUrl, data, e
                       <span className="font-display text-base text-text-secondary">{initials(p.name)}</span>
                     )}
                   </div>
-                  <span className="absolute -bottom-0.5 -right-0.5 rounded-full bg-accent text-bg text-[10px] font-display leading-none px-1.5 py-0.5">
+                  <span
+                    className="absolute -bottom-0.5 -right-0.5 rounded-full bg-accent text-bg text-[10px] font-display leading-none px-1.5 py-0.5"
+                    aria-label={`seen ${p.count} ${p.count === 1 ? "time" : "times"}`}
+                  >
                     {p.count}×
                   </span>
                 </div>

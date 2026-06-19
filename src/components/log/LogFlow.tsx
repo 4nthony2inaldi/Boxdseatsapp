@@ -33,21 +33,6 @@ type LogFlowProps = {
 
 const STEP_LABELS = ["Venue", "Date", "Event", "Details"];
 
-/**
- * Lazily populate the event's box score (athletes seen) the first time it's
- * logged. Fire-and-forget — the save and redirect never wait on it, and the
- * endpoint is idempotent so logging an already-known event is a cheap no-op.
- */
-function triggerBoxScoreIngest(eventId: string | null | undefined) {
-  if (!eventId) return;
-  void fetch("/api/ingest-event", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ eventId }),
-    keepalive: true,
-  }).catch(() => {});
-}
-
 export default function LogFlow({ userId, prefillVenue, prefillEvent, editLog }: LogFlowProps) {
   const router = useRouter();
   const isEditMode = !!editLog;

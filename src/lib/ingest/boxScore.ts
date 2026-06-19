@@ -199,7 +199,7 @@ export async function ingestEventBoxScore(
       .from("athletes")
       .select("id, external_ids")
       .eq("sport", sport)
-      .filter("external_ids->>espn", "in", `(${c.join(",")})`);
+      .in("external_ids->>espn", c);
     for (const a of data || []) {
       const e = (a.external_ids as Record<string, unknown> | null)?.espn;
       if (e) espnToUuid.set(String(e), a.id as string);
@@ -224,7 +224,7 @@ export async function ingestEventBoxScore(
     const { data } = await supabase
       .from("teams")
       .select("id, external_ids")
-      .filter("external_ids->>espn", "in", `(${teamEspnIds.join(",")})`);
+      .in("external_ids->>espn", teamEspnIds);
     for (const t of data || []) {
       const e = (t.external_ids as Record<string, unknown> | null)?.espn;
       if (e) teamMap.set(String(e), t.id as string);

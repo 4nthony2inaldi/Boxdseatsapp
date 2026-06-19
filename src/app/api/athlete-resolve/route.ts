@@ -22,6 +22,9 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Bad request" }, { status: 400 });
   }
   if (!espnId || !sport) return NextResponse.json({ error: "Missing fields" }, { status: 400 });
+  // ESPN athlete ids are numeric. Reject anything else so the id can never
+  // break out of the query filter below.
+  if (!/^\d+$/.test(espnId)) return NextResponse.json({ error: "Invalid id" }, { status: 400 });
 
   const auth = await createClient();
   const { data: { user } } = await auth.auth.getUser();
@@ -37,7 +40,7 @@ export async function POST(request: Request) {
     .from("athletes")
     .select("id, headshot_url")
     .eq("sport", sport)
-    .filter("external_ids->>espn", "in", `(${espnId})`)
+    .eq("external_ids->>espn", espnId)
     .maybeSingle();
   if (found) {
     if (!found.headshot_url && headshot) {

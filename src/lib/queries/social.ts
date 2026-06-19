@@ -1,4 +1,5 @@
 import { SupabaseClient } from "@supabase/supabase-js";
+import { sanitizeSearchTerm } from "@/lib/queries/searchSanitize";
 
 // ── Types ──
 
@@ -527,7 +528,7 @@ export async function searchAll(
   query: string,
   limit = 8
 ): Promise<SearchResults> {
-  const q = query.trim();
+  const q = sanitizeSearchTerm(query);
   if (!q) return { users: [], venues: [], teams: [], lists: [] };
 
   const pattern = `%${q}%`;

@@ -1,6 +1,7 @@
 import { SupabaseClient } from "@supabase/supabase-js";
 import { getSportIconPath } from "@/lib/sportIcons";
 import { checkAndAwardBadges, type BadgeData } from "@/lib/queries/badges";
+import { sanitizeSearchTerm } from "@/lib/queries/searchSanitize";
 
 // ── Types ──
 
@@ -131,7 +132,7 @@ export async function searchVenues(
   query: string,
   userId: string
 ): Promise<VenueResult[]> {
-  const trimmed = query.trim();
+  const trimmed = sanitizeSearchTerm(query);
   if (!trimmed) return [];
   const pattern = `%${trimmed}%`;
 
@@ -871,7 +872,7 @@ export async function searchUsers(
   query: string,
   excludeUserId: string
 ): Promise<UserSearchResult[]> {
-  const trimmed = query.trim();
+  const trimmed = sanitizeSearchTerm(query);
   if (!trimmed) return [];
 
   const { data } = await supabase
