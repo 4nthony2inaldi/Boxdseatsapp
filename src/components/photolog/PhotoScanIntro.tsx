@@ -65,7 +65,7 @@ function Bullet({ icon, bold, rest }: { icon: React.ReactNode; bold: string; res
 
 export default function PhotoScanIntro({ onScan, onCancel, webFallback, scanning }: Props) {
   const [howOpen, setHowOpen] = useState(false);
-  const [rangeIdx, setRangeIdx] = useState(2); // default: last 1 year
+  const [rangeIdx, setRangeIdx] = useState(3); // default: all time — the point is to surface your whole history
 
   return (
     <div className="max-w-lg mx-auto px-5 pt-8 pb-10">
@@ -137,7 +137,8 @@ export default function PhotoScanIntro({ onScan, onCancel, webFallback, scanning
           })}
         </div>
         <p className="text-[11px] text-text-muted leading-5 mt-2">
-          A shorter range scans faster. Pick a longer one to dig up older games.
+          Scans your whole library by default so it catches games from years back. Pick a shorter
+          range for a faster scan.
         </p>
       </div>
 
