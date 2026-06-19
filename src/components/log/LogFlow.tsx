@@ -14,6 +14,7 @@ import {
 import type { BadgeData } from "@/lib/queries/badges";
 import { uploadEventPhoto, updateEventLogPhoto, removeEventLogPhoto, isPhotoVerified } from "@/lib/photos";
 import { ensureVotingWindow } from "@/lib/queries/coverPhotos";
+import { triggerBoxScoreIngest } from "@/lib/ingest/triggerIngest";
 import { CelebrationIcon, CheckCircleIcon, TrashIcon } from "@/components/icons";
 import StepVenue from "./StepVenue";
 import StepDate from "./StepDate";
