@@ -58,24 +58,37 @@ export async function fetchPhotoSuggestions(
     return true;
   });
 
-  const venueIds = [...new Set(uniqueItems.map((i) => i.venueId))];
-  const dates = [...new Set(uniqueItems.map((i) => i.date))];
   const wanted = new Set(uniqueItems.map((i) => `${i.venueId}|${i.date}`));
 
-  const { data: rows } = await supabase
-    .from("events")
-    .select(
-      `id, event_date, venue_id, home_score, away_score,
+  // Fetch events for the EXACT (venue, date) pairs. A cartesian
+  // `.in(venueIds).in(dates)` over-fetches every event at any matched venue on
+  // any matched date, which blows past PostgREST's 1000-row default cap once a
+  // user has many matches — silently dropping real games (the more games you've
+  // attended, the worse it got). Query the precise pairs in chunks instead.
+  const SELECT = `id, event_date, venue_id, home_score, away_score,
        venues!events_venue_id_fkey(name),
        leagues(slug, sport),
        home_team:teams!events_home_team_id_fkey(id, short_name, name, logo_url),
-       away_team:teams!events_away_team_id_fkey(id, short_name, name, logo_url)`
-    )
-    .in("venue_id", venueIds)
-    .in("event_date", dates);
+       away_team:teams!events_away_team_id_fkey(id, short_name, name, logo_url)`;
+  type EventRow = {
+    id: string; event_date: string; venue_id: string;
+    home_score: number | null; away_score: number | null;
+    venues: unknown; leagues: unknown; home_team: unknown; away_team: unknown;
+  };
+  const rows: EventRow[] = [];
+  const CHUNK = 40; // keeps the OR-filter URL well under length limits
+  for (let i = 0; i < uniqueItems.length; i += CHUNK) {
+    const orFilter = uniqueItems
+      .slice(i, i + CHUNK)
+      .map((p) => `and(venue_id.eq.${p.venueId},event_date.eq.${p.date})`)
+      .join(",");
+    const { data } = await supabase.from("events").select(SELECT).or(orFilter);
+    if (data) rows.push(...(data as unknown as EventRow[]));
+  }
 
-  // .in() over venue+date is a cartesian over-fetch; keep only the real pairs.
-  const candidates = (rows || []).filter((e) => wanted.has(`${e.venue_id}|${e.event_date}`));
+  // Defensive: keep only the real pairs (a chunk only requests wanted pairs,
+  // but a venue can legitimately have multiple events on one date).
+  const candidates = rows.filter((e) => wanted.has(`${e.venue_id}|${e.event_date}`));
   if (!candidates.length) return { suggestions: [], unknownTeams: [] };
 
   // Drop games the user already logged.
