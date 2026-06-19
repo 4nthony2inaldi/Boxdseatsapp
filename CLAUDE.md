@@ -4,7 +4,7 @@ Orientation and hard-won gotchas for working in this repo. Read this first.
 
 ## What the app is
 
-BoxdSeats is "Letterboxd for sports": fans log the live games they attend, rate
+BoxdSeats is a check-in app for live sports: fans log the games they attend, rate
 them, add photos, follow friends, and build a profile/passport of their fan
 history. Domain: www.boxdseats.com.
 

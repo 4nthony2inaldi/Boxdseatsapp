@@ -16,7 +16,7 @@ Cup) so the timeline, profile, and event pages all show real content.
 
 ## Review notes (paste into "Notes" in App Store Connect)
 
-> BoxdSeats is a "Letterboxd for sports": fans log the live games they attend,
+> BoxdSeats is a check-in app for live sports: fans log the games they attend,
 > rate them, and follow friends. Sign in with the demo account above.
 >
 > What to try: open the Feed and Profile tabs to see logged games; tap a game
