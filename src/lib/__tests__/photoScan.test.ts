@@ -11,6 +11,14 @@ describe("localEventDate", () => {
   it("returns null for unparseable input", () => {
     expect(localEventDate("not-a-date")).toBeNull();
   });
+  it("rolls an early-UTC timestamp back to the previous local day", () => {
+    // 03:00 UTC is still the previous evening once shifted by 5h.
+    expect(localEventDate("2024-07-04T03:00:00Z")).toBe("2024-07-03");
+  });
+  it("honors an explicit timezone offset in the input", () => {
+    // 9pm US-Pacific on the 4th = 04:00 UTC on the 5th → 23:00 on the 4th Eastern.
+    expect(localEventDate("2024-07-04T21:00:00-07:00")).toBe("2024-07-04");
+  });
 });
 
 describe("matchPhotosToVenues", () => {
@@ -73,5 +81,37 @@ describe("matchPhotosToVenues", () => {
     const boundaryVenues: [string, number, number][] = [["arena", 0.0499, 0.0499]];
     const items = matchPhotosToVenues([{ lat: 0.0501, lng: 0.0501, date: "2024-06-01" }], boundaryVenues);
     expect(items).toEqual([{ venueId: "arena", date: "2024-06-01", photoId: undefined }]);
+  });
+
+  it("picks the nearest venue when two are in range", () => {
+    // Two venues ~120m apart; photo sits right next to the second one.
+    const close: [string, number, number][] = [
+      ["a", 40.0, -74.0],
+      ["b", 40.0011, -74.0], // ~122m north of a
+    ];
+    const items = matchPhotosToVenues([{ lat: 40.00105, lng: -74.0, date: "d" }], close);
+    expect(items).toEqual([{ venueId: "b", date: "d", photoId: undefined }]);
+  });
+
+  it("carries the photo id through to the matched item", () => {
+    const items = matchPhotosToVenues(
+      [{ lat: 40.8296, lng: -73.9262, date: "2024-06-01", id: "photo-42" }],
+      venues
+    );
+    expect(items[0].photoId).toBe("photo-42");
+  });
+
+  it("returns nothing when there are no venues", () => {
+    expect(matchPhotosToVenues([{ lat: 40.8296, lng: -73.9262, date: "d" }], [])).toEqual([]);
+  });
+
+  it("matches a far photo via a large per-venue radius across grid cells", () => {
+    // Motorsport-style 2000m fence; photo ~1.5km away in an adjacent grid cell.
+    const photo = [{ lat: 40.0135, lng: -74.0, date: "race" }]; // ~1.5km north
+    expect(matchPhotosToVenues(photo, [["circuit", 40.0, -74.0, 2000]])).toEqual([
+      { venueId: "circuit", date: "race", photoId: undefined },
+    ]);
+    // …but the default fence would miss it.
+    expect(matchPhotosToVenues(photo, [["circuit", 40.0, -74.0]])).toEqual([]);
   });
 });
