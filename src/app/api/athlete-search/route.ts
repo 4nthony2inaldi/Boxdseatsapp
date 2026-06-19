@@ -38,13 +38,14 @@ export async function POST(request: Request) {
   const results: Hit[] = local.map((a) => ({ id: a.id, espnId: null, name: a.name, sport: a.sport, headshot: null }));
   const localIds = new Set(results.map((r) => r.id));
 
-  if (results.length < LOCAL_ENOUGH) {
+  if (results.length < LOCAL_ENOUGH && q.length >= 2) {
     const espn = await searchAthletesEspn(q, sport, 10);
     if (espn.length > 0) {
       // Fold in any ESPN hit we already hold (match by sport + espn id) as a
       // local pick; surface the rest as resolve-on-select ESPN hits.
       const bySport = new Map<string, string[]>();
       for (const e of espn) {
+        if (!/^\d+$/.test(e.espnId)) continue; // ESPN ids are numeric; guard the filter
         const list = bySport.get(e.sport) ?? [];
         list.push(e.espnId);
         bySport.set(e.sport, list);
@@ -55,7 +56,7 @@ export async function POST(request: Request) {
           .from("athletes")
           .select("id, external_ids")
           .eq("sport", sp as SportEnum)
-          .filter("external_ids->>espn", "in", `(${ids.join(",")})`);
+          .in("external_ids->>espn", ids);
         for (const a of data || []) {
           const eid = (a.external_ids as Record<string, unknown> | null)?.espn;
           if (eid) existing.set(`${sp}:${eid}`, a.id as string);

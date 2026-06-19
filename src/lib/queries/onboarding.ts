@@ -1,4 +1,5 @@
 import { SupabaseClient } from "@supabase/supabase-js";
+import { sanitizeSearchTerm } from "./searchSanitize";
 
 // ── Username validation ──
 
@@ -71,7 +72,7 @@ export async function searchTeams(
   limit = 10,
   leagueSlug?: string | null
 ): Promise<{ id: string; name: string; short_name: string; league_name: string | null }[]> {
-  const raw = query.trim();
+  const raw = sanitizeSearchTerm(query);
   if (!raw) return [];
   const pattern = `%${raw}%`;
   // Pull a wider pool than we return, then rank — with full D1 membership a
@@ -111,7 +112,7 @@ export async function searchVenuesForOnboarding(
   opts: { sport?: string | null; limit?: number } = {}
 ): Promise<{ id: string; name: string; city: string; state: string | null; sport: string | null }[]> {
   const { sport, limit = 30 } = opts;
-  const trimmed = query.trim();
+  const trimmed = sanitizeSearchTerm(query);
   // Nothing to show until the user types or picks a sport to browse.
   if (!trimmed && !sport) return [];
 
@@ -248,7 +249,7 @@ export async function searchEvents(
   query: string,
   limit = 12
 ): Promise<{ id: string; label: string; venue_name: string | null; event_date: string }[]> {
-  const trimmed = query.trim();
+  const trimmed = sanitizeSearchTerm(query);
   if (!trimmed) return [];
   const pattern = `%${trimmed}%`;
   const today = new Date().toISOString().slice(0, 10);

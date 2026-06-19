@@ -89,6 +89,11 @@ export default function BigFourDrillThrough({
   const [saving, setSaving] = useState(false);
   const [dragIndex, setDragIndex] = useState<number | null>(null);
   const debounceRef = useRef<ReturnType<typeof setTimeout>>(undefined);
+  // Monotonic token so a slower, older search response can't overwrite a newer
+  // one (out-of-order results) and so an in-flight search can be invalidated.
+  const searchSeqRef = useRef(0);
+  // Synchronous re-entry guard for select — `saving` state lags the first await.
+  const savingRef = useRef(false);
   const rowRefs = useRef<(HTMLDivElement | null)[]>([]);
   const favoritesRef = useRef(favorites);
   const dragIndexRef = useRef(dragIndex);
@@ -177,6 +182,7 @@ export default function BigFourDrillThrough({
     }
     setSearching(true);
     if (debounceRef.current) clearTimeout(debounceRef.current);
+    const seq = ++searchSeqRef.current;
     debounceRef.current = setTimeout(async () => {
       let results: SearchResult[] = [];
       const slugForRow = leagueSlugOverride ?? editingLeagueSlug;
@@ -202,6 +208,9 @@ export default function BigFourDrillThrough({
         const events = await fetchLoggedEventChoices(supabase, userId, slugForRow, q);
         results = events.map((e) => ({ id: e.id, label: e.label, subtitle: e.subtitle }));
       }
+      // Drop stale responses: a newer search (or a close/select) has superseded
+      // this one.
+      if (seq !== searchSeqRef.current) return;
       setSearchResults(results);
       setSearching(false);
     }, 300);
@@ -215,9 +224,14 @@ export default function BigFourDrillThrough({
   }
 
   function closeEditor() {
+    // Invalidate any pending/in-flight search so it can't repopulate the list
+    // after the editor has closed.
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    searchSeqRef.current++;
     setEditingLeagueSlug(null);
     setSearchQuery("");
     setSearchResults([]);
+    setSearching(false);
   }
 
   async function refresh() {
@@ -226,52 +240,58 @@ export default function BigFourDrillThrough({
   }
 
   async function handleSelect(leagueSlug: string, pick: SearchResult) {
-    const { data: league } = await supabase
-      .from("leagues")
-      .select("id")
-      .eq("slug", leagueSlug)
-      .single();
-    if (!league) return;
-
+    // Synchronous guard: a fast double-tap fires before `saving` state lands.
+    if (savingRef.current) return;
+    savingRef.current = true;
     setSaving(true);
+    // Stop any in-flight search from repopulating the list mid-select.
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    searchSeqRef.current++;
 
-    // ESPN-only athlete: upsert it into our table first to get a real id.
-    let pickId = pick.id;
-    if (!pickId && pick.espnId) {
-      try {
-        const res = await fetch("/api/athlete-resolve", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ espnId: pick.espnId, name: pick.label, sport: pick.espnSport, headshot: pick.espnHeadshot }),
-        });
-        const data = await res.json();
-        if (!res.ok || !data.id) throw new Error();
-        pickId = data.id as string;
-      } catch {
-        toastError("Couldn't add that player. Try again.");
-        setSaving(false);
-        return;
+    try {
+      const { data: league } = await supabase
+        .from("leagues")
+        .select("id")
+        .eq("slug", leagueSlug)
+        .single();
+      if (!league) return;
+
+      // ESPN-only athlete: upsert it into our table first to get a real id.
+      let pickId = pick.id;
+      if (!pickId && pick.espnId) {
+        try {
+          const res = await fetch("/api/athlete-resolve", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ espnId: pick.espnId, name: pick.label, sport: pick.espnSport, headshot: pick.espnHeadshot }),
+          });
+          const data = await res.json();
+          if (!res.ok || !data.id) throw new Error();
+          pickId = data.id as string;
+        } catch {
+          toastError("Couldn't add that player. Try again.");
+          return;
+        }
       }
-    }
-    if (!pickId) {
-      setSaving(false);
-      return;
-    }
+      if (!pickId) return;
 
-    const pickKind =
-      category === "team" && isIndividualLeague(leagueSlug) ? "athlete" : category;
-    const result = await upsertLeagueFavorite(
-      supabase,
-      userId,
-      category,
-      league.id,
-      pickId,
-      pickKind
-    );
-    if ("error" in result) toastError(result.error);
-    else await refresh();
-    setSaving(false);
-    closeEditor();
+      const pickKind =
+        category === "team" && isIndividualLeague(leagueSlug) ? "athlete" : category;
+      const result = await upsertLeagueFavorite(
+        supabase,
+        userId,
+        category,
+        league.id,
+        pickId,
+        pickKind
+      );
+      if ("error" in result) toastError(result.error);
+      else await refresh();
+      closeEditor();
+    } finally {
+      savingRef.current = false;
+      setSaving(false);
+    }
   }
 
   async function handleRemove(favoriteId: string) {
@@ -284,7 +304,10 @@ export default function BigFourDrillThrough({
 
   const noun = CATEGORY_NOUN[category];
 
-  function SearchBox({ leagueSlug, leagueName }: { leagueSlug: string; leagueName: string }) {
+  // A plain function returning JSX (not a nested component rendered as
+  // <SearchBox/>) — that would get a fresh component identity each render and
+  // remount the input, dropping focus on every keystroke.
+  const renderSearchBox = (leagueSlug: string, leagueName: string) => {
     const individual = category === "team" && isIndividualLeague(leagueSlug);
     const placeholder =
       category === "event"
@@ -320,9 +343,9 @@ export default function BigFourDrillThrough({
         )}
         {searchResults.length > 0 && (
           <div className="mt-1.5 rounded-lg bg-bg-elevated border border-border max-h-40 overflow-y-auto">
-            {searchResults.map((r) => (
+            {searchResults.map((r, i) => (
               <button
-                key={r.id || `espn:${r.espnId}`}
+                key={`${r.id}|${r.espnId ?? ""}|${i}`}
                 onClick={() => handleSelect(leagueSlug, r)}
                 disabled={saving}
                 className="w-full text-left px-3 py-2 hover:bg-bg-input transition-colors border-b border-border last:border-b-0 disabled:opacity-50"
@@ -337,7 +360,7 @@ export default function BigFourDrillThrough({
         )}
       </div>
     );
-  }
+  };
 
   return (
     <div className="space-y-5">
@@ -407,7 +430,7 @@ export default function BigFourDrillThrough({
                     </svg>
                   </button>
                 </div>
-                {isEditing && <SearchBox leagueSlug={fav.league_slug} leagueName={fav.league_name} />}
+                {isEditing && renderSearchBox(fav.league_slug, fav.league_name)}
               </div>
             );
           })}
@@ -438,7 +461,7 @@ export default function BigFourDrillThrough({
                       {isEditing ? "Cancel" : "Add"}
                     </button>
                   </div>
-                  {isEditing && <SearchBox leagueSlug={league.slug} leagueName={league.name} />}
+                  {isEditing && renderSearchBox(league.slug, league.name)}
                 </div>
               );
             })}
