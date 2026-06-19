@@ -79,19 +79,22 @@ export default function CommentsSection({ eventLogId, userId, logOwnerId, initia
   };
 
   const handleDelete = async (commentId: string) => {
-    const supabase = createClient();
-    const result = await deleteComment(supabase, commentId, userId, logOwnerId);
-
-    if ("error" in result) {
-      setError(result.error);
-      return;
-    }
-
+    // Optimistic removal, reverted if the delete is rejected (e.g. RLS denies it).
+    const prevComments = comments;
     setComments((prev) => {
       const next = prev.filter((c) => c.id !== commentId);
       onCountChange?.(next.length);
       return next;
     });
+
+    const supabase = createClient();
+    const result = await deleteComment(supabase, commentId, userId, logOwnerId);
+
+    if ("error" in result) {
+      setComments(prevComments);
+      onCountChange?.(prevComments.length);
+      setError(result.error);
+    }
   };
 
   const commentItems = (

@@ -82,6 +82,7 @@ export default async function EventDetailPage({
       .select("id, user_id, profiles!event_logs_user_id_fkey(username, display_name)")
       .eq("id", focusLogId)
       .eq("event_id", id)
+      .neq("privacy", "hide_all") // never surface someone else's private log via a deep link
       .maybeSingle();
     if (fl) {
       const prof = fl.profiles as unknown as { username: string; display_name: string | null } | null;

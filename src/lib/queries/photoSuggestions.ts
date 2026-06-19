@@ -91,13 +91,19 @@ export async function fetchPhotoSuggestions(
   const candidates = rows.filter((e) => wanted.has(`${e.venue_id}|${e.event_date}`));
   if (!candidates.length) return { suggestions: [], unknownTeams: [] };
 
-  // Drop games the user already logged.
-  const { data: logged } = await supabase
-    .from("event_logs")
-    .select("event_id")
-    .eq("user_id", userId)
-    .in("event_id", candidates.map((e) => e.id));
-  const loggedSet = new Set((logged || []).map((l) => l.event_id as string));
+  // Drop games the user already logged. Chunk the id list so a heavy attendee
+  // with 1000+ candidates doesn't hit PostgREST's 1000-row cap and re-suggest
+  // games they've already logged.
+  const loggedSet = new Set<string>();
+  const candidateIds = candidates.map((e) => e.id);
+  for (let i = 0; i < candidateIds.length; i += 500) {
+    const { data: logged } = await supabase
+      .from("event_logs")
+      .select("event_id")
+      .eq("user_id", userId)
+      .in("event_id", candidateIds.slice(i, i + 500));
+    for (const l of logged || []) loggedSet.add(l.event_id as string);
+  }
 
   // Favorite teams → rooting pre-fill (lowest rank wins if both teams qualify).
   const { data: favs } = await supabase
