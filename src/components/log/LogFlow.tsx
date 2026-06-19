@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import {
@@ -52,6 +52,10 @@ export default function LogFlow({ userId, prefillVenue, prefillEvent, editLog }:
   const [manualData, setManualData] = useState<ManualEntryData | null>(null);
   const [multiDayEvents, setMultiDayEvents] = useState<EventMatch[] | null>(null);
   const [saving, setSaving] = useState(false);
+  // Synchronous re-entry guard: button-disabling via `saving` state lags a
+  // render, so a fast double-tap could fire handleSave twice and create a
+  // duplicate manual log (real events are protected by a DB unique index).
+  const savingRef = useRef(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
   const [deleted, setDeleted] = useState(false);
@@ -126,6 +130,8 @@ export default function LogFlow({ userId, prefillVenue, prefillEvent, editLog }:
   // Step 4: Save
   const handleSave = async (details: DetailsData) => {
     if (!selectedVenue || !selectedDate) return;
+    if (savingRef.current) return;
+    savingRef.current = true;
 
     setSaving(true);
     setError(null);
@@ -188,6 +194,7 @@ export default function LogFlow({ userId, prefillVenue, prefillEvent, editLog }:
           if (!result.error.includes("already logged")) {
             setError(result.error);
             setSaving(false);
+            savingRef.current = false;
             setMultiDaySaveProgress(null);
             return;
           }
@@ -231,6 +238,7 @@ export default function LogFlow({ userId, prefillVenue, prefillEvent, editLog }:
       }
 
       setSaving(false);
+      savingRef.current = false;
       setMultiDaySaveProgress(null);
       if (allBadges.length > 0) setEarnedBadges(allBadges);
       setSuccess(true);
@@ -268,6 +276,7 @@ export default function LogFlow({ userId, prefillVenue, prefillEvent, editLog }:
       : await saveEventLog(supabase, logInput, selectedEvent);
 
     setSaving(false);
+    savingRef.current = false;
 
     if ("error" in result) {
       setError(result.error);
