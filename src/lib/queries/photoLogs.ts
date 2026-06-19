@@ -45,7 +45,10 @@ export async function createLogsFromSuggestions(
   const rows = events
     .filter((e) => !alreadyLogged.has(e.id))
     .map((e) => {
-      const rooting = rootingByEvent.get(e.id) ?? null;
+      // Only honor a rooting team that's actually in this game — a bad id would
+      // otherwise store a phantom rooting team and miscompute win/loss.
+      const picked = rootingByEvent.get(e.id) ?? null;
+      const rooting = picked === e.home_team_id || picked === e.away_team_id ? picked : null;
       let outcome: Outcome = "neutral";
       if (rooting && e.home_score != null && e.away_score != null) {
         const mine = rooting === e.home_team_id ? e.home_score : e.away_score;
