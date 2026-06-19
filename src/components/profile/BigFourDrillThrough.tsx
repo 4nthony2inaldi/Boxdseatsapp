@@ -6,7 +6,6 @@ import type { LeagueFavorite } from "@/lib/queries/bigfour";
 import {
   searchTeams,
   searchVenuesForOnboarding,
-  searchAthletes,
 } from "@/lib/queries/onboarding";
 import {
   upsertLeagueFavorite,
@@ -31,7 +30,41 @@ type Props = {
   onChange?: (summary: { count: number; topName: string | null }) => void;
 };
 
-type SearchResult = { id: string; label: string; subtitle?: string };
+type SearchResult = {
+  id: string;
+  label: string;
+  subtitle?: string;
+  // Set on ESPN-only athlete hits (not yet in our table). `id` is empty for
+  // these; selecting one resolves it to a real athlete id first.
+  espnId?: string;
+  espnSport?: string | null;
+  espnHeadshot?: string | null;
+};
+
+/** Local athletes + ESPN search fallback, so any real player is findable. */
+async function searchAthletesWithFallback(q: string, sport: string | null): Promise<SearchResult[]> {
+  try {
+    const res = await fetch("/api/athlete-search", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ q, sport }),
+    });
+    if (!res.ok) return [];
+    const { results } = (await res.json()) as {
+      results: { id: string | null; espnId: string | null; name: string; sport: string | null; headshot: string | null }[];
+    };
+    return results.map((r) => ({
+      id: r.id ?? "",
+      label: r.name,
+      subtitle: r.sport || undefined,
+      espnId: r.espnId ?? undefined,
+      espnSport: r.sport,
+      espnHeadshot: r.headshot,
+    }));
+  } catch {
+    return [];
+  }
+}
 
 const CATEGORY_NOUN: Record<Props["category"], string> = {
   team: "team",
@@ -150,8 +183,7 @@ export default function BigFourDrillThrough({
       if (category === "team") {
         if (isIndividualLeague(slugForRow)) {
           const sport = (slugForRow ? sportBySlug.get(slugForRow) : null) ?? null;
-          const athletes = await searchAthletes(supabase, q, 10, sport);
-          results = athletes.map((a) => ({ id: a.id, label: a.name, subtitle: a.sport || undefined }));
+          results = await searchAthletesWithFallback(q, sport);
         } else {
           const teams = await searchTeams(supabase, q, 10, slugForRow);
           results = teams.map((t) => ({ id: t.id, label: t.name, subtitle: t.league_name || undefined }));
@@ -165,8 +197,7 @@ export default function BigFourDrillThrough({
         }));
       } else if (category === "athlete") {
         const sport = (slugForRow ? sportBySlug.get(slugForRow) : null) ?? null;
-        const athletes = await searchAthletes(supabase, q, 10, sport);
-        results = athletes.map((a) => ({ id: a.id, label: a.name, subtitle: a.sport || undefined }));
+        results = await searchAthletesWithFallback(q, sport);
       } else if (category === "event") {
         const events = await fetchLoggedEventChoices(supabase, userId, slugForRow, q);
         results = events.map((e) => ({ id: e.id, label: e.label, subtitle: e.subtitle }));
@@ -194,7 +225,7 @@ export default function BigFourDrillThrough({
     setFavorites([...next].sort((a, b) => a.rank - b.rank));
   }
 
-  async function handleSelect(leagueSlug: string, pickId: string) {
+  async function handleSelect(leagueSlug: string, pick: SearchResult) {
     const { data: league } = await supabase
       .from("leagues")
       .select("id")
@@ -203,6 +234,30 @@ export default function BigFourDrillThrough({
     if (!league) return;
 
     setSaving(true);
+
+    // ESPN-only athlete: upsert it into our table first to get a real id.
+    let pickId = pick.id;
+    if (!pickId && pick.espnId) {
+      try {
+        const res = await fetch("/api/athlete-resolve", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ espnId: pick.espnId, name: pick.label, sport: pick.espnSport, headshot: pick.espnHeadshot }),
+        });
+        const data = await res.json();
+        if (!res.ok || !data.id) throw new Error();
+        pickId = data.id as string;
+      } catch {
+        toastError("Couldn't add that player. Try again.");
+        setSaving(false);
+        return;
+      }
+    }
+    if (!pickId) {
+      setSaving(false);
+      return;
+    }
+
     const pickKind =
       category === "team" && isIndividualLeague(leagueSlug) ? "athlete" : category;
     const result = await upsertLeagueFavorite(
@@ -267,8 +322,8 @@ export default function BigFourDrillThrough({
           <div className="mt-1.5 rounded-lg bg-bg-elevated border border-border max-h-40 overflow-y-auto">
             {searchResults.map((r) => (
               <button
-                key={r.id}
-                onClick={() => handleSelect(leagueSlug, r.id)}
+                key={r.id || `espn:${r.espnId}`}
+                onClick={() => handleSelect(leagueSlug, r)}
                 disabled={saving}
                 className="w-full text-left px-3 py-2 hover:bg-bg-input transition-colors border-b border-border last:border-b-0 disabled:opacity-50"
               >
