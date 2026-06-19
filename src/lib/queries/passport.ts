@@ -22,6 +22,14 @@ export type PassportRing = {
   total: number;
 };
 
+export type PassportPlayer = {
+  id: string;
+  name: string;
+  sport: string | null;
+  headshot_url: string | null;
+  count: number;
+};
+
 export type PassportData = {
   stats: {
     games: number;
@@ -36,7 +44,11 @@ export type PassportData = {
   topVenues: PassportVenue[];
   rings: PassportRing[];
   sports: { sport: string; games: number; venues: number }[];
-  /** Section keys the owner has hidden (map | rings | topVenues | sports). */
+  /** Athletes the user has seen in person, most-seen first (top slice). */
+  players: PassportPlayer[];
+  /** Total distinct athletes seen across all attended games. */
+  playersTotal: number;
+  /** Section keys the owner has hidden (map | rings | topVenues | sports | players). */
   hidden: string[];
   /** Top 4 most-complete list sets, for the share card. */
   topComplete: PassportRing[];
@@ -70,12 +82,13 @@ export async function fetchPassport(
   }));
   const visitedIds = new Set(venues.map((v) => v.venue_id));
 
-  // All of the user's logs (sport + outcome) for totals, fan record, sport mix.
-  const logs: { sport: string | null; outcome: string | null }[] = [];
+  // All of the user's logs (sport + outcome + event) for totals, fan record,
+  // sport mix, and the athletes-seen aggregation.
+  const logs: { sport: string | null; outcome: string | null; event_id: string | null }[] = [];
   for (let from = 0; ; from += 1000) {
     const { data } = await supabase
       .from("event_logs")
-      .select("sport, outcome")
+      .select("sport, outcome, event_id")
       .eq("user_id", userId)
       .range(from, from + 999);
     if (!data || data.length === 0) break;
@@ -177,12 +190,64 @@ export async function fetchPassport(
     return { id: t.team_id as string, name: tm?.short_name || tm?.name || "", logo_url: tm?.logo_url || null };
   });
 
+  // Players you've seen: every athlete who appeared in a game this user logged.
+  // event_athletes is public reference data, so the privacy boundary is the set
+  // of event_ids the viewer can see (event_logs is RLS-filtered above). Count
+  // distinct attended games per athlete; (event, athlete) rows are unique.
+  const attendedEventIds = [...new Set(logs.map((l) => l.event_id).filter((e): e is string => !!e))];
+  const playerCounts = new Map<string, number>();
+  for (let i = 0; i < attendedEventIds.length; i += 200) {
+    const chunk = attendedEventIds.slice(i, i + 200);
+    for (let from = 0; ; from += 1000) {
+      const { data } = await supabase
+        .from("event_athletes")
+        .select("athlete_id")
+        .in("event_id", chunk)
+        .order("id", { ascending: true })
+        .range(from, from + 999);
+      if (!data || data.length === 0) break;
+      for (const row of data) {
+        const aid = row.athlete_id as string | null;
+        if (aid) playerCounts.set(aid, (playerCounts.get(aid) || 0) + 1);
+      }
+      if (data.length < 1000) break;
+    }
+  }
+  const playersTotal = playerCounts.size;
+  const topPlayerIds = [...playerCounts.entries()]
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 18)
+    .map(([id]) => id);
+  const playerMeta = new Map<string, { name: string; sport: string | null; headshot_url: string | null }>();
+  for (let i = 0; i < topPlayerIds.length; i += 100) {
+    const { data } = await supabase
+      .from("athletes")
+      .select("id, name, sport, headshot_url")
+      .in("id", topPlayerIds.slice(i, i + 100));
+    for (const a of data || []) {
+      playerMeta.set(a.id as string, {
+        name: (a.name as string) || "Unknown",
+        sport: (a.sport as string | null) ?? null,
+        headshot_url: (a.headshot_url as string | null) ?? null,
+      });
+    }
+  }
+  const players: PassportPlayer[] = topPlayerIds
+    .map((id) => {
+      const m = playerMeta.get(id);
+      if (!m) return null;
+      return { id, name: m.name, sport: m.sport, headshot_url: m.headshot_url, count: playerCounts.get(id) || 0 };
+    })
+    .filter((p): p is PassportPlayer => !!p);
+
   return {
     stats: { games: logs.length, venues: venues.length, cities, wins, losses, draws, winPct },
     venues,
     topVenues,
     rings,
     sports,
+    players,
+    playersTotal,
     hidden: Array.isArray(config?.hidden) ? config!.hidden : [],
     topComplete,
     teams,
