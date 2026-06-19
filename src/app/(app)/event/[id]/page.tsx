@@ -140,8 +140,10 @@ export default async function EventDetailPage({
               className="w-full h-44 object-cover"
             />
             <div className="absolute inset-0 bg-gradient-to-t from-bg via-transparent to-transparent" />
-            <div className="absolute bottom-2 right-3 flex items-center gap-1 bg-black/50 backdrop-blur-sm rounded-full px-2 py-0.5">
-              <span className="text-[10px] text-white/80">{event.venue_name}</span>
+            <div className="absolute bottom-2 left-4 right-4">
+              <span className="text-sm font-semibold text-white drop-shadow-[0_1px_3px_rgba(0,0,0,0.8)]">
+                {event.venue_name}
+              </span>
             </div>
           </div>
         ) : (
