@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { logAndFeatureBestGame } from "@/lib/queries/onboarding";
+import { triggerBoxScoreIngest } from "@/lib/ingest/triggerIngest";
 import { toastError } from "@/components/Toaster";
 import StepVenue from "@/components/log/StepVenue";
 import StepDate from "@/components/log/StepDate";
@@ -49,6 +50,7 @@ export default function StepBestGame({ userId, best, onBestChange, finishing, on
         toastError(result.error);
         continue;
       }
+      triggerBoxScoreIngest(event.id);
       const label = eventLabel(event);
       setLogged((prev) => (prev.includes(label) ? prev : [...prev, label]));
       if (isFirst && firstLabel === null) firstLabel = label;

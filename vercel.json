@@ -7,6 +7,10 @@
     {
       "path": "/api/sync-events",
       "schedule": "30 * * * *"
+    },
+    {
+      "path": "/api/ingest-sweep",
+      "schedule": "45 * * * *"
     }
   ]
 }
