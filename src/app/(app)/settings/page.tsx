@@ -42,6 +42,11 @@ export default async function SettingsPage() {
         availableLists={availableLists}
       />
       <BlockedUsers currentUserId={user.id} blockedUsers={blockedUsers} />
+      <div className="px-4 mt-6 flex items-center justify-center gap-4 text-xs text-text-muted">
+        <Link href="/privacy" className="hover:text-text-secondary transition-colors">Privacy Policy</Link>
+        <span>·</span>
+        <Link href="/terms" className="hover:text-text-secondary transition-colors">Terms of Service</Link>
+      </div>
       {admin && (
         <div className="px-4 mt-4">
           <Link
