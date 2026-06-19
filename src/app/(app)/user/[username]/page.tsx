@@ -67,8 +67,14 @@ export default async function UserProfilePage({ params }: Props) {
     redirect("/profile");
   }
 
-  // Check if blocked
-  const isBlocked = await checkBlocked(supabase, user.id, profile.id);
+  // These don't depend on each other — fetch in parallel rather than blocking
+  // the profile load on the block check first.
+  const [isBlocked, followRel, stats] = await Promise.all([
+    checkBlocked(supabase, user.id, profile.id),
+    fetchFollowRelationship(supabase, user.id, profile.id),
+    fetchProfileStats(supabase, profile.id),
+  ]);
+
   if (isBlocked) {
     return (
       <div className="px-4 py-8 max-w-lg mx-auto text-center">
@@ -76,11 +82,6 @@ export default async function UserProfilePage({ params }: Props) {
       </div>
     );
   }
-
-  const [followRel, stats] = await Promise.all([
-    fetchFollowRelationship(supabase, user.id, profile.id),
-    fetchProfileStats(supabase, profile.id),
-  ]);
 
   // Private profile gating: if private and not following, gate content
   const isGated = profile.is_private && !followRel.isFollowing;

@@ -351,24 +351,30 @@ async function computeListProgress(
 
   const userEventTags = await fetchUserEventTags(supabase, userId);
 
+  // Batch every list's items in one query instead of one-per-list (N+1).
+  const { data: allItems } = await supabase
+    .from("list_items")
+    .select("list_id, venue_id, event_tag")
+    .in("list_id", lists.map((l) => l.id));
+  const itemsByList = new Map<string, { venue_id: string | null; event_tag: string | null }[]>();
+  for (const it of allItems || []) {
+    const arr = itemsByList.get(it.list_id) ?? [];
+    arr.push(it);
+    itemsByList.set(it.list_id, arr);
+  }
+
   const result: UserListSummary[] = [];
 
   for (const list of lists) {
     let visited = 0;
-    const { data: items } = await supabase
-      .from("list_items")
-      .select("venue_id, event_tag")
-      .eq("list_id", list.id);
-
-    if (items) {
-      if (list.list_type === "venue") {
-        for (const item of items) {
-          if (item.venue_id && visitedVenueIds.has(item.venue_id)) visited++;
-        }
-      } else if (list.list_type === "event") {
-        for (const item of items) {
-          if (item.event_tag && userEventTags.has(item.event_tag)) visited++;
-        }
+    const items = itemsByList.get(list.id) ?? [];
+    if (list.list_type === "venue") {
+      for (const item of items) {
+        if (item.venue_id && visitedVenueIds.has(item.venue_id)) visited++;
+      }
+    } else if (list.list_type === "event") {
+      for (const item of items) {
+        if (item.event_tag && userEventTags.has(item.event_tag)) visited++;
       }
     }
 

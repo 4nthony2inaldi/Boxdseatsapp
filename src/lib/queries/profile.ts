@@ -324,47 +324,47 @@ export async function fetchPinnedLists(
 
   if (!lists || lists.length === 0) return [];
 
-  const result: PinnedListData[] = [];
+  const hasVenueList = lists.some((l) => l.list_type === "venue");
+  const hasEventList = lists.some((l) => l.list_type === "event");
 
-  for (const list of lists) {
-    let visited = 0;
+  // Batch every list's items in one query instead of one-per-list (N+1).
+  const { data: allItems } = await supabase
+    .from("list_items")
+    .select("list_id, venue_id, event_tag")
+    .in("list_id", lists.map((l) => l.id));
+  const itemsByList = new Map<string, { venue_id: string | null; event_tag: string | null }[]>();
+  for (const it of allItems || []) {
+    const arr = itemsByList.get(it.list_id) ?? [];
+    arr.push(it);
+    itemsByList.set(it.list_id, arr);
+  }
 
-    if (list.list_type === "venue") {
-      // Count venue list items the user has visited
-      const { data: listItems } = await supabase
-        .from("list_items")
+  // One pass for the user's visited venues across all venue lists…
+  let visitedVenues = new Set<string>();
+  if (hasVenueList) {
+    const venueIds = (allItems || []).map((i) => i.venue_id).filter(Boolean) as string[];
+    if (venueIds.length > 0) {
+      const { data: visits } = await supabase
+        .from("venue_visits")
         .select("venue_id")
-        .eq("list_id", list.id)
-        .not("venue_id", "is", null);
-
-      if (listItems && listItems.length > 0) {
-        const venueIds = listItems.map((li) => li.venue_id).filter(Boolean);
-        const { count } = await supabase
-          .from("venue_visits")
-          .select("id", { count: "exact", head: true })
-          .eq("user_id", userId)
-          .eq("relationship", "visited")
-          .in("venue_id", venueIds);
-        visited = count || 0;
-      }
-    } else if (list.list_type === "event") {
-      // Count event list items the user has logged
-      const { data: listItems } = await supabase
-        .from("list_items")
-        .select("event_tag")
-        .eq("list_id", list.id)
-        .not("event_tag", "is", null);
-
-      if (listItems && listItems.length > 0) {
-        const tags = listItems.map((li) => li.event_tag).filter(Boolean);
-        // Collect the tags the user has attended, then count LIST ITEMS
-        // matched — not logs (multi-day events produce several logs per item)
-        const userTags = await fetchUserEventTags(supabase, userId);
-        visited = tags.filter((t) => userTags.has(t!)).length;
-      }
+        .eq("user_id", userId)
+        .eq("relationship", "visited")
+        .in("venue_id", venueIds);
+      visitedVenues = new Set((visits || []).map((v) => v.venue_id as string));
     }
+  }
+  // …and one pass for the user's attended event tags across all event lists.
+  const userTags = hasEventList ? await fetchUserEventTags(supabase, userId) : new Set<string>();
 
-    result.push({
+  return lists.map((list) => {
+    const items = itemsByList.get(list.id) ?? [];
+    let visited = 0;
+    if (list.list_type === "venue") {
+      visited = items.filter((i) => i.venue_id && visitedVenues.has(i.venue_id)).length;
+    } else if (list.list_type === "event") {
+      visited = items.filter((i) => i.event_tag && userTags.has(i.event_tag)).length;
+    }
+    return {
       id: list.id,
       name: list.name,
       icon: getSportIconPath(list.sport) || "",
@@ -372,10 +372,8 @@ export async function fetchPinnedLists(
       sport: list.sport,
       item_count: list.item_count,
       visited,
-    });
-  }
-
-  return result;
+    };
+  });
 }
 
 export type ProfileSummaryCounts = {
