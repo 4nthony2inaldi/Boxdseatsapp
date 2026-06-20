@@ -126,7 +126,57 @@ export default function VenueFavoritesPicker({ userId, initialFavorites, onChang
 
   return (
     <div className="space-y-4">
-      {/* Your ranked venues */}
+      {/* Add venues — kept at the top so it never gets buried as the list of
+          added venues grows below it; encourages adding more. */}
+      <div>
+        <div className="font-display text-[11px] text-text-muted tracking-[1.5px] uppercase mb-2">
+          {favorites.length > 0 ? "Add another" : "Add venues"}
+        </div>
+
+        <div className="relative">
+          <input
+            type="text"
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder="Search by stadium name or city…"
+            className="w-full py-2.5 px-3 rounded-lg bg-bg-input border border-border text-text-primary text-sm outline-none focus:border-accent transition-colors"
+          />
+          {searching && (
+            <div className="absolute right-3 top-1/2 -translate-y-1/2">
+              <div className="w-3.5 h-3.5 border-2 border-text-muted border-t-accent rounded-full animate-spin" />
+            </div>
+          )}
+        </div>
+
+        {!query.trim() && favorites.length === 0 && (
+          <p className="mt-2 text-xs text-text-muted">
+            Search by stadium name or city. Some venues may be listed under a current or former name — try both if you don&apos;t see it.
+          </p>
+        )}
+
+        {visibleResults.length > 0 && (
+          <div className="mt-1.5 rounded-lg bg-bg-elevated border border-border max-h-72 overflow-y-auto">
+            {visibleResults.map((r) => (
+              <button
+                key={r.id}
+                onClick={() => add(r.id)}
+                disabled={saving}
+                className="w-full text-left px-3 py-2.5 flex items-center gap-2.5 hover:bg-bg-input transition-colors border-b border-border last:border-b-0 disabled:opacity-50"
+              >
+                <SportIcon sport={r.sport} size={18} />
+                <div className="min-w-0">
+                  <div className="text-sm text-text-primary truncate">{r.name}</div>
+                  <div className="text-xs text-text-muted truncate">
+                    {r.city}{r.state ? `, ${r.state}` : ""}
+                  </div>
+                </div>
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* Your ranked venues — populate below the search as you add them */}
       {favorites.length > 0 && (
         <div className="space-y-2">
           {favorites.map((fav, i) => {
@@ -176,55 +226,6 @@ export default function VenueFavoritesPicker({ userId, initialFavorites, onChang
           })}
         </div>
       )}
-
-      {/* Add venues */}
-      <div>
-        <div className="font-display text-[11px] text-text-muted tracking-[1.5px] uppercase mb-2">
-          {favorites.length > 0 ? "Add another" : "Add venues"}
-        </div>
-
-        <div className="relative">
-          <input
-            type="text"
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            placeholder="Search by stadium name or city…"
-            className="w-full py-2.5 px-3 rounded-lg bg-bg-input border border-border text-text-primary text-sm outline-none focus:border-accent transition-colors"
-          />
-          {searching && (
-            <div className="absolute right-3 top-1/2 -translate-y-1/2">
-              <div className="w-3.5 h-3.5 border-2 border-text-muted border-t-accent rounded-full animate-spin" />
-            </div>
-          )}
-        </div>
-
-        {!query.trim() && (
-          <p className="mt-2 text-xs text-text-muted">
-            Search by stadium name or city. Some venues may be listed under a current or former name — try both if you don&apos;t see it.
-          </p>
-        )}
-
-        {visibleResults.length > 0 && (
-          <div className="mt-1.5 rounded-lg bg-bg-elevated border border-border max-h-72 overflow-y-auto">
-            {visibleResults.map((r) => (
-              <button
-                key={r.id}
-                onClick={() => add(r.id)}
-                disabled={saving}
-                className="w-full text-left px-3 py-2.5 flex items-center gap-2.5 hover:bg-bg-input transition-colors border-b border-border last:border-b-0 disabled:opacity-50"
-              >
-                <SportIcon sport={r.sport} size={18} />
-                <div className="min-w-0">
-                  <div className="text-sm text-text-primary truncate">{r.name}</div>
-                  <div className="text-xs text-text-muted truncate">
-                    {r.city}{r.state ? `, ${r.state}` : ""}
-                  </div>
-                </div>
-              </button>
-            ))}
-          </div>
-        )}
-      </div>
     </div>
   );
 }
