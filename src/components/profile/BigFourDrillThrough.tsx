@@ -44,39 +44,55 @@ type SearchResult = {
 };
 
 /**
- * Athlete search: the /api/athlete-search route adds an ESPN fallback (to find
- * players we haven't ingested). But the picker must never be fully dependent on
- * that route — if it's unavailable for any reason, fall back to a direct local
- * search (authed via the client session) so the Players section always works.
+ * Athlete search. The local DB search runs client-side first and is what the
+ * picker depends on — it's authed via the session and always works. The
+ * /api/athlete-search route only ADDS players we don't have yet (ESPN); if it's
+ * empty, slow, or failing, we still show every local match. (Previously the
+ * Players section went only through the route, so any route hiccup showed
+ * nothing at all.)
  */
 async function searchAthletesWithFallback(
   supabase: SupabaseClient,
   q: string,
   sport: string | null
 ): Promise<SearchResult[]> {
+  const local = await searchAthletes(supabase, q, 10, sport);
+  const results: SearchResult[] = local.map((a) => ({
+    id: a.id,
+    label: a.name,
+    subtitle: a.sport || undefined,
+  }));
+  const haveIds = new Set(results.map((r) => r.id));
+
+  // Augment with ESPN-found players (best effort — never blocks local results).
   try {
     const res = await fetch("/api/athlete-search", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ q, sport }),
     });
-    if (!res.ok) throw new Error(`athlete-search ${res.status}`);
-    const { results } = (await res.json()) as {
-      results: { id: string | null; espnId: string | null; name: string; sport: string | null; headshot: string | null }[];
-    };
-    return results.map((r) => ({
-      id: r.id ?? "",
-      label: r.name,
-      subtitle: r.sport || undefined,
-      espnId: r.espnId ?? undefined,
-      espnSport: r.sport,
-      espnHeadshot: r.headshot,
-    }));
+    if (res.ok) {
+      const { results: extra } = (await res.json()) as {
+        results: { id: string | null; espnId: string | null; name: string; sport: string | null; headshot: string | null }[];
+      };
+      for (const r of extra) {
+        if (r.id && haveIds.has(r.id)) continue; // already shown from local
+        results.push({
+          id: r.id ?? "",
+          label: r.name,
+          subtitle: r.sport || undefined,
+          espnId: r.espnId ?? undefined,
+          espnSport: r.sport,
+          espnHeadshot: r.headshot,
+        });
+        if (r.id) haveIds.add(r.id);
+        if (results.length >= 12) break;
+      }
+    }
   } catch {
-    // Route failed — local-only search still surfaces players we already have.
-    const local = await searchAthletes(supabase, q, 10, sport);
-    return local.map((a) => ({ id: a.id, label: a.name, subtitle: a.sport || undefined }));
+    // ignore — local results stand on their own
   }
+  return results;
 }
 
 const CATEGORY_NOUN: Record<Props["category"], string> = {
