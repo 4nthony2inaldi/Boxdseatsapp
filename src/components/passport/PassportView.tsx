@@ -209,7 +209,11 @@ export default function PassportView({ username, displayName, avatarUrl, data, e
           </div>
           <div className="flex gap-3 overflow-x-auto px-4 scroll-fade-x" style={{ scrollbarWidth: "none" }}>
             {players.map((p) => (
-              <div key={p.id} className="flex flex-col items-center text-center w-20 flex-shrink-0">
+              <Link
+                key={p.id}
+                href={`/u/${username}/athlete/${p.id}`}
+                className="flex flex-col items-center text-center w-20 flex-shrink-0 hover:opacity-80 transition-opacity"
+              >
                 <div className="relative">
                   <div className="w-16 h-16 rounded-full overflow-hidden bg-bg-elevated flex items-center justify-center">
                     {p.headshot_url ? (
@@ -226,7 +230,7 @@ export default function PassportView({ username, displayName, avatarUrl, data, e
                   </span>
                 </div>
                 <div className="text-[11px] text-text-primary font-medium mt-1.5 leading-tight line-clamp-2">{p.name}</div>
-              </div>
+              </Link>
             ))}
           </div>
         </div>
