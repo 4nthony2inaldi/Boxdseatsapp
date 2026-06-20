@@ -65,60 +65,66 @@ export default async function VenueDetailPage({
 
   return (
     <div className="px-4 pb-8 max-w-lg mx-auto">
-      {/* Back button */}
-      <div className="pt-4 pb-2">
-        <BackButton fallback="/explore" />
-      </div>
-
-      {/* Hero header */}
-      <div className="relative -mx-4 -mt-0 mb-5">
+      {/* Hero header — full-bleed cover at the very top, with the back button
+          and venue name overlaid. A strong bottom scrim keeps the name legible
+          over any cover photo (light ones used to wash it out). */}
+      <div className="relative -mx-4 mb-5 h-44 overflow-hidden">
         {venueCover ? (
-          <div className="relative">
-            <Image
-              src={venueCover.photo_url}
-              alt={`${venue.name} cover photo`}
-              width={800}
-              height={176}
-              quality={75}
-              sizes="(max-width: 640px) 100vw, 640px"
-              className="w-full h-44 object-cover"
-            />
-            <div className="absolute inset-0 bg-gradient-to-t from-bg via-transparent to-transparent" />
-            <div className="absolute bottom-2 right-3 flex items-center gap-1 bg-black/50 backdrop-blur-sm rounded-full px-2 py-0.5">
-              <CameraIcon size={11} className="text-white/80" />
-              <span className="text-[10px] text-white/80">
-                @{venueCover.username}
-              </span>
-            </div>
-          </div>
+          <Image
+            src={venueCover.photo_url}
+            alt={`${venue.name} cover photo`}
+            width={800}
+            height={176}
+            quality={75}
+            sizes="(max-width: 640px) 100vw, 640px"
+            className="absolute inset-0 w-full h-full object-cover"
+          />
         ) : venue.photo_url ? (
-          <div className="relative h-44 bg-gradient-to-b from-accent/20 via-accent/5 to-bg">
-            <HeroImage
-              src={venue.photo_url}
-              alt={`${venue.name}`}
-              className="absolute inset-0 w-full h-full object-cover"
-            />
-            <div className="absolute inset-0 bg-gradient-to-t from-bg via-transparent to-transparent" />
-          </div>
+          <HeroImage
+            src={venue.photo_url}
+            alt={venue.name}
+            className="absolute inset-0 w-full h-full object-cover"
+          />
         ) : (
-          <div className="h-36 bg-gradient-to-b from-accent/20 via-accent/5 to-bg" />
+          <div className="absolute inset-0 bg-gradient-to-b from-accent/25 via-accent/10 to-bg" />
         )}
-        <div className="px-4 -mt-8">
-          <h1 className="font-display text-3xl text-text-primary tracking-wide leading-tight">
+
+        {/* Readability scrim: darker at top (back button) and bottom (title). */}
+        <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/15 to-black/35" />
+
+        {/* Back button, overlaid */}
+        <div className="absolute top-3 left-3 z-10">
+          <BackButton fallback="/explore" />
+        </div>
+
+        {/* Cover photo credit */}
+        {venueCover && (
+          <div className="absolute top-3 right-3 flex items-center gap-1 bg-black/50 backdrop-blur-sm rounded-full px-2 py-0.5">
+            <CameraIcon size={11} className="text-white/80" />
+            <span className="text-[10px] text-white/80">@{venueCover.username}</span>
+          </div>
+        )}
+
+        {/* Venue name + location, overlaid on the bottom of the cover */}
+        <div className="absolute bottom-0 inset-x-0 px-4 pb-3">
+          <h1
+            className="font-display text-3xl text-white tracking-wide leading-tight"
+            style={{ textShadow: "0 1px 10px rgba(0,0,0,0.7)" }}
+          >
             {venue.name}
           </h1>
           <div className="flex items-center gap-2 mt-1">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#9BA1B5" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.85)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" />
               <circle cx="12" cy="10" r="3" />
             </svg>
-            <span className="text-sm text-text-secondary">
+            <span className="text-sm text-white/90" style={{ textShadow: "0 1px 6px rgba(0,0,0,0.7)" }}>
               {venue.city}{venue.state ? `, ${venue.state}` : ""}
             </span>
             {venue.capacity && (
               <>
-                <span className="text-text-muted">·</span>
-                <span className="text-sm text-text-muted">
+                <span className="text-white/60">·</span>
+                <span className="text-sm text-white/75" style={{ textShadow: "0 1px 6px rgba(0,0,0,0.7)" }}>
                   {venue.capacity.toLocaleString()} capacity
                 </span>
               </>
