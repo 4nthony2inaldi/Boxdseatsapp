@@ -221,11 +221,11 @@ export async function fetchFeed(
 
       let matchup: string | null = null;
       if (event?.home_team && event?.away_team) {
-        const hs = event.home_score ?? "";
-        const as_ = event.away_score ?? "";
         // Full team name (e.g. "Boston College Eagles") so the matchup isn't
-        // ambiguous — many teams share a nickname.
-        matchup = `${event.home_team.name} ${hs} — ${event.away_team.name} ${as_}`;
+        // ambiguous — many teams share a nickname. Scores omitted until final.
+        matchup = event.home_score != null && event.away_score != null
+          ? `${event.home_team.name} ${event.home_score} — ${event.away_team.name} ${event.away_score}`
+          : `${event.home_team.name} — ${event.away_team.name}`;
       } else if (event?.tournament_name) {
         matchup = event.tournament_name;
       }

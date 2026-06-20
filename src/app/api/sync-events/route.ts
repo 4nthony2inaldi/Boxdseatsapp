@@ -165,13 +165,13 @@ async function handleSync(request: Request) {
     // Existing events in the window, by ESPN id
     const { data: existing } = await supabase
       .from("events")
-      .select("id, event_date, home_score, away_score, external_ids")
+      .select("id, event_date, home_score, away_score, home_team_id, away_team_id, external_ids")
       .eq("league_id", leagueId)
       .gte("event_date", fromDate)
       .lte("event_date", toDate);
     const existingByEspn = new Map<
       string,
-      { id: string; event_date: string; home_score: number | null; away_score: number | null }
+      { id: string; event_date: string; home_score: number | null; away_score: number | null; home_team_id: string | null; away_team_id: string | null }
     >();
     for (const e of existing || []) {
       const espn = (e.external_ids as Record<string, string>)?.espn;
@@ -245,6 +245,17 @@ async function handleSync(request: Request) {
           }
           if (updates.home_score !== undefined) stats.scoresUpdated++;
           if (updates.event_date !== undefined) stats.dateCorrected++;
+        }
+        // A game logged while it was scheduled/in-progress saved with a null
+        // outcome; now that the final score is in, fill the fan W/L for those
+        // logs (otherwise the passport record silently undercounts).
+        if (!dryRun && updates.home_score !== undefined && found.home_team_id && found.away_team_id) {
+          const homeOutcome = homeScore! > awayScore! ? "win" : homeScore! < awayScore! ? "loss" : "draw";
+          const awayOutcome = homeOutcome === "win" ? "loss" : homeOutcome === "loss" ? "win" : "draw";
+          await supabase.from("event_logs").update({ outcome: homeOutcome })
+            .eq("event_id", found.id).eq("rooting_team_id", found.home_team_id).eq("is_neutral", false).is("outcome", null);
+          await supabase.from("event_logs").update({ outcome: awayOutcome })
+            .eq("event_id", found.id).eq("rooting_team_id", found.away_team_id).eq("is_neutral", false).is("outcome", null);
         }
         continue;
       }
@@ -347,12 +358,20 @@ async function handleSync(request: Request) {
       });
       if (orphans.length > 0) {
         const ids = orphans.map((o) => o.id);
-        const { data: withLogs } = await supabase
-          .from("event_logs")
-          .select("event_id")
-          .in("event_id", ids);
-        const logged = new Set((withLogs || []).map((l) => l.event_id as string));
-        const removable = ids.filter((id) => !logged.has(id));
+        // Never delete an event anyone references — logged it, favorited it, or
+        // it's a venue cover. (Mirrors the seeder's guard.)
+        const referenced = new Set<string>();
+        const [logsRes, favRes, profRes, coverRes] = await Promise.all([
+          supabase.from("event_logs").select("event_id").in("event_id", ids),
+          supabase.from("user_league_favorites").select("event_id").in("event_id", ids),
+          supabase.from("profiles").select("fav_event_id").in("fav_event_id", ids),
+          supabase.from("venues").select("current_cover_event_id").in("current_cover_event_id", ids),
+        ]);
+        for (const r of logsRes.data || []) if (r.event_id) referenced.add(r.event_id as string);
+        for (const r of favRes.data || []) if (r.event_id) referenced.add(r.event_id as string);
+        for (const r of profRes.data || []) if (r.fav_event_id) referenced.add(r.fav_event_id as string);
+        for (const r of coverRes.data || []) if (r.current_cover_event_id) referenced.add(r.current_cover_event_id as string);
+        const removable = ids.filter((id) => !referenced.has(id));
         if (removable.length > 0 && !dryRun) {
           await supabase.from("events").delete().in("id", removable);
         }

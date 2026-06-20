@@ -45,7 +45,7 @@ async function espn(url: string): Promise<Record<string, unknown> | null> {
   }
 }
 
-const MAX_GOLF_DAYS = 7;
+const MAX_GOLF_DAYS = 8; // match the seeder so an 8-day event isn't split/skipped
 
 /**
  * Create upcoming/in-progress PGA tournaments as round-day `field` events, and
@@ -145,7 +145,8 @@ export async function syncUpcomingGolf(
         };
       });
       const { error } = await supabase.from("events").insert(rows);
-      if (!error) { stats.created += rows.length; stats.tournaments++; }
+      if (error) console.error(`[upcomingGolf] insert failed for ${ev.name} (${id}): ${error.message}`);
+      else { stats.created += rows.length; stats.tournaments++; }
     }
 
     // Finalize: fill winner on existing rows that lack one.

@@ -84,9 +84,10 @@ export async function fetchPublicEventLog(
 
   let matchup: string | null = null;
   if (event?.home_team && event?.away_team) {
-    const hs = event.home_score ?? "";
-    const as_ = event.away_score ?? "";
-    matchup = `${event.home_team.short_name} ${hs} — ${event.away_team.short_name} ${as_}`;
+    // Omit scores for not-yet-final games so we don't render "Yankees  — Padres "
+    matchup = event.home_score != null && event.away_score != null
+      ? `${event.home_team.short_name} ${event.home_score} — ${event.away_team.short_name} ${event.away_score}`
+      : `${event.home_team.short_name} — ${event.away_team.short_name}`;
   } else if (event?.tournament_name) {
     matchup = event.tournament_name;
   }
