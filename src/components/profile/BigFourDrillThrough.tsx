@@ -23,6 +23,19 @@ import SportIcon from "@/components/SportIcon";
 // Sports with no teams — the "team" slot for these leagues holds an
 // athlete (Sinner for ATP, Blaney for NASCAR, ...).
 const INDIVIDUAL_SPORTS = new Set(["tennis", "golf", "motorsports"]);
+// Anything that isn't a team sport is hidden from the Teams section (you can't
+// "root for a team" in golf/tennis/motorsports/MMA/horse racing) — those are
+// picked in the Players section instead.
+const NON_TEAM_SPORTS = new Set(["tennis", "golf", "motorsports", "mma", "horse_racing"]);
+// League display order, roughly by US popularity. Individual-sport leagues
+// (pga/atp/f1/nascar) only surface in the Players section — in Teams they're
+// filtered out, so the remaining order still reads NFL→MLB→…→MLS. Anything not
+// listed falls to the end, alphabetically.
+const LEAGUE_PRIORITY: Record<string, number> = {
+  nfl: 1, mlb: 2, nba: 3, nhl: 4, "eng.1": 5,
+  "pga-tour": 6, atp: 7, f1: 8, "nascar-cup": 9,
+  ncaaf: 10, ncaam: 11, mls: 12,
+};
 
 type Props = {
   userId: string;
@@ -148,11 +161,20 @@ export default function BigFourDrillThrough({
   };
 
   const pickedSlugs = new Set(favorites.map((f) => f.league_slug));
-  // Individual sports (golf/tennis/motorsports) have no teams — they're picked
-  // in the Players section. Don't offer them in the Teams section (confusing).
-  const unpickedLeagues = allLeagues.filter(
-    (l) => !pickedSlugs.has(l.slug) && !(category === "team" && !!l.sport && INDIVIDUAL_SPORTS.has(l.sport))
-  );
+  // Teams section: team sports only (no golf/tennis/motorsports/MMA/horse
+  // racing — those are picked in Players). Ordered by US popularity, then
+  // alphabetically for anything not in the priority list.
+  const unpickedLeagues = allLeagues
+    .filter(
+      (l) =>
+        !pickedSlugs.has(l.slug) &&
+        !(category === "team" && !!l.sport && NON_TEAM_SPORTS.has(l.sport))
+    )
+    .sort(
+      (a, b) =>
+        (LEAGUE_PRIORITY[a.slug] ?? 1000) - (LEAGUE_PRIORITY[b.slug] ?? 1000) ||
+        a.name.localeCompare(b.name)
+    );
 
   // Report progress (headliner is the lowest-rank pick) for onboarding.
   useEffect(() => {
