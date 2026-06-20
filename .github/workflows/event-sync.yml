@@ -50,12 +50,17 @@ jobs:
         id: win
         run: |
           echo "from=$(date -u -d '21 days ago' +%F)" >> "$GITHUB_OUTPUT"
+          echo "ahead=$(date -u -d '45 days' +%F)" >> "$GITHUB_OUTPUT"
           echo "year=$(date -u +%Y)" >> "$GITHUB_OUTPUT"
 
       # --- DATABASE_URL scripts ---
+      # --to reaches into the future so scheduled / in-progress races are created
+      # (loggable + shown in "happening around you" before they finish), not only
+      # completed ones. Motorsports honors this; golf/tennis stay completed-only
+      # here (golf upcoming is handled live by the Vercel cron).
       - name: Golf / tennis / motorsports (field events)
         if: ${{ always() && env.DATABASE_URL != '' }}
-        run: node scripts/data/seed-field-events.mjs --from=${{ steps.win.outputs.from }} $DRY
+        run: node scripts/data/seed-field-events.mjs --from=${{ steps.win.outputs.from }} --to=${{ steps.win.outputs.ahead }} $DRY
 
       - name: College basketball (M+W)
         if: ${{ always() && env.DATABASE_URL != '' }}

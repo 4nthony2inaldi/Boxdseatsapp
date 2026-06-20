@@ -600,8 +600,21 @@ function push(map, key, val) {
 
 const args = parseArgs(process.argv);
 const limiter = makeLimiter(CONCURRENCY);
-const db = new Client({ connectionString: process.env.DATABASE_URL || DEFAULT_DB });
-await db.connect();
+// The Supabase pooler occasionally rejects the first auth after an idle period
+// (a spurious 28P01); retry a few times with a fresh client before giving up.
+let db;
+for (let attempt = 1; ; attempt++) {
+  db = new Client({ connectionString: process.env.DATABASE_URL || DEFAULT_DB });
+  try {
+    await db.connect();
+    break;
+  } catch (err) {
+    try { await db.end(); } catch { /* ignore */ }
+    if (attempt >= 4) throw err;
+    console.warn(`db connect failed (attempt ${attempt}): ${err.message} — retrying in ${attempt}s`);
+    await sleep(attempt * 1000);
+  }
+}
 if (args.dryRun) await db.query('begin');
 
 console.log(`Seeding field events leagues=[${args.leagues.join(',')}] from=${args.from} to=${args.to}${args.dryRun ? ' (DRY RUN — all changes rolled back)' : ''}`);
@@ -1110,10 +1123,9 @@ async function seedRacing(leagueKey, cfg, leagueId, stats) {
 
   for (const ev of events) {
     const id = String(ev.id);
-    if (ev.status?.type?.completed !== true) { stats.filtered++; continue; }
+    const completed = ev.status?.type?.completed === true;
     if (ev.season?.type === 1 || ev.season?.type === 4) { stats.filtered++; continue; } // pre/off-season
     if (cfg.coreLeague && NASCAR_EXHIBITION_RE.test(ev.name ?? '')) { stats.filtered++; continue; }
-    if (extSet.has(id)) { stats.skipped++; continue; }
 
     // the race competition (F1 weekends also list FP/Quali/Sprint sessions)
     let raceComp = null;
@@ -1122,6 +1134,25 @@ async function seedRacing(leagueKey, cfg, leagueId, stats) {
       if (!raceComp) { stats.filtered++; continue; } // testing weekends etc.
     } else {
       raceComp = ev.competitions?.[0] ?? null;
+    }
+    const winner = (raceComp?.competitors ?? []).find((c) => c.winner === true)?.athlete?.displayName
+      ?? (raceComp?.competitors ?? []).find((c) => c.order === 1)?.athlete?.displayName
+      ?? null;
+
+    // Already stored: once the race is final, fill the winner; otherwise leave
+    // the scheduled/in-progress row as-is (it was created on an earlier run).
+    if (extSet.has(id)) {
+      if (completed && winner) {
+        const upd = await db.query(
+          `update events set winner_name = $1
+             where external_ids->>'espn' = $2 and (winner_name is null or winner_name = '')`,
+          [winner, id],
+        );
+        if (upd.rowCount) stats.finalized = (stats.finalized ?? 0) + upd.rowCount;
+      } else {
+        stats.skipped++;
+      }
+      continue;
     }
 
     let venueSpec = null;
@@ -1144,9 +1175,6 @@ async function seedRacing(leagueKey, cfg, leagueId, stats) {
     const raceDate = raceLocalDate(raceComp?.date ?? ev.date, venueSpec.country ?? 'US');
     if (raceDate > args.to || raceDate < args.from) { stats.filtered++; continue; }
 
-    const winner = (raceComp?.competitors ?? []).find((c) => c.winner === true)?.athlete?.displayName
-      ?? (raceComp?.competitors ?? []).find((c) => c.order === 1)?.athlete?.displayName
-      ?? null;
     const season = Number(ev.season?.year) || Number(raceDate.slice(0, 4));
     const isPost = ev.season?.type === 3;
 
