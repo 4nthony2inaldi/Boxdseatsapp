@@ -1,0 +1,87 @@
+name: Event sync (college + individual sports)
+
+# Keeps the leagues that the Vercel /api/sync-events cron does NOT cover up to
+# date, using the proven seed scripts incrementally. The Vercel cron handles the
+# standard team/soccer scoreboards (NFL/NBA/MLB/NHL/WNBA/MLS/NWSL/top-5 European
+# soccer/World Cup). This workflow covers everything that needs the bespoke
+# seed logic: college (hoops + football) and the individual sports
+# (golf, tennis, motorsports incl. IMSA, horse racing, UFC).
+#
+# Required repository secrets (Settings -> Secrets and variables -> Actions):
+#   DATABASE_URL       direct Postgres connection string (seed-real-data, seed-field-events)
+#   SUPABASE_PAT       Supabase personal access token   (seed-ncaaf, seed-imsa, seed-ufc, seed-tennis-slams, seed-horse-racing)
+#   SUPABASE_PROJECT   Supabase project ref             (the SUPABASE_PAT scripts)
+#
+# Each step is gated on the secret it needs, so until the secrets are added the
+# workflow runs as a harmless no-op (no failures). Run it manually first with
+# "Dry run = true" to validate before the schedule does live writes.
+
+on:
+  schedule:
+    - cron: "0 */6 * * *" # every 6 hours
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "Roll back all DB changes (validate only)"
+        type: boolean
+        default: false
+
+concurrency:
+  group: event-sync
+  cancel-in-progress: false
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    env:
+      DATABASE_URL: ${{ secrets.DATABASE_URL }}
+      SUPABASE_PAT: ${{ secrets.SUPABASE_PAT }}
+      SUPABASE_PROJECT: ${{ secrets.SUPABASE_PROJECT }}
+      DRY: ${{ github.event.inputs.dry_run == 'true' && '--dry-run' || '' }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+
+      - name: Compute incremental window
+        id: win
+        run: |
+          echo "from=$(date -u -d '21 days ago' +%F)" >> "$GITHUB_OUTPUT"
+          echo "year=$(date -u +%Y)" >> "$GITHUB_OUTPUT"
+
+      # --- DATABASE_URL scripts ---
+      - name: Golf / tennis / motorsports (field events)
+        if: ${{ always() && env.DATABASE_URL != '' }}
+        run: node scripts/data/seed-field-events.mjs --from=${{ steps.win.outputs.from }} $DRY
+
+      - name: College basketball (M+W)
+        if: ${{ always() && env.DATABASE_URL != '' }}
+        run: node scripts/data/seed-real-data.mjs --leagues=ncaam,ncaaw --from=${{ steps.win.outputs.from }} $DRY
+
+      # --- SUPABASE_PAT scripts ---
+      - name: College football
+        if: ${{ always() && env.SUPABASE_PAT != '' }}
+        run: node scripts/data/seed-ncaaf.mjs --phase=games --seasons=${{ steps.win.outputs.year }} $DRY
+
+      - name: IMSA
+        if: ${{ always() && env.SUPABASE_PAT != '' }}
+        run: node scripts/data/seed-imsa.mjs --from-year=${{ steps.win.outputs.year }} --to-year=${{ steps.win.outputs.year }} $DRY
+
+      - name: UFC
+        if: ${{ always() && env.SUPABASE_PAT != '' }}
+        run: node scripts/data/seed-ufc.mjs --from-year=${{ steps.win.outputs.year }} --to-year=${{ steps.win.outputs.year }} $DRY
+
+      - name: Tennis majors
+        if: ${{ always() && env.SUPABASE_PAT != '' }}
+        run: node scripts/data/seed-tennis-slams.mjs --from-year=${{ steps.win.outputs.year }} --to-year=${{ steps.win.outputs.year }} $DRY
+
+      - name: Horse racing (marquee)
+        if: ${{ always() && env.SUPABASE_PAT != '' }}
+        run: node scripts/data/seed-horse-racing.mjs $DRY
+
+      - name: Notice when nothing ran
+        if: ${{ env.DATABASE_URL == '' && env.SUPABASE_PAT == '' }}
+        run: echo "::warning::event-sync skipped — set DATABASE_URL and SUPABASE_PAT repository secrets to enable."

@@ -19,7 +19,14 @@ const LEAGUE_PATHS: Record<string, string> = {
   nba: "basketball/nba",
   mlb: "baseball/mlb",
   nhl: "hockey/nhl",
+  wnba: "basketball/wnba",
   mls: "soccer/usa.1",
+  nwsl: "soccer/usa.nwsl",
+  "eng.1": "soccer/eng.1",
+  "esp.1": "soccer/esp.1",
+  "ger.1": "soccer/ger.1",
+  "ita.1": "soccer/ita.1",
+  "fra.1": "soccer/fra.1",
   "fifa.world": "soccer/fifa.world",
 };
 
@@ -28,7 +35,14 @@ const LEAGUE_SPORTS: Record<string, string> = {
   nba: "basketball",
   mlb: "baseball",
   nhl: "hockey",
+  wnba: "basketball",
   mls: "soccer",
+  nwsl: "soccer",
+  "eng.1": "soccer",
+  "esp.1": "soccer",
+  "ger.1": "soccer",
+  "ita.1": "soccer",
+  "fra.1": "soccer",
   "fifa.world": "soccer",
 };
 
