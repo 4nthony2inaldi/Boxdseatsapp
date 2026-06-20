@@ -99,22 +99,25 @@ def main():
     ids = list({l["event_id"] for l in logs})
     meta = {}
     for i in range(0, len(ids), 50):
-        for r in db_get("events?select=id,event_date,external_ids,home_team_id,away_team_id,leagues(sport,slug)&id=in.(" + ",".join(ids[i:i+50]) + ")"):
+        for r in db_get("events?select=id,event_date,external_ids,league_id,home_team_id,away_team_id,leagues(sport,slug)&id=in.(" + ",".join(ids[i:i+50]) + ")"):
             meta[r["id"]] = {"espn": (r.get("external_ids") or {}).get("espn"), "sport": (r.get("leagues") or {}).get("sport"),
-                             "slug": (r.get("leagues") or {}).get("slug"), "date": r["event_date"]}
+                             "slug": (r.get("leagues") or {}).get("slug"), "date": r["event_date"], "league_id": r.get("league_id")}
     # events already ingested -> skip (idempotent)
     done = set()
     for i in range(0, len(ids), 50):
         for r in db_get("event_athletes?select=event_id&event_id=in.(" + ",".join(ids[i:i+50]) + ")"):
             done.add(r["event_id"])
-    # team espn id -> our uuid
+    # (league_id, espn team id) -> our uuid. ESPN reuses the same numeric team
+    # id across sports (id 10 is both the NY Yankees and the Houston Rockets),
+    # so the lookup must be scoped to the event's league or a wrong-sport team
+    # can win.
     team_map = {}
     off = 0
     while True:
-        rows = db_get(f"teams?select=id,external_ids&order=id&limit=1000&offset={off}")
+        rows = db_get(f"teams?select=id,league_id,external_ids&order=id&limit=1000&offset={off}")
         for t in rows:
             e = (t.get("external_ids") or {}).get("espn")
-            if e: team_map[str(e)] = t["id"]
+            if e: team_map[(t.get("league_id"), str(e))] = t["id"]
         if len(rows) < 1000: break
         off += 1000
 
@@ -161,7 +164,8 @@ def main():
             uuid = espn_to_uuid.get((sport, aid))
             if not uuid:  # only happens in dry run (new athletes not inserted)
                 continue
-            ea_rows.append({"event_id": eid, "athlete_id": uuid, "team_id": team_map.get(tid),
+            ea_rows.append({"event_id": eid, "athlete_id": uuid,
+                            "team_id": team_map.get((meta[eid].get("league_id"), str(tid))) if tid else None,
                             "finish_position": pos, "is_winner": winner})
     if LIVE and ea_rows:
         for i in range(0, len(ea_rows), 500):
