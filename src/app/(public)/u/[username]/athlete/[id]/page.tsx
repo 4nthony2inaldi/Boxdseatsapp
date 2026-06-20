@@ -1,0 +1,219 @@
+import type { Metadata } from "next";
+import Image from "next/image";
+import Link from "next/link";
+import { createClient } from "@/lib/supabase/server";
+import { fetchAthleteForUser } from "@/lib/queries/athlete";
+import SectionLabel from "@/components/profile/SectionLabel";
+import OutcomeBadge from "@/components/profile/OutcomeBadge";
+import StarRating from "@/components/profile/StarRating";
+import SportIcon from "@/components/SportIcon";
+import { formatDate } from "@/lib/formatters";
+
+type Props = { params: Promise<{ username: string; id: string }> };
+
+function initials(name: string): string {
+  const parts = name.trim().split(/\s+/).filter(Boolean);
+  if (parts.length === 0) return "?";
+  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
+  return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+}
+
+function ordinal(n: number): string {
+  const s = ["th", "st", "nd", "rd"];
+  const v = n % 100;
+  return n + (s[(v - 20) % 10] || s[v] || s[0]);
+}
+
+export async function generateMetadata({ params }: Props): Promise<Metadata> {
+  const { username, id } = await params;
+  const supabase = await createClient();
+  const { data: ath } = await supabase.from("athletes").select("name").eq("id", id).maybeSingle();
+  const name = ath?.name || "Player";
+  return {
+    title: `${name} — seen by @${username} | BoxdSeats`,
+    robots: { index: false, follow: false },
+  };
+}
+
+export default async function UserAthletePage({ params }: Props) {
+  const { username, id } = await params;
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("id, username, display_name, is_private")
+    .eq("username", username)
+    .maybeSingle();
+
+  if (!profile) {
+    return (
+      <div className="min-h-screen bg-bg flex items-center justify-center px-4 text-center">
+        <p className="text-text-muted text-sm">Profile not found.</p>
+      </div>
+    );
+  }
+
+  const isOwner = user?.id === profile.id;
+
+  // Mirror the passport's privacy gate: private profiles are visible only to the
+  // owner and active followers.
+  if (profile.is_private && !isOwner) {
+    let following = false;
+    if (user) {
+      const { data: rel } = await supabase
+        .from("follows")
+        .select("status")
+        .eq("follower_id", user.id)
+        .eq("following_id", profile.id)
+        .maybeSingle();
+      following = rel?.status === "active";
+    }
+    if (!following) {
+      return (
+        <div className="min-h-screen bg-bg flex items-center justify-center px-4 text-center">
+          <p className="text-text-muted text-sm">This passport is private.</p>
+        </div>
+      );
+    }
+  }
+
+  const athlete = await fetchAthleteForUser(supabase, profile.id, id);
+  if (!athlete) {
+    return (
+      <div className="min-h-screen bg-bg flex items-center justify-center px-4 text-center">
+        <p className="text-text-muted text-sm">Player not found.</p>
+      </div>
+    );
+  }
+
+  const who = isOwner ? "You" : profile.display_name || `@${profile.username}`;
+  const possessive = isOwner ? "your" : "their";
+  const decided = athlete.wins + athlete.losses;
+  const winPct = decided > 0 ? Math.round((athlete.wins / decided) * 100) : null;
+  const record =
+    athlete.draws > 0
+      ? `${athlete.wins}-${athlete.losses}-${athlete.draws}`
+      : `${athlete.wins}-${athlete.losses}`;
+
+  return (
+    <div className="min-h-screen bg-bg">
+      <div className="max-w-lg mx-auto px-4 pb-12">
+        {/* Header */}
+        <div className="flex items-center gap-3 py-3">
+          <Link href={`/u/${username}/passport`} className="p-1 -ml-1 hover:opacity-80 transition-opacity" aria-label="Back to passport">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--color-text-secondary)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <polyline points="15 18 9 12 15 6" />
+            </svg>
+          </Link>
+          <span className="text-xs text-text-muted">{who === "You" ? "Your passport" : `${who}'s passport`}</span>
+        </div>
+
+        {/* Identity */}
+        <div className="flex flex-col items-center text-center pt-2 pb-5">
+          <div className="w-24 h-24 rounded-full overflow-hidden bg-bg-elevated flex items-center justify-center">
+            {athlete.headshotUrl ? (
+              <Image src={athlete.headshotUrl} alt={athlete.name} width={96} height={96} className="w-full h-full object-cover" />
+            ) : (
+              <span className="font-display text-2xl text-text-secondary">{initials(athlete.name)}</span>
+            )}
+          </div>
+          <h1 className="font-display text-2xl text-text-primary tracking-wide mt-3">{athlete.name}</h1>
+          <div className="flex items-center gap-2 mt-1.5">
+            {athlete.icon && <SportIcon src={athlete.icon} size={16} />}
+            {athlete.teams.length > 0 && (
+              <span className="text-sm text-text-secondary">
+                {athlete.teams.map((t) => t.name).filter(Boolean).join(" · ")}
+              </span>
+            )}
+          </div>
+        </div>
+
+        {/* Stats — what we can derive from the box scores + your logs */}
+        <div className="flex gap-2 rounded-2xl border border-border bg-bg-card px-2 py-4">
+          <div className="flex-1 text-center">
+            <div className="font-display text-2xl text-text-primary tracking-wide leading-none">{athlete.seenCount}</div>
+            <div className="text-[10px] text-text-secondary uppercase tracking-wider mt-1.5">
+              {athlete.seenCount === 1 ? "Time seen" : "Times seen"}
+            </div>
+          </div>
+
+          {athlete.isIndividual ? (
+            <>
+              <div className="flex-1 text-center">
+                <div className="font-display text-2xl text-text-primary tracking-wide leading-none">{athlete.victories}</div>
+                <div className="text-[10px] text-text-secondary uppercase tracking-wider mt-1.5">Wins seen</div>
+              </div>
+              <div className="flex-1 text-center">
+                <div className="font-display text-2xl text-text-primary tracking-wide leading-none">
+                  {athlete.bestFinish != null ? ordinal(athlete.bestFinish) : "—"}
+                </div>
+                <div className="text-[10px] text-text-secondary uppercase tracking-wider mt-1.5">Best finish</div>
+              </div>
+            </>
+          ) : (
+            <>
+              <div className="flex-1 text-center">
+                <div className="font-display text-2xl text-text-primary tracking-wide leading-none">{record}</div>
+                <div className="text-[10px] text-text-secondary uppercase tracking-wider mt-1.5">{possessive} record</div>
+              </div>
+              <div className="flex-1 text-center">
+                <div className="font-display text-2xl text-text-primary tracking-wide leading-none">
+                  {winPct !== null ? `${winPct}%` : "—"}
+                </div>
+                <div className="text-[10px] text-text-secondary uppercase tracking-wider mt-1.5">Win%</div>
+              </div>
+            </>
+          )}
+        </div>
+
+        {/* Games */}
+        <div className="mt-7">
+          <SectionLabel>{isOwner ? "Games you saw them in" : "Games seen in"}</SectionLabel>
+          <div className="space-y-2">
+            {athlete.games.map((g) => {
+              const hasScore = g.homeScore != null && g.awayScore != null;
+              const isMatch = g.template === "match" || (!!g.homeAbbr && !!g.awayAbbr);
+              return (
+                <Link
+                  key={g.eventId}
+                  href={`/event/${g.eventId}`}
+                  className="block bg-bg-card rounded-xl border border-border px-4 py-3 hover:bg-bg-elevated/50 transition-colors"
+                >
+                  <div className="flex items-center gap-3">
+                    <SportIcon src={g.icon} size={20} />
+                    <div className="flex-1 min-w-0">
+                      <div className="text-sm text-text-primary font-medium truncate">
+                        {isMatch ? (
+                          hasScore
+                            ? `${g.awayAbbr} ${g.awayScore} – ${g.homeAbbr} ${g.homeScore}`
+                            : `${g.awayAbbr} @ ${g.homeAbbr}`
+                        ) : (
+                          g.tournamentName || g.leagueName || "Event"
+                        )}
+                      </div>
+                      <div className="text-[11px] text-text-muted truncate">
+                        {formatDate(g.eventDate)}
+                        {g.venueName ? ` · ${g.venueName}` : ""}
+                        {g.city ? `, ${g.city}` : ""}
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2 shrink-0">
+                      {athlete.isIndividual && g.finishPosition != null && (
+                        <span className={`font-display text-[11px] tracking-wider ${g.finishPosition === 1 ? "text-accent" : "text-text-muted"}`}>
+                          {ordinal(g.finishPosition)}
+                        </span>
+                      )}
+                      {g.userRating ? <StarRating rating={g.userRating} size={11} /> : null}
+                      <OutcomeBadge outcome={g.userOutcome} />
+                    </div>
+                  </div>
+                </Link>
+              );
+            })}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
