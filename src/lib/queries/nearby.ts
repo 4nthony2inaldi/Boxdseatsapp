@@ -27,7 +27,9 @@ export type NearbyPage = {
   before: string | null;
 };
 
-const RADIUS_M = 120_000; // ~75 miles
+const RADIUS_M = 161_000; // ~100 miles — regional reach so a marquee venue just
+// outside the metro (e.g. the U.S. Open at Shinnecock, ~85mi from NYC) still
+// surfaces; people travel for big events.
 const DAYS_AHEAD = 7;
 const PAGE_SIZE = 30;
 
