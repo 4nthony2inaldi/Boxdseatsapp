@@ -89,6 +89,14 @@ jobs:
         if: ${{ always() && env.SUPABASE_PAT != '' }}
         run: node scripts/data/seed-horse-racing.mjs $DRY
 
+      # Geocode venues that have no coordinates yet (newly created by the syncs
+      # above have none, so they'd be invisible in "happening around you" until
+      # this fills them). Prioritizes venues with recent/upcoming events; capped
+      # per run to stay polite to Nominatim. Skips entirely on a dry run.
+      - name: Geocode new venues
+        if: ${{ always() && env.SUPABASE_PAT != '' && github.event.inputs.dry_run != 'true' }}
+        run: node scripts/data/geocode-venues.mjs --limit=75
+
       - name: Notice when nothing ran
         if: ${{ env.DATABASE_URL == '' && env.SUPABASE_PAT == '' }}
         run: echo "::warning::event-sync skipped — set DATABASE_URL and SUPABASE_PAT repository secrets to enable."

@@ -52,7 +52,12 @@ async function geocode(q) {
 if (!DRY && !PAT) { console.error("SUPABASE_PAT required (or --dry-run)."); process.exit(2); }
 
 const venues = await runSQL(
-  `select id, name, city, state, country from venues where location is null order by name`
+  `select id, name, city, state, country from venues where location is null
+     order by (exists (
+       select 1 from events e
+        where e.venue_id = venues.id
+          and e.event_date >= current_date - interval '60 days'
+     )) desc, name`
 );
 const todo = venues.slice(0, LIMIT);
 console.log(`Venues missing coords: ${venues.length}${todo.length < venues.length ? ` (processing ${todo.length})` : ""}`);
