@@ -56,11 +56,13 @@ jobs:
       # --- DATABASE_URL scripts ---
       # --to reaches into the future so scheduled / in-progress races are created
       # (loggable + shown in "happening around you" before they finish), not only
-      # completed ones. Motorsports honors this; golf/tennis stay completed-only
-      # here (golf upcoming is handled live by the Vercel cron).
-      - name: Golf / tennis / motorsports (field events)
+      # completed ones. Golf is intentionally excluded here: the Vercel cron is
+      # the single writer for golf (create + finalize) so the two schedulers
+      # can't race and create duplicate tournament rows. Tennis stays
+      # completed-vs-upcoming per the seeder; motorsports honors --to.
+      - name: Tennis / motorsports (field events)
         if: ${{ always() && env.DATABASE_URL != '' }}
-        run: node scripts/data/seed-field-events.mjs --from=${{ steps.win.outputs.from }} --to=${{ steps.win.outputs.ahead }} $DRY
+        run: node scripts/data/seed-field-events.mjs --leagues=atp,wta,nascar,xfinity,truck,indycar,f1 --from=${{ steps.win.outputs.from }} --to=${{ steps.win.outputs.ahead }} $DRY
 
       - name: College basketball (M+W)
         if: ${{ always() && env.DATABASE_URL != '' }}
