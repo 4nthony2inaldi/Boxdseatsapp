@@ -600,8 +600,21 @@ function push(map, key, val) {
 
 const args = parseArgs(process.argv);
 const limiter = makeLimiter(CONCURRENCY);
-const db = new Client({ connectionString: process.env.DATABASE_URL || DEFAULT_DB });
-await db.connect();
+// The Supabase pooler occasionally rejects the first auth after an idle period
+// (a spurious 28P01); retry a few times with a fresh client before giving up.
+let db;
+for (let attempt = 1; ; attempt++) {
+  db = new Client({ connectionString: process.env.DATABASE_URL || DEFAULT_DB });
+  try {
+    await db.connect();
+    break;
+  } catch (err) {
+    try { await db.end(); } catch { /* ignore */ }
+    if (attempt >= 4) throw err;
+    console.warn(`db connect failed (attempt ${attempt}): ${err.message} — retrying in ${attempt}s`);
+    await sleep(attempt * 1000);
+  }
+}
 if (args.dryRun) await db.query('begin');
 
 console.log(`Seeding field events leagues=[${args.leagues.join(',')}] from=${args.from} to=${args.to}${args.dryRun ? ' (DRY RUN — all changes rolled back)' : ''}`);
