@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
+import { syncUpcomingGolf } from "@/lib/sync/upcomingFieldEvents";
 
 /**
  * GET/POST /api/sync-events
@@ -360,7 +361,19 @@ async function handleSync(request: Request) {
     }
   }
 
-  return NextResponse.json({ success: true, dryRun, range: dateRange, report });
+  // Individual-sport events that are upcoming / in progress (not yet final), so
+  // fans can log them and they show in "happening around you" while they're on.
+  // Skipped on dry runs since it writes.
+  let upcoming: unknown = null;
+  if (!dryRun) {
+    try {
+      upcoming = { golf: await syncUpcomingGolf(supabase) };
+    } catch {
+      upcoming = { error: true };
+    }
+  }
+
+  return NextResponse.json({ success: true, dryRun, range: dateRange, report, upcoming });
 }
 
 export async function GET(request: Request) {
