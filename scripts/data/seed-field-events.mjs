@@ -1000,7 +1000,7 @@ async function seedTennis(leagueKey, cfg, leagueId, stats) {
   for (const ev of events) {
     const id = String(ev.id);
     if (!ev.endDate) { stats.filtered++; continue; }
-    if (ev.status?.type && ev.status.type.completed !== true) { stats.filtered++; continue; }
+    const completed = ev.status?.type?.completed === true;
     const spanStart = markerDate(ev.date);
     const endDay = markerDate(ev.endDate);
     if (endDay > args.to || endDay < args.from) { stats.filtered++; continue; }
@@ -1011,7 +1011,23 @@ async function seedTennis(leagueKey, cfg, leagueId, stats) {
 
     const missing = [];
     for (let d = 1; d <= n; d++) if (!extSet.has(`${id}-d${d}`)) missing.push(d);
-    if (missing.length === 0) { stats.skipped++; continue; }
+    if (missing.length === 0) {
+      // All day-rows already exist (created while upcoming): once the event is
+      // done, backfill the winner on any rows that don't have one yet.
+      if (completed) {
+        const w = tennisWinner(ev, cfg.singles);
+        if (w) {
+          const upd = await db.query(
+            `update events set winner_name = $1
+               where external_ids->>'espn' like $2 and (winner_name is null or winner_name = '')`,
+            [w, `${id}-d%`],
+          );
+          if (upd.rowCount) stats.finalized = (stats.finalized ?? 0) + upd.rowCount;
+        }
+      }
+      stats.skipped++;
+      continue;
+    }
 
     const venueId = await resolveVenue(tennisVenueSpec(ev), stats);
     const winner = tennisWinner(ev, cfg.singles);
