@@ -20,6 +20,28 @@ history. Domain: www.boxdseats.com.
   website and adds native plugins. Built on **Codemagic** (`codemagic.yaml`) and
   shipped to **TestFlight**.
 
+### Keeping event data fresh (two mechanisms)
+
+New loggable events come from two schedulers, split by how the sport's events
+are shaped:
+
+- **Vercel cron `/api/sync-events`** (hourly) — every league that uses ESPN's
+  standard home/away **scoreboard**: NFL, NBA, MLB, NHL, WNBA, MLS, NWSL, the
+  top-5 European soccer leagues (eng/esp/ger/ita/fra .1), and the World Cup.
+  Adding another such league is just a `LEAGUE_PATHS` + `LEAGUE_SPORTS` entry.
+  It also backfills scores, fixes postponed dates, and removes cancelled games.
+- **GitHub Actions `event-sync.yml`** (every 6h) — the leagues that need the
+  bespoke seed scripts: **college** (ncaam/ncaaw/ncaaf) and the **individual
+  sports** (golf, tennis, motorsports incl. IMSA, horse racing, UFC). These run
+  the proven `scripts/data/seed-*` incrementally. Requires repo secrets
+  `DATABASE_URL` (seed-real-data, seed-field-events) and `SUPABASE_PAT` +
+  `SUPABASE_PROJECT` (seed-ncaaf, seed-imsa, seed-ufc, seed-tennis-slams,
+  seed-horse-racing). Until those secrets exist the workflow is a no-op.
+
+Do NOT put college or individual sports in `/api/sync-events`: college needs
+single-day group fetches (the range scoreboard truncates it) and the individual
+sports have no home/away teams (events are tournaments/races/cards at a venue).
+
 ### The single most important deploy fact
 
 The iOS app loads the live site, so **web changes reach the app on relaunch with
