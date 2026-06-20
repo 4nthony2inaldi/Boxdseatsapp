@@ -47,92 +47,111 @@ async function espn(url: string): Promise<Record<string, unknown> | null> {
 
 const MAX_GOLF_DAYS = 7;
 
-/** Create upcoming/in-progress PGA tournaments as round-day `field` events. */
+/**
+ * Create upcoming/in-progress PGA tournaments as round-day `field` events, and
+ * finalize them (fill winner_name) once they complete. Runs over a window from
+ * `daysBack` to `daysAhead` so it catches both sides: scheduled/live events to
+ * create, and just-finished ones to finalize. The seeder remains the source for
+ * deep history; this owns the recent window so live events appear immediately.
+ */
 export async function syncUpcomingGolf(
   supabase: SupabaseClient,
-  daysAhead = 45
-): Promise<{ created: number; tournaments: number; skipped: number }> {
-  const stats = { created: 0, tournaments: 0, skipped: 0 };
+  daysAhead = 45,
+  daysBack = 10
+): Promise<{ created: number; finalized: number; tournaments: number; skipped: number }> {
+  const stats = { created: 0, finalized: 0, tournaments: 0, skipped: 0 };
 
   const { data: league } = await supabase.from("leagues").select("id").eq("slug", "pga-tour").single();
   if (!league) return stats;
   const leagueId = (league as { id: string }).id;
 
-  const board = await espn("https://site.api.espn.com/apis/site/v2/sports/golf/pga/scoreboard");
+  const today = new Date().toISOString().slice(0, 10);
+  const from = addDays(today, -daysBack).replace(/-/g, "");
+  const to = addDays(today, daysAhead).replace(/-/g, "");
+  const board = await espn(`https://site.api.espn.com/apis/site/v2/sports/golf/pga/scoreboard?dates=${from}-${to}`);
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const events = ((board as any)?.events ?? []) as any[];
-  const today = new Date().toISOString().slice(0, 10);
   const horizon = addDays(today, daysAhead);
 
   for (const ev of events) {
-    const state = ev?.status?.type?.state; // pre | in | post
-    if (state === "post") continue; // finished — the seeder handles completed events
+    const completed = ev?.status?.type?.state === "post" || ev?.status?.type?.completed === true;
     const id = ev?.id ? String(ev.id) : null;
     if (!id || !ev.date || !ev.endDate) continue;
 
     const startDay = utcDay(ev.date);
     const endDay = utcDay(ev.endDate);
     if (startDay > horizon) continue; // too far out
-    if (endDay < today) continue; // already over (shouldn't happen unless state lags)
     const n = daySpan(startDay, endDay);
     if (n < 1 || n > MAX_GOLF_DAYS) continue;
 
-    // Venue from the per-event leaderboard (the scoreboard omits it).
-    const lb = await espn(`https://site.api.espn.com/apis/site/v2/sports/golf/leaderboard?league=pga&event=${id}`);
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const lbEvent = ((lb as any)?.events ?? [])[0];
-    const courses = lbEvent?.courses ?? [];
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const course = courses.find((c: any) => c?.host) ?? courses[0];
-    if (!course?.id) continue;
-
-    // Resolve to an existing venue only (don't spawn venues for not-yet-played
-    // events). Match the seeder's `golf:{courseId}` external id, then by name.
-    let venueId: string | null = null;
-    const { data: byExt } = await supabase
-      .from("venues").select("id").eq("external_ids->>espn", `golf:${course.id}`).maybeSingle();
-    if (byExt) venueId = (byExt as { id: string }).id;
-    if (!venueId && course.name) {
-      const { data: byName } = await supabase
-        .from("venues").select("id").ilike("name", course.name).limit(1).maybeSingle();
-      if (byName) venueId = (byName as { id: string }).id;
-    }
-    if (!venueId) { stats.skipped++; continue; }
-
-    const season = Number(startDay.slice(0, 4));
     const exts = Array.from({ length: n }, (_, i) => `${id}-d${i + 1}`);
     const { data: existingRows } = await supabase
-      .from("events").select("external_ids, tournament_id").eq("league_id", leagueId).in("external_ids->>espn", exts);
+      .from("events").select("id, external_ids, tournament_id, winner_name").eq("league_id", leagueId).in("external_ids->>espn", exts);
     const have = new Set<string>();
     let tournamentId: string | null = null;
+    const needsWinner: string[] = [];
     for (const r of existingRows || []) {
       const e = (r.external_ids as Record<string, unknown> | null)?.espn;
       if (e) have.add(String(e));
       if (r.tournament_id) tournamentId = r.tournament_id as string;
+      if (!r.winner_name) needsWinner.push(r.id as string);
     }
-    if (!tournamentId) tournamentId = crypto.randomUUID();
+    const missing = exts.filter((e) => !have.has(e));
 
-    const rows = [];
-    for (let d = 1; d <= n; d++) {
-      const ext = `${id}-d${d}`;
-      if (have.has(ext)) continue;
-      rows.push({
-        league_id: leagueId,
-        venue_id: venueId,
-        event_date: addDays(startDay, d - 1),
-        event_template: "field",
-        tournament_name: ev.name,
-        tournament_id: tournamentId,
-        day_number: d,
-        season,
-        is_postseason: false,
-        round_or_stage: d === n ? "Final Round" : `Round ${d}`,
-        external_ids: { espn: ext },
+    // Nothing to do: fully present and (if done) already has a winner.
+    if (missing.length === 0 && !(completed && needsWinner.length > 0)) { stats.skipped++; continue; }
+
+    // Need the leaderboard for the venue (create) and/or winner (finalize).
+    const lb = await espn(`https://site.api.espn.com/apis/site/v2/sports/golf/leaderboard?league=pga&event=${id}`);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const lbEvent = ((lb as any)?.events ?? [])[0];
+    const winner: string | null = lbEvent?.winner?.displayName ?? null;
+
+    if (missing.length > 0) {
+      const courses = lbEvent?.courses ?? [];
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const course = courses.find((c: any) => c?.host) ?? courses[0];
+      if (!course?.id) { stats.skipped++; continue; }
+      // Resolve to an existing venue only (don't spawn venues for events that
+      // may not be played). Match the seeder's `golf:{courseId}` id, then name.
+      let venueId: string | null = null;
+      const { data: byExt } = await supabase
+        .from("venues").select("id").eq("external_ids->>espn", `golf:${course.id}`).maybeSingle();
+      if (byExt) venueId = (byExt as { id: string }).id;
+      if (!venueId && course.name) {
+        const { data: byName } = await supabase
+          .from("venues").select("id").ilike("name", course.name).limit(1).maybeSingle();
+        if (byName) venueId = (byName as { id: string }).id;
+      }
+      if (!venueId) { stats.skipped++; continue; }
+
+      const season = Number(startDay.slice(0, 4));
+      if (!tournamentId) tournamentId = crypto.randomUUID();
+      const rows = missing.map((ext) => {
+        const d = Number(ext.split("-d")[1]);
+        return {
+          league_id: leagueId,
+          venue_id: venueId,
+          event_date: addDays(startDay, d - 1),
+          event_template: "field",
+          tournament_name: ev.name,
+          tournament_id: tournamentId,
+          day_number: d,
+          season,
+          is_postseason: false,
+          round_or_stage: d === n ? "Final Round" : `Round ${d}`,
+          winner_name: completed ? winner : null,
+          external_ids: { espn: ext },
+        };
       });
-    }
-    if (rows.length > 0) {
       const { error } = await supabase.from("events").insert(rows);
       if (!error) { stats.created += rows.length; stats.tournaments++; }
+    }
+
+    // Finalize: fill winner on existing rows that lack one.
+    if (completed && winner && needsWinner.length > 0) {
+      const { error } = await supabase.from("events").update({ winner_name: winner }).in("id", needsWinner);
+      if (!error) stats.finalized += needsWinner.length;
     }
   }
 
