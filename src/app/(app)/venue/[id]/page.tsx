@@ -65,9 +65,14 @@ export default async function VenueDetailPage({
 
   return (
     <div className="px-4 pb-8 max-w-lg mx-auto">
-      {/* Hero header — full-bleed cover at the very top, with the back button
-          and venue name overlaid. A strong bottom scrim keeps the name legible
-          over any cover photo (light ones used to wash it out). */}
+      {/* Back button, flush under the top header (matches the event page). */}
+      <div className="flex items-center pt-3 -mb-1 relative z-10">
+        <BackButton fallback="/explore" />
+      </div>
+
+      {/* Hero: full-bleed cover flush right below the back button. The venue
+          name is overlaid on a dark bottom scrim so it stays legible over any
+          cover photo (light ones used to wash it out). */}
       <div className="relative -mx-4 mb-5 h-44 overflow-hidden">
         {venueCover ? (
           <Image
@@ -89,17 +94,12 @@ export default async function VenueDetailPage({
           <div className="absolute inset-0 bg-gradient-to-b from-accent/25 via-accent/10 to-bg" />
         )}
 
-        {/* Readability scrim: darker at top (back button) and bottom (title). */}
-        <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/15 to-black/35" />
-
-        {/* Back button, overlaid */}
-        <div className="absolute top-3 left-3 z-10">
-          <BackButton fallback="/explore" />
-        </div>
+        {/* Readability scrim: dark at the bottom for the title. */}
+        <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/10 to-transparent" />
 
         {/* Cover photo credit */}
         {venueCover && (
-          <div className="absolute top-3 right-3 flex items-center gap-1 bg-black/50 backdrop-blur-sm rounded-full px-2 py-0.5">
+          <div className="absolute top-2 right-3 flex items-center gap-1 bg-black/50 backdrop-blur-sm rounded-full px-2 py-0.5">
             <CameraIcon size={11} className="text-white/80" />
             <span className="text-[10px] text-white/80">@{venueCover.username}</span>
           </div>
