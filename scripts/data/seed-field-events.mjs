@@ -1110,10 +1110,9 @@ async function seedRacing(leagueKey, cfg, leagueId, stats) {
 
   for (const ev of events) {
     const id = String(ev.id);
-    if (ev.status?.type?.completed !== true) { stats.filtered++; continue; }
+    const completed = ev.status?.type?.completed === true;
     if (ev.season?.type === 1 || ev.season?.type === 4) { stats.filtered++; continue; } // pre/off-season
     if (cfg.coreLeague && NASCAR_EXHIBITION_RE.test(ev.name ?? '')) { stats.filtered++; continue; }
-    if (extSet.has(id)) { stats.skipped++; continue; }
 
     // the race competition (F1 weekends also list FP/Quali/Sprint sessions)
     let raceComp = null;
@@ -1122,6 +1121,25 @@ async function seedRacing(leagueKey, cfg, leagueId, stats) {
       if (!raceComp) { stats.filtered++; continue; } // testing weekends etc.
     } else {
       raceComp = ev.competitions?.[0] ?? null;
+    }
+    const winner = (raceComp?.competitors ?? []).find((c) => c.winner === true)?.athlete?.displayName
+      ?? (raceComp?.competitors ?? []).find((c) => c.order === 1)?.athlete?.displayName
+      ?? null;
+
+    // Already stored: once the race is final, fill the winner; otherwise leave
+    // the scheduled/in-progress row as-is (it was created on an earlier run).
+    if (extSet.has(id)) {
+      if (completed && winner) {
+        const upd = await db.query(
+          `update events set winner_name = $1
+             where external_ids->>'espn' = $2 and (winner_name is null or winner_name = '')`,
+          [winner, id],
+        );
+        if (upd.rowCount) stats.finalized = (stats.finalized ?? 0) + upd.rowCount;
+      } else {
+        stats.skipped++;
+      }
+      continue;
     }
 
     let venueSpec = null;
@@ -1144,9 +1162,6 @@ async function seedRacing(leagueKey, cfg, leagueId, stats) {
     const raceDate = raceLocalDate(raceComp?.date ?? ev.date, venueSpec.country ?? 'US');
     if (raceDate > args.to || raceDate < args.from) { stats.filtered++; continue; }
 
-    const winner = (raceComp?.competitors ?? []).find((c) => c.winner === true)?.athlete?.displayName
-      ?? (raceComp?.competitors ?? []).find((c) => c.order === 1)?.athlete?.displayName
-      ?? null;
     const season = Number(ev.season?.year) || Number(raceDate.slice(0, 4));
     const isPost = ev.season?.type === 3;
 
