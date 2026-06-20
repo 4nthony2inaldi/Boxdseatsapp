@@ -95,6 +95,7 @@ export default async function UserAthletePage({ params }: Props) {
     athlete.draws > 0
       ? `${athlete.wins}-${athlete.losses}-${athlete.draws}`
       : `${athlete.wins}-${athlete.losses}`;
+  const teamTotal = athlete.teams.reduce((s, t) => s + t.count, 0);
 
   return (
     <div className="min-h-screen bg-bg">
@@ -119,14 +120,12 @@ export default async function UserAthletePage({ params }: Props) {
             )}
           </div>
           <h1 className="font-display text-2xl text-text-primary tracking-wide mt-3">{athlete.name}</h1>
-          <div className="flex items-center gap-2 mt-1.5">
-            {athlete.icon && <SportIcon src={athlete.icon} size={16} />}
-            {athlete.teams.length > 0 && (
-              <span className="text-sm text-text-secondary">
-                {athlete.teams.map((t) => t.name).filter(Boolean).join(" · ")}
-              </span>
-            )}
-          </div>
+          {athlete.sport && (
+            <div className="flex items-center gap-2 mt-1.5">
+              {athlete.icon && <SportIcon src={athlete.icon} size={16} />}
+              <span className="text-sm text-text-secondary capitalize">{athlete.sport}</span>
+            </div>
+          )}
         </div>
 
         {/* Stats — what we can derive from the box scores + your logs */}
@@ -166,6 +165,44 @@ export default async function UserAthletePage({ params }: Props) {
             </>
           )}
         </div>
+
+        {/* Team split — the teams the athlete was on across the games you saw,
+            by share of those games (just the team name when it's always one). */}
+        {teamTotal > 0 && athlete.teams.length > 0 && (
+          <div className="mt-7">
+            <SectionLabel>Seen with</SectionLabel>
+            <div className="space-y-2.5">
+              {athlete.teams.map((t) => {
+                const pct = Math.round((t.count / teamTotal) * 100);
+                return (
+                  <Link
+                    key={t.id}
+                    href={`/team/${t.id}`}
+                    className="flex items-center gap-3 hover:opacity-80 transition-opacity"
+                  >
+                    <div className="w-7 h-7 rounded-full bg-bg-elevated flex items-center justify-center overflow-hidden shrink-0">
+                      {t.logoUrl ? (
+                        <Image src={t.logoUrl} alt={t.name} width={24} height={24} className="object-contain" />
+                      ) : (
+                        <span className="text-[9px] font-semibold text-text-secondary">{(t.name || "?").slice(0, 3).toUpperCase()}</span>
+                      )}
+                    </div>
+                    <div className="w-24 text-xs text-text-secondary truncate">{t.name || "Unknown"}</div>
+                    <div className="flex-1 h-2.5 rounded-full bg-bg-input overflow-hidden">
+                      <div
+                        className="h-full rounded-full"
+                        style={{ width: `${pct}%`, background: "linear-gradient(90deg, var(--color-accent-brown), var(--color-accent))" }}
+                      />
+                    </div>
+                    <div className="w-16 text-right text-xs text-text-muted tabular-nums">
+                      {t.count} · {pct}%
+                    </div>
+                  </Link>
+                );
+              })}
+            </div>
+          </div>
+        )}
 
         {/* Games */}
         <div className="mt-7">

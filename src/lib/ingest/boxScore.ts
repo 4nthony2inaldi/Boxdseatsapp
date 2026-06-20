@@ -167,12 +167,14 @@ export async function ingestEventBoxScore(
   // Event meta (sport + slug + espn id + date)
   const { data: ev } = await supabase
     .from("events")
-    .select("event_date, external_ids, leagues(sport, slug)")
+    .select("event_date, external_ids, league_id, leagues(sport, slug)")
     .eq("id", eventId)
     .single();
   if (!ev) return { status: "skip" };
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const league = (ev as any).leagues as { sport: Sport | null; slug: string | null } | null;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const leagueId = (ev as any).league_id as string | null;
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const espnId = ((ev as any).external_ids as Record<string, unknown> | null)?.espn;
   const sport = league?.sport;
@@ -217,14 +219,19 @@ export async function ingestEventBoxScore(
     added += data?.length || 0;
   }
 
-  // ESPN team id -> our team uuid (team sports only carry one).
+  // ESPN team id -> our team uuid (team sports only carry one). ESPN reuses the
+  // same numeric team id across sports (e.g. id 10 is both the NY Yankees and
+  // the Houston Rockets), so scope the lookup to this event's league or the
+  // wrong-sport team can win.
   const teamMap = new Map<string, string>();
   const teamEspnIds = [...new Set(participants.map((p) => p.espnTeamId).filter((t): t is string => !!t))];
   if (teamEspnIds.length > 0) {
-    const { data } = await supabase
+    let teamQuery = supabase
       .from("teams")
       .select("id, external_ids")
       .in("external_ids->>espn", teamEspnIds);
+    if (leagueId) teamQuery = teamQuery.eq("league_id", leagueId);
+    const { data } = await teamQuery;
     for (const t of data || []) {
       const e = (t.external_ids as Record<string, unknown> | null)?.espn;
       if (e) teamMap.set(String(e), t.id as string);

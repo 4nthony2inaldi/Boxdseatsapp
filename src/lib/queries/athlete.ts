@@ -44,7 +44,9 @@ export type AthleteForUser = {
   victories: number;
   podiums: number;
   bestFinish: number | null;
-  teams: { id: string; name: string; logoUrl: string | null }[];
+  /** Teams the athlete was on across the games you saw, with how many of your
+      games fell under each — most-seen first. Drives the team split chart. */
+  teams: { id: string; name: string; logoUrl: string | null; count: number }[];
   games: AthleteGame[];
 };
 
@@ -213,7 +215,15 @@ export async function fetchAthleteForUser(
   result.victories = victories;
   result.podiums = podiums;
   result.bestFinish = bestFinish;
-  result.teams = [...teamMap.entries()].map(([id, t]) => ({ id, name: t.name, logoUrl: t.logoUrl }));
+  // Team split: how many of the games you saw fell under each team the athlete
+  // played for (one team per game), most-seen first.
+  const teamCount = new Map<string, number>();
+  for (const g of games) {
+    if (g.athleteTeamId) teamCount.set(g.athleteTeamId, (teamCount.get(g.athleteTeamId) || 0) + 1);
+  }
+  result.teams = [...teamCount.entries()]
+    .map(([id, count]) => ({ id, name: teamMap.get(id)?.name || "", logoUrl: teamMap.get(id)?.logoUrl ?? null, count }))
+    .sort((a, b) => b.count - a.count);
   result.games = games;
   return result;
 }
