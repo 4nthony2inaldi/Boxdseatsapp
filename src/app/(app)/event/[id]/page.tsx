@@ -105,11 +105,12 @@ export default async function EventDetailPage({
 
   return (
     <div className="px-4 pb-8 max-w-lg mx-auto">
-      <div className="flex items-center pt-3 -mb-1 relative z-10">
-        <BackButton fallback="/" />
-      </div>
-      {/* Hero: Cover photo or league-colored gradient */}
+      {/* Hero: cover photo (or league-colored gradient) flush at the top, with
+          the back button overlaid on it — matches the venue page. */}
       <div className="relative -mx-4 mb-5">
+        <div className="absolute top-3 left-3 z-10">
+          <BackButton fallback="/" />
+        </div>
         {coverCredit ? (
           <div className="relative">
             <Image
