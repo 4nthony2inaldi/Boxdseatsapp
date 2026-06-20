@@ -6,7 +6,9 @@ import type { LeagueFavorite } from "@/lib/queries/bigfour";
 import {
   searchTeams,
   searchVenuesForOnboarding,
+  searchAthletes,
 } from "@/lib/queries/onboarding";
+import type { SupabaseClient } from "@supabase/supabase-js";
 import {
   upsertLeagueFavorite,
   reorderLeagueFavorites,
@@ -41,15 +43,24 @@ type SearchResult = {
   espnHeadshot?: string | null;
 };
 
-/** Local athletes + ESPN search fallback, so any real player is findable. */
-async function searchAthletesWithFallback(q: string, sport: string | null): Promise<SearchResult[]> {
+/**
+ * Athlete search: the /api/athlete-search route adds an ESPN fallback (to find
+ * players we haven't ingested). But the picker must never be fully dependent on
+ * that route — if it's unavailable for any reason, fall back to a direct local
+ * search (authed via the client session) so the Players section always works.
+ */
+async function searchAthletesWithFallback(
+  supabase: SupabaseClient,
+  q: string,
+  sport: string | null
+): Promise<SearchResult[]> {
   try {
     const res = await fetch("/api/athlete-search", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ q, sport }),
     });
-    if (!res.ok) return [];
+    if (!res.ok) throw new Error(`athlete-search ${res.status}`);
     const { results } = (await res.json()) as {
       results: { id: string | null; espnId: string | null; name: string; sport: string | null; headshot: string | null }[];
     };
@@ -62,7 +73,9 @@ async function searchAthletesWithFallback(q: string, sport: string | null): Prom
       espnHeadshot: r.headshot,
     }));
   } catch {
-    return [];
+    // Route failed — local-only search still surfaces players we already have.
+    const local = await searchAthletes(supabase, q, 10, sport);
+    return local.map((a) => ({ id: a.id, label: a.name, subtitle: a.sport || undefined }));
   }
 }
 
@@ -119,7 +132,11 @@ export default function BigFourDrillThrough({
   };
 
   const pickedSlugs = new Set(favorites.map((f) => f.league_slug));
-  const unpickedLeagues = allLeagues.filter((l) => !pickedSlugs.has(l.slug));
+  // Individual sports (golf/tennis/motorsports) have no teams — they're picked
+  // in the Players section. Don't offer them in the Teams section (confusing).
+  const unpickedLeagues = allLeagues.filter(
+    (l) => !pickedSlugs.has(l.slug) && !(category === "team" && !!l.sport && INDIVIDUAL_SPORTS.has(l.sport))
+  );
 
   // Report progress (headliner is the lowest-rank pick) for onboarding.
   useEffect(() => {
@@ -189,7 +206,7 @@ export default function BigFourDrillThrough({
       if (category === "team") {
         if (isIndividualLeague(slugForRow)) {
           const sport = (slugForRow ? sportBySlug.get(slugForRow) : null) ?? null;
-          results = await searchAthletesWithFallback(q, sport);
+          results = await searchAthletesWithFallback(supabase, q, sport);
         } else {
           const teams = await searchTeams(supabase, q, 10, slugForRow);
           results = teams.map((t) => ({ id: t.id, label: t.name, subtitle: t.league_name || undefined }));
@@ -203,7 +220,7 @@ export default function BigFourDrillThrough({
         }));
       } else if (category === "athlete") {
         const sport = (slugForRow ? sportBySlug.get(slugForRow) : null) ?? null;
-        results = await searchAthletesWithFallback(q, sport);
+        results = await searchAthletesWithFallback(supabase, q, sport);
       } else if (category === "event") {
         const events = await fetchLoggedEventChoices(supabase, userId, slugForRow, q);
         results = events.map((e) => ({ id: e.id, label: e.label, subtitle: e.subtitle }));

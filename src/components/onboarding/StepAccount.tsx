@@ -120,6 +120,20 @@ export default function StepAccount({
         Choose your username and personalize your account.
       </p>
 
+      {/* Profile Photo — first, so it's the natural first action and fewer skip it */}
+      <div className="flex flex-col items-center mb-7">
+        <AvatarUpload
+          userId={userId}
+          currentAvatarUrl={null}
+          displayName={displayName || null}
+          username={username}
+          size={96}
+        />
+        <span className="font-display text-[11px] text-text-muted tracking-[1.2px] uppercase mt-2.5">
+          Add a profile photo
+        </span>
+      </div>
+
       {/* Username */}
       <div className="mb-5">
         <label className="font-display text-[11px] text-text-muted tracking-[1.2px] uppercase block mb-2">
@@ -196,20 +210,6 @@ export default function StepAccount({
             </option>
           ))}
         </select>
-      </div>
-
-      {/* Profile Photo */}
-      <div className="mb-8">
-        <label className="font-display text-[11px] text-text-muted tracking-[1.2px] uppercase block mb-2">
-          Profile Photo
-        </label>
-        <AvatarUpload
-          userId={userId}
-          currentAvatarUrl={null}
-          displayName={displayName || null}
-          username={username}
-          size={80}
-        />
       </div>
 
       <OnboardingActionBar>
