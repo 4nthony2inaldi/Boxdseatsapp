@@ -4,6 +4,7 @@ import { useState, useCallback } from "react";
 import TimelineCard from "@/components/TimelineCard";
 import CommentSheet from "@/components/event/CommentSheet";
 import { SkeletonFeedCard } from "@/components/Skeleton";
+import { ButtonLink } from "@/components/Button";
 import { createClient } from "@/lib/supabase/client";
 import { toggleLike, type FeedEntry } from "@/lib/queries/social";
 import { useInfiniteScroll } from "@/hooks/useInfiniteScroll";
@@ -108,15 +109,7 @@ export default function FeedList({ initialEntries, initialHasMore, userId }: Pro
           <p className="text-text-muted text-sm mb-4">
             Follow other users to see their event logs in your feed.
           </p>
-          <a
-            href="/explore"
-            className="inline-block px-5 py-2.5 rounded-xl text-sm font-medium text-white transition-opacity"
-            style={{
-              background: "linear-gradient(135deg, var(--color-accent), var(--color-accent-brown))",
-            }}
-          >
-            Explore Users
-          </a>
+          <ButtonLink href="/explore" size="md">Explore Users</ButtonLink>
         </div>
       </div>
     );

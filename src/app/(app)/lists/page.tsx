@@ -1,4 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
+import { ButtonLink } from "@/components/Button";
 import {
   fetchAllLists,
   fetchWantToVisitCount,
@@ -103,16 +104,7 @@ export default async function ListsPage({
               <p className="text-text-muted text-sm mb-4">
                 Create your own venue checklist to track your goals.
               </p>
-              <Link
-                href="/lists/create"
-                className="inline-block px-5 py-2.5 rounded-xl text-sm font-medium text-white transition-opacity hover:opacity-90"
-                style={{
-                  background:
-                    "linear-gradient(135deg, var(--color-accent), var(--color-accent-brown))",
-                }}
-              >
-                Create a List
-              </Link>
+              <ButtonLink href="/lists/create" size="md">Create a List</ButtonLink>
             </div>
           )}
         </div>
@@ -179,16 +171,7 @@ export default async function ListsPage({
             <p className="text-text-muted text-sm mb-4">
               Create your own venue checklist or explore challenges.
             </p>
-            <Link
-              href="/lists/create"
-              className="inline-block px-5 py-2.5 rounded-xl text-sm font-medium text-white transition-opacity hover:opacity-90"
-              style={{
-                background:
-                  "linear-gradient(135deg, var(--color-accent), var(--color-accent-brown))",
-              }}
-            >
-              Create a List
-            </Link>
+            <ButtonLink href="/lists/create" size="md">Create a List</ButtonLink>
           </div>
         )}
     </div>
