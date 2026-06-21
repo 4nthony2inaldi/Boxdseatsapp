@@ -1,6 +1,7 @@
 import { SupabaseClient } from "@supabase/supabase-js";
 import { getSportIconPath } from "@/lib/sportIcons";
 import type { MapVenue } from "@/lib/passportMap";
+import type { StatLine } from "@/lib/statLine";
 
 export type AthleteGame = {
   eventId: string;
@@ -26,6 +27,7 @@ export type AthleteGame = {
   athleteTeamId: string | null;
   finishPosition: number | null;
   isWinner: boolean | null;
+  statLine: StatLine | null;
 };
 
 export type AthleteForUser = {
@@ -119,12 +121,12 @@ export async function fetchAthleteForUser(
 
   // The athlete's box-score rows within the fan's attended events (chunked to
   // stay under the PostgREST .in() list cap).
-  type EaRow = { event_id: string; team_id: string | null; finish_position: number | null; is_winner: boolean | null };
+  type EaRow = { event_id: string; team_id: string | null; finish_position: number | null; is_winner: boolean | null; stat_line: StatLine | null };
   const eaRows: EaRow[] = [];
   for (let i = 0; i < eventIds.length; i += 200) {
     const { data } = await supabase
       .from("event_athletes")
-      .select("event_id, team_id, finish_position, is_winner")
+      .select("event_id, team_id, finish_position, is_winner, stat_line")
       .eq("athlete_id", athleteId)
       .in("event_id", eventIds.slice(i, i + 200));
     for (const r of data || []) eaRows.push(r as EaRow);
@@ -194,6 +196,7 @@ export async function fetchAthleteForUser(
         athleteTeamId: ea.team_id,
         finishPosition: ea.finish_position,
         isWinner: ea.is_winner,
+        statLine: ea.stat_line,
       };
     })
     .filter((g): g is AthleteGame => !!g)

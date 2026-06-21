@@ -9,6 +9,7 @@ import OutcomeBadge from "@/components/profile/OutcomeBadge";
 import StarRating from "@/components/profile/StarRating";
 import SportIcon from "@/components/SportIcon";
 import PassportMap from "@/components/passport/PassportMap";
+import { formatStatLine } from "@/lib/statLine";
 import { formatDate } from "@/lib/formatters";
 
 type Props = { params: Promise<{ username: string; id: string }> };
@@ -201,6 +202,7 @@ export default async function UserAthletePage({ params }: Props) {
             {athlete.games.map((g) => {
               const hasScore = g.homeScore != null && g.awayScore != null;
               const isMatch = g.template === "match" || (!!g.homeAbbr && !!g.awayAbbr);
+              const stat = formatStatLine(g.sport, g.statLine);
               return (
                 <Link
                   key={g.eventId}
@@ -224,6 +226,9 @@ export default async function UserAthletePage({ params }: Props) {
                         {g.venueName ? ` · ${g.venueName}` : ""}
                         {g.city ? `, ${g.city}` : ""}
                       </div>
+                      {stat && (
+                        <div className="text-[11px] text-accent font-medium mt-0.5 truncate">{stat}</div>
+                      )}
                     </div>
                     <div className="flex items-center gap-2 shrink-0">
                       {athlete.isIndividual && g.finishPosition != null && (
