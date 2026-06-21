@@ -63,11 +63,20 @@ export async function updateSession(request: NextRequest) {
     return NextResponse.rewrite(url);
   }
 
+  // Auth/onboarding redirects must never be cached: they depend on the
+  // session, so a shared/edge cache could otherwise serve one user's redirect
+  // to another (Next defaults these to a cacheable `public, max-age=0`).
+  const redirectTo = (pathname: string) => {
+    const url = request.nextUrl.clone();
+    url.pathname = pathname;
+    const res = NextResponse.redirect(url);
+    res.headers.set("Cache-Control", "no-store");
+    return res;
+  };
+
   // If not logged in and trying to access protected route, redirect to login
   if (!user && !isAuthRoute && !isPublicRoute) {
-    const url = request.nextUrl.clone();
-    url.pathname = "/login";
-    return NextResponse.redirect(url);
+    return redirectTo("/login");
   }
 
   // If logged in and trying to access auth routes, redirect to app.
@@ -78,9 +87,7 @@ export async function updateSession(request: NextRequest) {
     !request.nextUrl.pathname.startsWith("/reset-password") &&
     !request.nextUrl.pathname.startsWith("/auth")
   ) {
-    const url = request.nextUrl.clone();
-    url.pathname = "/";
-    return NextResponse.redirect(url);
+    return redirectTo("/");
   }
 
   // If logged in and NOT on onboarding, check if onboarding is needed
@@ -95,9 +102,7 @@ export async function updateSession(request: NextRequest) {
         .single();
 
       if (profile && !profile.fav_sport) {
-        const url = request.nextUrl.clone();
-        url.pathname = "/onboarding";
-        return NextResponse.redirect(url);
+        return redirectTo("/onboarding");
       }
     }
   }
