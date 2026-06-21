@@ -27,6 +27,90 @@ const num = (v: string | undefined): number | null => {
   return Number.isFinite(n) ? n : null;
 };
 
+const toNum = (v: string | undefined): number => num(v) ?? 0;
+
+/** Sum a label across whichever category holds it (single-category sports). */
+function flatSum(lines: StatLine[], label: string): number {
+  let total = 0;
+  for (const sl of lines) for (const cat of Object.values(sl)) total += toNum(cat[label]);
+  return total;
+}
+
+// Baseball innings are fractional thirds: "6.2" = 6 innings + 2 outs, so they
+// can't be summed as plain floats. Convert through outs.
+function ipToOuts(ip: string | undefined): number {
+  const f = num(ip);
+  if (f == null) return 0;
+  const whole = Math.floor(f);
+  const frac = Math.round((f - whole) * 10);
+  return whole * 3 + (frac === 1 ? 1 : frac === 2 ? 2 : 0);
+}
+const outsToIp = (outs: number): string => `${Math.floor(outs / 3)}.${outs % 3}`;
+
+export type AggStat = { label: string; value: string };
+
+/**
+ * Totals across the games a fan saw a player in, for the top of the player
+ * page. Counting stats are summed; baseball AVG/ERA are recomputed from their
+ * components (you can't average an average).
+ */
+export function aggregatePlayerStats(sport: string | null, lines: StatLine[]): AggStat[] {
+  if (!lines.length) return [];
+
+  if (sport === "baseball") {
+    const out: AggStat[] = [];
+    const batting = lines.filter((l) => l.batting);
+    if (batting.length) {
+      const AB = batting.reduce((s, l) => s + toNum(l.batting!.AB), 0);
+      const H = batting.reduce((s, l) => s + toNum(l.batting!.H), 0);
+      const HR = batting.reduce((s, l) => s + toNum(l.batting!.HR), 0);
+      const RBI = batting.reduce((s, l) => s + toNum(l.batting!.RBI), 0);
+      const avg = AB > 0 ? (H / AB).toFixed(3).replace(/^0/, "") : "—";
+      out.push({ label: "AVG", value: avg }, { label: "HR", value: `${HR}` }, { label: "RBI", value: `${RBI}` }, { label: "H", value: `${H}` });
+    }
+    const pitching = lines.filter((l) => l.pitching);
+    if (pitching.length) {
+      const outs = pitching.reduce((s, l) => s + ipToOuts(l.pitching!.IP), 0);
+      const ER = pitching.reduce((s, l) => s + toNum(l.pitching!.ER), 0);
+      const K = pitching.reduce((s, l) => s + toNum(l.pitching!.K), 0);
+      const era = outs > 0 ? ((ER * 9) / (outs / 3)).toFixed(2) : "—";
+      out.push({ label: "ERA", value: era }, { label: "K", value: `${K}` }, { label: "IP", value: outsToIp(outs) });
+    }
+    return out;
+  }
+
+  if (sport === "basketball") {
+    return [
+      { label: "PTS", value: `${Math.round(flatSum(lines, "PTS"))}` },
+      { label: "REB", value: `${Math.round(flatSum(lines, "REB"))}` },
+      { label: "AST", value: `${Math.round(flatSum(lines, "AST"))}` },
+    ];
+  }
+
+  if (sport === "football") {
+    const passYds = lines.reduce((s, l) => s + toNum(l.passing?.YDS), 0);
+    const rushYds = lines.reduce((s, l) => s + toNum(l.rushing?.YDS), 0);
+    const recYds = lines.reduce((s, l) => s + toNum(l.receiving?.YDS), 0);
+    const td = lines.reduce((s, l) => s + toNum(l.passing?.TD) + toNum(l.rushing?.TD) + toNum(l.receiving?.TD), 0);
+    const out: AggStat[] = [];
+    if (td > 0) out.push({ label: "TD", value: `${Math.round(td)}` });
+    if (passYds > 0) out.push({ label: "Pass yds", value: `${Math.round(passYds)}` });
+    if (rushYds > 0) out.push({ label: "Rush yds", value: `${Math.round(rushYds)}` });
+    if (recYds > 0) out.push({ label: "Rec yds", value: `${Math.round(recYds)}` });
+    return out.slice(0, 4);
+  }
+
+  if (sport === "hockey") {
+    const SV = flatSum(lines, "SV");
+    if (SV > 0) return [{ label: "SV", value: `${Math.round(SV)}` }, { label: "GA", value: `${Math.round(flatSum(lines, "GA"))}` }];
+    const G = Math.round(flatSum(lines, "G"));
+    const A = Math.round(flatSum(lines, "A"));
+    return [{ label: "G", value: `${G}` }, { label: "A", value: `${A}` }, { label: "PTS", value: `${G + A}` }];
+  }
+
+  return [];
+}
+
 export function formatStatLine(sport: string | null, sl: StatLine | null | undefined): string | null {
   if (!sl || typeof sl !== "object") return null;
 
