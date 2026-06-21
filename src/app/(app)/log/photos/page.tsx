@@ -135,16 +135,45 @@ export default function PhotoLogPage() {
           If you only allowed access to some photos, allow access to all photos in Settings → Photos to find more.
         </p>
       )}
-      <button
-        onClick={() => {
-          setReadError(false);
-          setState("intro");
-        }}
-        className="mt-5 px-5 py-2.5 rounded-xl text-sm font-medium text-white transition-opacity"
-        style={{ background: "linear-gradient(135deg, var(--color-accent), var(--color-accent-brown))" }}
-      >
-        Try again
-      </button>
+      <div className="mt-5 flex flex-col items-center gap-3">
+        {/* When the scan finds nothing, don't dead-end — route to the normal
+            log flow so the user still reaches their first logged game. */}
+        {state === "empty" && (
+          <button
+            onClick={() => router.push("/log")}
+            className="px-5 py-2.5 rounded-xl text-sm font-medium text-white transition-opacity"
+            style={{ background: "linear-gradient(135deg, var(--color-accent), var(--color-accent-brown))" }}
+          >
+            Log a game manually
+          </button>
+        )}
+        <button
+          onClick={() => {
+            setReadError(false);
+            setState("intro");
+          }}
+          className={
+            state === "empty"
+              ? "text-sm text-text-muted hover:text-text-secondary transition-colors"
+              : "px-5 py-2.5 rounded-xl text-sm font-medium text-white transition-opacity"
+          }
+          style={
+            state === "empty"
+              ? undefined
+              : { background: "linear-gradient(135deg, var(--color-accent), var(--color-accent-brown))" }
+          }
+        >
+          Try again
+        </button>
+        {state === "error" && (
+          <button
+            onClick={() => router.push("/log")}
+            className="text-sm text-text-muted hover:text-text-secondary transition-colors"
+          >
+            Log a game manually
+          </button>
+        )}
+      </div>
     </div>
   );
 }
