@@ -4,6 +4,7 @@ import SportIcon from "@/components/SportIcon";
 import type { ComparisonData, CompareGame, CompareVenue } from "@/lib/queries/compare";
 import TagTogetherButton from "./TagTogetherButton";
 import PageHeader from "@/components/PageHeader";
+import MiniLabel from "@/components/MiniLabel";
 import { formatShortDate } from "@/lib/formatters";
 
 type Person = {
@@ -38,7 +39,7 @@ function Avatar({ person, size = 40 }: { person: Person; size?: number }) {
 }
 
 function SectionLabel({ children }: { children: React.ReactNode }) {
-  return <div className="font-display text-[11px] text-text-muted tracking-[1.5px] uppercase mb-2">{children}</div>;
+  return <MiniLabel className="mb-2">{children}</MiniLabel>;
 }
 
 function GameRow({ game, themName, themId }: { game: CompareGame; themName: string; themId?: string }) {
