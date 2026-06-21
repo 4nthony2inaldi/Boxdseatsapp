@@ -1,5 +1,11 @@
 import { describe, it, expect } from "vitest";
-import { formatStatLine, aggregatePlayerStats, parseStatLine } from "../statLine";
+import {
+  formatStatLine,
+  aggregatePlayerStats,
+  parseStatLine,
+  addLeaderboardContribution,
+  LEADERBOARD_STATS,
+} from "../statLine";
 
 describe("parseStatLine", () => {
   it("parses JSON text from the column into an object", () => {
@@ -41,6 +47,39 @@ describe("aggregatePlayerStats", () => {
     expect(aggregatePlayerStats("football", lines)).toEqual([
       { label: "TD", value: "3" }, { label: "Pass yds", value: "550" },
     ]);
+  });
+});
+
+describe("addLeaderboardContribution", () => {
+  const fmt = (sport: string, key: string, total: number) =>
+    LEADERBOARD_STATS[sport].find((s) => s.key === key)!.format(total);
+
+  it("sums home runs across baseball games", () => {
+    const t = new Map<string, number>();
+    addLeaderboardContribution(t, { batting: { HR: "2", H: "3" } });
+    addLeaderboardContribution(t, { batting: { HR: "1", H: "1" } });
+    expect(fmt("baseball", "hr", t.get("hr")!)).toBe("3");
+  });
+
+  it("accumulates innings pitched as outs and formats back to IP", () => {
+    const t = new Map<string, number>();
+    addLeaderboardContribution(t, { pitching: { IP: "6.2" } }); // 20 outs
+    addLeaderboardContribution(t, { pitching: { IP: "7.0" } }); // 21 outs -> 41 = 13.2
+    expect(fmt("baseball", "ip", t.get("ip")!)).toBe("13.2");
+  });
+
+  it("totals football touchdowns across categories", () => {
+    const t = new Map<string, number>();
+    addLeaderboardContribution(t, { passing: { TD: "2", YDS: "300" }, rushing: { TD: "1", YDS: "20" } });
+    expect(fmt("football", "td", t.get("td")!)).toBe("3");
+    expect(fmt("football", "passyds", t.get("passyds")!)).toBe("300");
+  });
+
+  it("does not record keys for sports the line has no stats for", () => {
+    const t = new Map<string, number>();
+    addLeaderboardContribution(t, { batting: { HR: "1" } });
+    expect(t.has("pts")).toBe(false);
+    expect(t.has("g")).toBe(false);
   });
 });
 

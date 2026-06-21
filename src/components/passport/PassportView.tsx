@@ -4,6 +4,7 @@ import SportIcon from "@/components/SportIcon";
 import ShareButton from "@/components/sharing/ShareButton";
 import PageHeader from "@/components/PageHeader";
 import MiniLabel from "@/components/MiniLabel";
+import { getSportIconPath } from "@/lib/sportIcons";
 import type { PassportData, PassportRing } from "@/lib/queries/passport";
 import PassportMap from "./PassportMap";
 
@@ -72,7 +73,7 @@ type Props = {
 };
 
 export default function PassportView({ username, displayName, avatarUrl, data, editHref, backHref }: Props) {
-  const { stats, venues, topVenues, rings, sports, players, playersTotal, hidden, teams } = data;
+  const { stats, venues, topVenues, rings, sports, players, playersTotal, leaderboards, hidden, teams } = data;
   const show = (k: string) => !hidden.includes(k);
   const maxSportGames = Math.max(1, ...sports.map((s) => s.games));
   const name = displayName || `@${username}`;
@@ -228,6 +229,56 @@ export default function PassportView({ username, displayName, avatarUrl, data, e
               </Link>
             ))}
           </div>
+        </div>
+      )}
+
+      {/* Leaderboards: the best stat performances you've witnessed, per sport. */}
+      {show("leaderboards") && leaderboards.length > 0 && (
+        <div className="mt-7">
+          {leaderboards.map((lb) => {
+            const icon = getSportIconPath(lb.sport);
+            return (
+              <div key={lb.sport} className="mt-5 first:mt-0">
+                <div className="flex items-center gap-1.5 mb-3 px-4">
+                  {icon ? <SportIcon src={icon} size={14} /> : null}
+                  <MiniLabel>{SPORT_LABEL[lb.sport] || lb.sport}</MiniLabel>
+                </div>
+                <div className="space-y-4">
+                  {lb.stats.map((row) => (
+                    <div key={row.key}>
+                      <div className="text-[11px] text-text-secondary mb-2 px-4">{row.label}</div>
+                      <div className="flex gap-3 overflow-x-auto px-4 scroll-fade-x" style={{ scrollbarWidth: "none" }}>
+                        {row.players.map((p) => (
+                          <Link
+                            key={p.id}
+                            href={`/u/${username}/athlete/${p.id}`}
+                            className="flex flex-col items-center text-center w-20 flex-shrink-0 hover:opacity-80 transition-opacity"
+                          >
+                            <div className="relative">
+                              <div className="w-16 h-16 rounded-full overflow-hidden bg-bg-elevated flex items-center justify-center">
+                                {p.headshot_url ? (
+                                  <Image src={p.headshot_url} alt={p.name} width={64} height={64} className="w-full h-full object-cover" />
+                                ) : (
+                                  <span className="font-display text-base text-text-secondary">{initials(p.name)}</span>
+                                )}
+                              </div>
+                              <span
+                                className="absolute -bottom-0.5 -right-0.5 rounded-full bg-accent text-bg text-[10px] font-display leading-none px-1.5 py-0.5"
+                                aria-label={`${p.value} ${row.short}`}
+                              >
+                                {p.value} {row.short}
+                              </span>
+                            </div>
+                            <div className="text-[11px] text-text-primary font-medium mt-1.5 leading-tight line-clamp-2">{p.name}</div>
+                          </Link>
+                        ))}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            );
+          })}
         </div>
       )}
 
