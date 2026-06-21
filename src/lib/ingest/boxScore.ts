@@ -112,7 +112,18 @@ export function parseSoccer(d: any): Participant[] {
     const tid = t?.team?.id;
     for (const r of arr(t?.roster)) {
       const ath = r?.athlete || {};
-      if (ath.id) out.push({ espnId: String(ath.id), name: ath.displayName ?? null, espnTeamId: tid ? String(tid) : null, finish: null, winner: null, statLine: null });
+      if (!ath.id) continue;
+      // ESPN soccer gives a flat per-player stat array (goals G, assists A,
+      // saves SV, shots on goal SOG, …); keep it all under one category, keyed
+      // by abbreviation, the way the other sports key by label.
+      const row: Record<string, string> = {};
+      for (const s of arr(r?.stats)) {
+        const k = s?.abbreviation ? String(s.abbreviation) : null;
+        const v = s?.displayValue ?? s?.value;
+        if (k && v !== undefined && v !== null && v !== "") row[k] = String(v);
+      }
+      const statLine = Object.keys(row).length ? { stats: row } : null;
+      out.push({ espnId: String(ath.id), name: ath.displayName ?? null, espnTeamId: tid ? String(tid) : null, finish: null, winner: null, statLine });
     }
   }
   return out;
