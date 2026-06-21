@@ -136,19 +136,21 @@ export default async function UserAthletePage({ params }: Props) {
             )}
           </div>
 
-          <div className="flex-1 min-w-0">
+          <div className="flex-1 min-w-0 flex flex-col">
             <div className="font-display text-[11px] text-text-muted tracking-[1.5px] uppercase mb-2">
               {isOwner ? "Where you saw" : "Where seen"}
             </div>
             {athlete.mapVenues.length > 0 ? (
               <>
-                <PassportMap venues={athlete.mapVenues} />
+                <div className="flex-1 min-h-0">
+                  <PassportMap venues={athlete.mapVenues} fill />
+                </div>
                 <div className="text-[10px] text-text-muted mt-1.5">
                   {athlete.mapVenues.length} {venueWord}
                 </div>
               </>
             ) : (
-              <div className="rounded-2xl border border-border bg-bg-card h-40 flex items-center justify-center text-center px-4 text-xs text-text-muted">
+              <div className="flex-1 min-h-0 rounded-2xl border border-border bg-bg-card flex items-center justify-center text-center px-4 text-xs text-text-muted">
                 No mapped venues for these games yet.
               </div>
             )}
