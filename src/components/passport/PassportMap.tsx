@@ -1,10 +1,9 @@
-import { buildPassportMap } from "@/lib/passportMap";
-import type { PassportVenue } from "@/lib/queries/passport";
+import { buildPassportMap, type MapVenue } from "@/lib/passportMap";
 
 const W = 640;
 const H = 360;
 
-export default function PassportMap({ venues }: { venues: PassportVenue[] }) {
+export default function PassportMap({ venues }: { venues: MapVenue[] }) {
   if (venues.length === 0) {
     return (
       <div className="rounded-2xl border border-border bg-bg-card h-48 flex items-center justify-center text-sm text-text-muted">
