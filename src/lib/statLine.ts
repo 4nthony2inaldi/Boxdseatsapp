@@ -111,6 +111,67 @@ export function aggregatePlayerStats(sport: string | null, lines: StatLine[]): A
   return [];
 }
 
+/** Sum a label across a single line's categories (single-game version of flatSum). */
+function flatOne(sl: StatLine, label: string): number {
+  let t = 0;
+  for (const cat of Object.values(sl)) t += toNum(cat[label]);
+  return t;
+}
+
+const round = (t: number): string => `${Math.round(t)}`;
+
+/**
+ * Per-sport "most X you've seen" leaderboard stats for the bottom of the fan
+ * passport. `extract` returns one game's contribution in accumulation units
+ * (innings pitched accumulate as outs so fractional thirds sum correctly);
+ * `format` turns the running total into its display value. Keys are unique
+ * across sports so totals can be accumulated in one flat map per athlete.
+ */
+export type LeaderboardStat = {
+  key: string;
+  label: string;
+  short: string;
+  extract: (sl: StatLine) => number;
+  format: (total: number) => string;
+};
+
+export const LEADERBOARD_STATS: Record<string, LeaderboardStat[]> = {
+  baseball: [
+    { key: "hr", label: "Most home runs", short: "HR", extract: (sl) => toNum(sl.batting?.HR), format: round },
+    { key: "ip", label: "Most innings pitched", short: "IP", extract: (sl) => ipToOuts(sl.pitching?.IP), format: outsToIp },
+  ],
+  basketball: [
+    { key: "pts", label: "Most points", short: "PTS", extract: (sl) => flatOne(sl, "PTS"), format: round },
+    { key: "reb", label: "Most rebounds", short: "REB", extract: (sl) => flatOne(sl, "REB"), format: round },
+    { key: "ast", label: "Most assists", short: "AST", extract: (sl) => flatOne(sl, "AST"), format: round },
+  ],
+  football: [
+    { key: "td", label: "Most touchdowns", short: "TD", extract: (sl) => toNum(sl.passing?.TD) + toNum(sl.rushing?.TD) + toNum(sl.receiving?.TD), format: round },
+    { key: "passyds", label: "Most passing yards", short: "yds", extract: (sl) => toNum(sl.passing?.YDS), format: round },
+    { key: "rushyds", label: "Most rushing yards", short: "yds", extract: (sl) => toNum(sl.rushing?.YDS), format: round },
+  ],
+  hockey: [
+    { key: "g", label: "Most goals", short: "G", extract: (sl) => flatOne(sl, "G"), format: round },
+    { key: "a", label: "Most assists", short: "A", extract: (sl) => flatOne(sl, "A"), format: round },
+    { key: "sv", label: "Most saves", short: "SV", extract: (sl) => flatOne(sl, "SV"), format: round },
+  ],
+};
+
+const ALL_LEADERBOARD_STATS = Object.values(LEADERBOARD_STATS).flat();
+
+/**
+ * Fold one game's stat line into an athlete's running leaderboard totals
+ * (key → total). Every sport's stats are applied; keys are unique and only the
+ * athlete's own sport contributes nonzero values, so the caller filters by
+ * sport at ranking time.
+ */
+export function addLeaderboardContribution(totals: Map<string, number>, sl: StatLine): void {
+  for (const st of ALL_LEADERBOARD_STATS) {
+    const v = st.extract(sl);
+    if (v) totals.set(st.key, (totals.get(st.key) || 0) + v);
+  }
+}
+
 export function formatStatLine(sport: string | null, sl: StatLine | null | undefined): string | null {
   if (!sl || typeof sl !== "object") return null;
 

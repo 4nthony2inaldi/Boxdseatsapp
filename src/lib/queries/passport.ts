@@ -1,5 +1,6 @@
 import { SupabaseClient } from "@supabase/supabase-js";
 import { getSportIconPath } from "@/lib/sportIcons";
+import { LEADERBOARD_STATS, addLeaderboardContribution, parseStatLine } from "@/lib/statLine";
 import type { ProfileData } from "./profile";
 
 export type PassportVenue = {
@@ -30,6 +31,25 @@ export type PassportPlayer = {
   count: number;
 };
 
+export type LeaderboardEntry = {
+  id: string;
+  name: string;
+  headshot_url: string | null;
+  value: string;
+};
+
+export type LeaderboardRow = {
+  key: string;
+  label: string;
+  short: string;
+  players: LeaderboardEntry[];
+};
+
+export type SportLeaderboard = {
+  sport: string;
+  stats: LeaderboardRow[];
+};
+
 export type PassportData = {
   stats: {
     games: number;
@@ -48,7 +68,9 @@ export type PassportData = {
   players: PassportPlayer[];
   /** Total distinct athletes seen across all attended games. */
   playersTotal: number;
-  /** Section keys the owner has hidden (map | rings | topVenues | sports | players). */
+  /** "Most X you've seen" rows per sport, ranked over attended games. */
+  leaderboards: SportLeaderboard[];
+  /** Section keys the owner has hidden (map | rings | topVenues | sports | players | leaderboards). */
   hidden: string[];
   /** Top 4 most-complete list sets, for the share card. */
   topComplete: PassportRing[];
@@ -196,19 +218,28 @@ export async function fetchPassport(
   // distinct attended games per athlete; (event, athlete) rows are unique.
   const attendedEventIds = [...new Set(logs.map((l) => l.event_id).filter((e): e is string => !!e))];
   const playerCounts = new Map<string, number>();
+  // Per-athlete leaderboard totals (stat key -> total) summed over attended games.
+  const statTotals = new Map<string, Map<string, number>>();
   for (let i = 0; i < attendedEventIds.length; i += 200) {
     const chunk = attendedEventIds.slice(i, i + 200);
     for (let from = 0; ; from += 1000) {
       const { data } = await supabase
         .from("event_athletes")
-        .select("athlete_id")
+        .select("athlete_id, stat_line")
         .in("event_id", chunk)
         .order("id", { ascending: true })
         .range(from, from + 999);
       if (!data || data.length === 0) break;
       for (const row of data) {
         const aid = row.athlete_id as string | null;
-        if (aid) playerCounts.set(aid, (playerCounts.get(aid) || 0) + 1);
+        if (!aid) continue;
+        playerCounts.set(aid, (playerCounts.get(aid) || 0) + 1);
+        const sl = parseStatLine(row.stat_line as string | null);
+        if (sl) {
+          let totals = statTotals.get(aid);
+          if (!totals) statTotals.set(aid, (totals = new Map()));
+          addLeaderboardContribution(totals, sl);
+        }
       }
       if (data.length < 1000) break;
     }
@@ -218,12 +249,33 @@ export async function fetchPassport(
     .sort((a, b) => b[1] - a[1])
     .slice(0, 18)
     .map(([id]) => id);
+
+  // Rank athletes by each leaderboard stat key, keeping a generous top slice as
+  // candidates (sport is confirmed once we have athlete metadata below).
+  const byKey = new Map<string, [string, number][]>();
+  for (const [aid, totals] of statTotals) {
+    for (const [key, total] of totals) {
+      if (total <= 0) continue;
+      const list = byKey.get(key) || [];
+      list.push([aid, total]);
+      byKey.set(key, list);
+    }
+  }
+  const leaderCandidateIds = new Set<string>();
+  for (const [key, list] of byKey) {
+    list.sort((a, b) => b[1] - a[1]);
+    byKey.set(key, list.slice(0, 12));
+    for (const [aid] of byKey.get(key)!) leaderCandidateIds.add(aid);
+  }
+
+  // One metadata fetch covering both the times-seen row and leaderboard rows.
+  const metaIds = [...new Set([...topPlayerIds, ...leaderCandidateIds])];
   const playerMeta = new Map<string, { name: string; sport: string | null; headshot_url: string | null }>();
-  for (let i = 0; i < topPlayerIds.length; i += 100) {
+  for (let i = 0; i < metaIds.length; i += 100) {
     const { data } = await supabase
       .from("athletes")
       .select("id, name, sport, headshot_url")
-      .in("id", topPlayerIds.slice(i, i + 100));
+      .in("id", metaIds.slice(i, i + 100));
     for (const a of data || []) {
       playerMeta.set(a.id as string, {
         name: (a.name as string) || "Unknown",
@@ -240,6 +292,27 @@ export async function fetchPassport(
     })
     .filter((p): p is PassportPlayer => !!p);
 
+  // Build per-sport leaderboards, ordered to match the user's sport mix so the
+  // sport they watch most leads. Each stat shows the top athletes of that sport.
+  const sportOrder = new Map(sports.map((s, i) => [s.sport, i]));
+  const leaderboards: SportLeaderboard[] = Object.entries(LEADERBOARD_STATS)
+    .map(([sport, statDefs]) => {
+      const rows: LeaderboardRow[] = [];
+      for (const st of statDefs) {
+        const ranked = (byKey.get(st.key) || [])
+          .filter(([aid]) => playerMeta.get(aid)?.sport === sport)
+          .slice(0, 8)
+          .map(([aid, total]) => {
+            const m = playerMeta.get(aid)!;
+            return { id: aid, name: m.name, headshot_url: m.headshot_url, value: st.format(total) };
+          });
+        if (ranked.length) rows.push({ key: st.key, label: st.label, short: st.short, players: ranked });
+      }
+      return { sport, stats: rows };
+    })
+    .filter((lb) => lb.stats.length > 0)
+    .sort((a, b) => (sportOrder.get(a.sport) ?? 99) - (sportOrder.get(b.sport) ?? 99));
+
   return {
     stats: { games: logs.length, venues: venues.length, cities, wins, losses, draws, winPct },
     venues,
@@ -248,6 +321,7 @@ export async function fetchPassport(
     sports,
     players,
     playersTotal,
+    leaderboards,
     hidden: Array.isArray(config?.hidden) ? config!.hidden : [],
     topComplete,
     teams,
