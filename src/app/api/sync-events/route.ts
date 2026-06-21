@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { syncUpcomingGolf } from "@/lib/sync/upcomingFieldEvents";
+import { recordHeartbeat } from "@/lib/ingest/heartbeat";
 
 /**
  * GET/POST /api/sync-events
@@ -390,6 +391,27 @@ async function handleSync(request: Request) {
     } catch {
       upcoming = { error: true };
     }
+  }
+
+  // Heartbeat for the dead-man's switch (/api/ingest-health). Skipped on dry runs
+  // (they don't write). A league's stats.skipped === -1 flags a failed ESPN
+  // fetch; if every attempted league failed, the run "ran" but did no useful
+  // work — record it as degraded so last_success_at goes stale and the health
+  // check alerts, rather than silently looking healthy.
+  if (!dryRun) {
+    const attempted = Object.values(report);
+    const fetchFailures = attempted.filter((s) => s.skipped === -1).length;
+    const inserted = attempted.reduce((n, s) => n + Math.max(0, s.inserted), 0);
+    const scoresUpdated = attempted.reduce((n, s) => n + Math.max(0, s.scoresUpdated), 0);
+    const status =
+      attempted.length > 0 && fetchFailures === attempted.length ? "degraded" : "ok";
+    await recordHeartbeat(supabase, "sync-events", status, {
+      leagues: attempted.length,
+      fetchFailures,
+      inserted,
+      scoresUpdated,
+      range: dateRange,
+    });
   }
 
   return NextResponse.json({ success: true, dryRun, range: dateRange, report, upcoming });

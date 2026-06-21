@@ -11,6 +11,10 @@
     {
       "path": "/api/ingest-sweep",
       "schedule": "45 * * * *"
+    },
+    {
+      "path": "/api/ingest-health",
+      "schedule": "50 * * * *"
     }
   ]
 }

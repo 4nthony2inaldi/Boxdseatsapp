@@ -100,3 +100,16 @@ jobs:
       - name: Notice when nothing ran
         if: ${{ env.DATABASE_URL == '' && env.SUPABASE_PAT == '' }}
         run: echo "::warning::event-sync skipped — set DATABASE_URL and SUPABASE_PAT repository secrets to enable."
+
+      # Heartbeat for the ingest dead-man's switch (/api/ingest-health). Records a
+      # successful run so the health check knows this arm is alive; if the
+      # workflow stops running, last_success_at goes stale and the check alerts.
+      # Skipped on dry runs and when the PAT isn't set (the sync was a no-op).
+      - name: Record ingest heartbeat
+        if: ${{ always() && env.SUPABASE_PAT != '' && github.event.inputs.dry_run != 'true' }}
+        run: |
+          SQL="insert into public.ingest_heartbeats (job, last_run_at, last_success_at, last_status, updated_at) values ('event-sync', now(), now(), 'ok', now()) on conflict (job) do update set last_run_at = excluded.last_run_at, last_success_at = excluded.last_success_at, last_status = excluded.last_status, updated_at = excluded.updated_at;"
+          jq -n --arg q "$SQL" '{query:$q}' | curl -sf -X POST \
+            "https://api.supabase.com/v1/projects/${SUPABASE_PROJECT:-hsntmacdhuprmtsuxhsq}/database/query" \
+            -H "Authorization: Bearer $SUPABASE_PAT" \
+            -H "Content-Type: application/json" --data @-
