@@ -3,6 +3,7 @@ import Link from "next/link";
 import SportIcon from "@/components/SportIcon";
 import type { ComparisonData, CompareGame, CompareVenue } from "@/lib/queries/compare";
 import TagTogetherButton from "./TagTogetherButton";
+import PageHeader from "@/components/PageHeader";
 import { formatShortDate } from "@/lib/formatters";
 
 type Person = {
@@ -94,15 +95,7 @@ export default function CompareView({ me, them, data, backHref }: Props) {
 
   return (
     <div className="max-w-lg mx-auto pb-12">
-      {/* Header */}
-      <div className="flex items-center gap-3 px-4 py-3 border-b border-border">
-        <Link href={backHref} className="p-1 hover:opacity-80 transition-opacity">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--color-text-secondary)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <polyline points="15 18 9 12 15 6" />
-          </svg>
-        </Link>
-        <h1 className="font-display text-lg text-text-primary tracking-wide">You &amp; {themFirst}</h1>
-      </div>
+      <PageHeader title={`You & ${themFirst}`} backHref={backHref} />
 
       {/* Identity strip */}
       <div className="flex items-center justify-center gap-4 px-4 pt-5 pb-4">

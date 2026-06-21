@@ -6,6 +6,7 @@ import { fetchBlockedUsers } from "@/lib/queries/social";
 import { isAdmin } from "@/lib/queries/admin";
 import BlockedUsers from "@/components/settings/BlockedUsers";
 import SettingsForm from "@/components/settings/SettingsForm";
+import PageHeader from "@/components/PageHeader";
 
 export default async function SettingsPage() {
   const supabase = await createClient();
@@ -26,16 +27,7 @@ export default async function SettingsPage() {
 
   return (
     <div className="max-w-lg mx-auto pb-5">
-      <div className="flex items-center gap-3 px-4 py-3 border-b border-border">
-        <Link href="/profile" className="p-2.5 -m-2.5 hover:opacity-80 transition-opacity">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--color-text-secondary)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <polyline points="15 18 9 12 15 6" />
-          </svg>
-        </Link>
-        <h1 className="font-display text-lg text-text-primary tracking-wide">
-          Settings
-        </h1>
-      </div>
+      <PageHeader title="Settings" backHref="/profile" backClassName="p-2.5 -m-2.5 hover:opacity-80 transition-opacity" />
       <SettingsForm
         profile={profile}
         userEmail={user.email || ""}
