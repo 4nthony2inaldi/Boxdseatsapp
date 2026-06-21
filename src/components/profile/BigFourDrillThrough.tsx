@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect, useMemo } from "react";
+import MiniLabel from "@/components/MiniLabel";
 import { createClient } from "@/lib/supabase/client";
 import type { LeagueFavorite } from "@/lib/queries/bigfour";
 import {
@@ -495,9 +496,7 @@ export default function BigFourDrillThrough({
       {/* Add by league */}
       {unpickedLeagues.length > 0 && (
         <div>
-          <div className="font-display text-[11px] text-text-muted tracking-[1.5px] uppercase mb-2">
-            {favorites.length > 0 ? "Add another" : "Add a pick"}
-          </div>
+          <MiniLabel className="mb-2">{favorites.length > 0 ? "Add another" : "Add a pick"}</MiniLabel>
           <div className="space-y-2">
             {unpickedLeagues.map((league) => {
               const isEditing = editingLeagueSlug === league.slug;

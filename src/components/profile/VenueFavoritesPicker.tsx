@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
+import MiniLabel from "@/components/MiniLabel";
 import { createClient } from "@/lib/supabase/client";
 import type { LeagueFavorite } from "@/lib/queries/bigfour";
 import { searchVenuesForOnboarding } from "@/lib/queries/onboarding";
@@ -129,9 +130,7 @@ export default function VenueFavoritesPicker({ userId, initialFavorites, onChang
       {/* Add venues — kept at the top so it never gets buried as the list of
           added venues grows below it; encourages adding more. */}
       <div>
-        <div className="font-display text-[11px] text-text-muted tracking-[1.5px] uppercase mb-2">
-          {favorites.length > 0 ? "Add another" : "Add venues"}
-        </div>
+        <MiniLabel className="mb-2">{favorites.length > 0 ? "Add another" : "Add venues"}</MiniLabel>
 
         <div className="relative">
           <input

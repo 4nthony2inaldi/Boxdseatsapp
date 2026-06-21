@@ -1,4 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
+import MiniLabel from "@/components/MiniLabel";
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import BackButton from "@/components/BackButton";
@@ -81,9 +82,7 @@ export default async function TeamDetailPage({
 
       {/* Your history with this team */}
       <div className="bg-bg-card rounded-xl border border-border p-4 mb-6">
-        <div className="font-display text-[11px] text-text-muted tracking-[1.5px] uppercase mb-3">
-          Your History
-        </div>
+        <MiniLabel className="mb-3">Your History</MiniLabel>
         <div className="grid grid-cols-3 gap-3 text-center">
           <div>
             <div className="font-display text-2xl text-text-primary">

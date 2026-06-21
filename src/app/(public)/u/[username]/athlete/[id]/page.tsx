@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import MiniLabel from "@/components/MiniLabel";
 import Image from "next/image";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
@@ -137,9 +138,7 @@ export default async function UserAthletePage({ params }: Props) {
           </div>
 
           <div className="flex-1 min-w-0 flex flex-col">
-            <div className="font-display text-[11px] text-text-muted tracking-[1.5px] uppercase mb-2">
-              {isOwner ? "Where you saw" : "Where seen"}
-            </div>
+            <MiniLabel className="mb-2">{isOwner ? "Where you saw" : "Where seen"}</MiniLabel>
             {athlete.mapVenues.length > 0 ? (
               <>
                 <div className="flex-1 min-h-0">
