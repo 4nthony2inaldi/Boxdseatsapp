@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Button from "@/components/Button";
 
 type Props = {
   onScan: (monthsBack?: number) => void;
@@ -143,14 +144,14 @@ export default function PhotoScanIntro({ onScan, onCancel, webFallback, scanning
       </div>
 
       <div className="mt-6 space-y-2">
-        <button
+        <Button
           onClick={() => onScan(RANGES[rangeIdx].months)}
           disabled={scanning}
-          className="w-full py-3.5 rounded-xl font-display text-base tracking-widest text-white disabled:opacity-50 transition-opacity"
-          style={{ background: "linear-gradient(135deg, var(--color-accent), var(--color-accent-brown))" }}
+          size="lg"
+          fullWidth
         >
           {scanning ? "Looking…" : "Find my games"}
-        </button>
+        </Button>
         <button
           onClick={onCancel}
           className="w-full py-3 rounded-xl text-sm text-text-secondary hover:bg-bg-card transition-colors"

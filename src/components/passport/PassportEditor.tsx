@@ -5,6 +5,7 @@ import MiniLabel from "@/components/MiniLabel";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import SportIcon from "@/components/SportIcon";
+import Button from "@/components/Button";
 import PageHeader from "@/components/PageHeader";
 import { toastError } from "@/components/Toaster";
 import type { PassportListOption } from "@/lib/queries/passport";
@@ -127,14 +128,9 @@ export default function PassportEditor({
       </div>
 
       <div className="px-4 mt-6">
-        <button
-          onClick={save}
-          disabled={saving}
-          className="w-full py-3.5 rounded-xl font-display text-base tracking-widest text-white disabled:opacity-50"
-          style={{ background: "linear-gradient(135deg, var(--color-accent), var(--color-accent-brown))" }}
-        >
+        <Button onClick={save} disabled={saving} size="lg" fullWidth>
           {saving ? "SAVING…" : "SAVE PASSPORT"}
-        </button>
+        </Button>
       </div>
     </div>
   );

@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import SportIcon from "@/components/SportIcon";
+import Button from "@/components/Button";
 import { toastError } from "@/components/Toaster";
 import { createClient } from "@/lib/supabase/client";
 import { isNativeApp, loadPhotoFile } from "@/lib/native/photoScan";
@@ -411,14 +412,9 @@ export default function PhotoSuggestionsView({ suggestions, unknownTeams, photoB
         style={{ paddingBottom: "max(env(safe-area-inset-bottom), 0.75rem)" }}
       >
         <div className="max-w-lg mx-auto">
-          <button
-            onClick={commit}
-            disabled={saving || includedCount === 0}
-            className="w-full py-3.5 rounded-xl font-display text-base tracking-widest text-white disabled:opacity-40 transition-opacity"
-            style={{ background: "linear-gradient(135deg, var(--color-accent), var(--color-accent-brown))" }}
-          >
+          <Button onClick={commit} disabled={saving || includedCount === 0} size="lg" fullWidth>
             {saving ? (status || "Logging…") : `Log ${includedCount} ${includedCount === 1 ? "game" : "games"}`}
-          </button>
+          </Button>
         </div>
       </div>
     </div>
