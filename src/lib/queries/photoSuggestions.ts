@@ -2,13 +2,18 @@ import { SupabaseClient } from "@supabase/supabase-js";
 
 export type SuggestionTeam = { id: string; name: string; logo: string | null };
 
-export type PhotoSuggestion = {
+type SuggestionBase = {
   eventId: string;
   date: string;
   venueId: string;
   venueName: string;
   leagueSlug: string | null;
   sport: string | null;
+};
+
+/** A team-vs-team game: rooting + win/loss apply. */
+export type MatchSuggestion = SuggestionBase & {
+  kind: "match";
   home: SuggestionTeam & { score: number | null };
   away: SuggestionTeam & { score: number | null };
   /**
@@ -18,6 +23,20 @@ export type PhotoSuggestion = {
    */
   suggestedRootingTeamId: string | null;
 };
+
+/**
+ * An individual / "field" sport day (tennis, golf, motorsports, …): no two
+ * teams, so there's nothing to root for — you just attended the tournament
+ * that day. A venue can host more than one such event per day (e.g. the ATP
+ * and WTA draws at a Slam); those collapse into one suggestion and the chosen
+ * one is logged.
+ */
+export type TournamentSuggestion = SuggestionBase & {
+  kind: "tournament";
+  title: string;
+};
+
+export type PhotoSuggestion = MatchSuggestion | TournamentSuggestion;
 
 export type PhotoSuggestionsResult = {
   suggestions: PhotoSuggestion[];
@@ -65,14 +84,14 @@ export async function fetchPhotoSuggestions(
   // any matched date, which blows past PostgREST's 1000-row default cap once a
   // user has many matches — silently dropping real games (the more games you've
   // attended, the worse it got). Query the precise pairs in chunks instead.
-  const SELECT = `id, event_date, venue_id, home_score, away_score,
+  const SELECT = `id, event_date, venue_id, home_score, away_score, tournament_name,
        venues!events_venue_id_fkey(name),
-       leagues(slug, sport),
+       leagues(slug, name, sport),
        home_team:teams!events_home_team_id_fkey(id, short_name, name, logo_url),
        away_team:teams!events_away_team_id_fkey(id, short_name, name, logo_url)`;
   type EventRow = {
     id: string; event_date: string; venue_id: string;
-    home_score: number | null; away_score: number | null;
+    home_score: number | null; away_score: number | null; tournament_name: string | null;
     venues: unknown; leagues: unknown; home_team: unknown; away_team: unknown;
   };
   const rows: EventRow[] = [];
@@ -130,33 +149,67 @@ export async function fetchPhotoSuggestions(
   const suggestions: PhotoSuggestion[] = [];
   const unknown = new Map<string, SuggestionTeam>();
 
+  // Field-sport days where the user already logged one of the day's events
+  // (e.g. they logged the ATP draw): treat the whole tournament day as logged.
+  const loggedFieldDays = new Set<string>();
+  for (const e of candidates) {
+    const home = e.home_team as unknown as TeamRel;
+    const away = e.away_team as unknown as TeamRel;
+    if ((!home?.id || !away?.id) && loggedSet.has(e.id)) {
+      loggedFieldDays.add(`${e.venue_id}|${e.event_date}`);
+    }
+  }
+
+  // One tournament suggestion per (venue, date) for field sports.
+  const fieldSeen = new Set<string>();
+
   for (const e of candidates) {
     if (loggedSet.has(e.id)) continue;
     const home = e.home_team as unknown as TeamRel;
     const away = e.away_team as unknown as TeamRel;
-    if (!home?.id || !away?.id) continue;
-    const league = e.leagues as unknown as { slug: string | null; sport: string | null } | null;
+    const league = e.leagues as unknown as { slug: string | null; name: string | null; sport: string | null } | null;
     const venue = e.venues as unknown as { name: string } | null;
 
-    const hr = favRank.has(home.id) ? favRank.get(home.id)! : Infinity;
-    const ar = favRank.has(away.id) ? favRank.get(away.id)! : Infinity;
-    const rooting = hr === Infinity && ar === Infinity ? null : hr <= ar ? home.id : away.id;
+    // Team-vs-team game → rooting + win/loss.
+    if (home?.id && away?.id) {
+      const hr = favRank.has(home.id) ? favRank.get(home.id)! : Infinity;
+      const ar = favRank.has(away.id) ? favRank.get(away.id)! : Infinity;
+      const rooting = hr === Infinity && ar === Infinity ? null : hr <= ar ? home.id : away.id;
 
-    if (rooting === null) {
-      unknown.set(home.id, teamObj(home));
-      unknown.set(away.id, teamObj(away));
+      if (rooting === null) {
+        unknown.set(home.id, teamObj(home));
+        unknown.set(away.id, teamObj(away));
+      }
+
+      suggestions.push({
+        kind: "match",
+        eventId: e.id,
+        date: e.event_date,
+        venueId: e.venue_id,
+        venueName: venue?.name ?? "",
+        leagueSlug: league?.slug ?? null,
+        sport: league?.sport ?? null,
+        home: { ...teamObj(home), score: e.home_score ?? null },
+        away: { ...teamObj(away), score: e.away_score ?? null },
+        suggestedRootingTeamId: rooting,
+      });
+      continue;
     }
 
+    // Individual / field sport (tennis, golf, motorsports, …) → one suggestion
+    // per tournament day; the first unlogged event of that day gets logged.
+    const key = `${e.venue_id}|${e.event_date}`;
+    if (loggedFieldDays.has(key) || fieldSeen.has(key)) continue;
+    fieldSeen.add(key);
     suggestions.push({
+      kind: "tournament",
       eventId: e.id,
       date: e.event_date,
       venueId: e.venue_id,
       venueName: venue?.name ?? "",
       leagueSlug: league?.slug ?? null,
       sport: league?.sport ?? null,
-      home: { ...teamObj(home), score: e.home_score ?? null },
-      away: { ...teamObj(away), score: e.away_score ?? null },
-      suggestedRootingTeamId: rooting,
+      title: e.tournament_name || venue?.name || league?.name || "Event",
     });
   }
 

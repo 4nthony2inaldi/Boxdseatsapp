@@ -7,7 +7,7 @@ import { toastError } from "@/components/Toaster";
 import { createClient } from "@/lib/supabase/client";
 import { isNativeApp, loadPhotoFile } from "@/lib/native/photoScan";
 import { uploadEventPhoto, updateEventLogPhoto } from "@/lib/photos";
-import type { PhotoSuggestion, SuggestionTeam } from "@/lib/queries/photoSuggestions";
+import type { PhotoSuggestion, MatchSuggestion, SuggestionTeam } from "@/lib/queries/photoSuggestions";
 
 type Props = {
   suggestions: PhotoSuggestion[];
@@ -57,7 +57,7 @@ function PhotoPreview({ photoId }: { photoId: string }) {
 }
 
 /** "Won 4–1" / "Lost 1–4" / "Tied" / "Logged" (no score or neutral). */
-function resultText(s: PhotoSuggestion, rooting: string | null): { label: string; tone: "win" | "loss" | "muted" } {
+function resultText(s: MatchSuggestion, rooting: string | null): { label: string; tone: "win" | "loss" | "muted" } {
   if (!rooting || s.home.score == null || s.away.score == null) return { label: "", tone: "muted" };
   const mine = rooting === s.home.id ? s.home.score : s.away.score;
   const opp = rooting === s.home.id ? s.away.score : s.home.score;
@@ -70,7 +70,10 @@ export default function PhotoSuggestionsView({ suggestions, unknownTeams, photoB
   const router = useRouter();
   const [rows, setRows] = useState<Record<string, RowState>>(() =>
     Object.fromEntries(
-      suggestions.map((s) => [s.eventId, { included: true, rootingTeamId: s.suggestedRootingTeamId }])
+      suggestions.map((s) => [
+        s.eventId,
+        { included: true, rootingTeamId: s.kind === "match" ? s.suggestedRootingTeamId : null },
+      ])
     )
   );
   const [rootedTeams, setRootedTeams] = useState<Set<string>>(new Set());
@@ -94,6 +97,7 @@ export default function PhotoSuggestionsView({ suggestions, unknownTeams, photoB
   const teamName = useMemo(() => {
     const m = new Map<string, string>();
     for (const s of suggestions) {
+      if (s.kind !== "match") continue;
       m.set(s.home.id, s.home.name);
       m.set(s.away.id, s.away.name);
     }
@@ -101,7 +105,7 @@ export default function PhotoSuggestionsView({ suggestions, unknownTeams, photoB
   }, [suggestions]);
 
   const includedCount = Object.values(rows).filter((r) => r.included).length;
-  const inferredCount = suggestions.filter((s) => s.suggestedRootingTeamId).length;
+  const inferredCount = suggestions.filter((s) => s.kind === "match" && s.suggestedRootingTeamId).length;
 
   const setRooting = (eventId: string, teamId: string | null) =>
     setRows((prev) => ({ ...prev, [eventId]: { ...prev[eventId], rootingTeamId: teamId } }));
@@ -120,6 +124,7 @@ export default function PhotoSuggestionsView({ suggestions, unknownTeams, photoB
       setRows((prevRows) => {
         const updated = { ...prevRows };
         for (const s of suggestions) {
+          if (s.kind !== "match") continue;
           const involvesTeam = s.home.id === teamId || s.away.id === teamId;
           if (!involvesTeam) continue;
           if (turningOn && updated[s.eventId].rootingTeamId == null) {
@@ -297,7 +302,7 @@ export default function PhotoSuggestionsView({ suggestions, unknownTeams, photoB
         {suggestions.map((s) => {
           const st = rows[s.eventId];
           const rooting = st.rootingTeamId;
-          const res = resultText(s, rooting);
+          const res = s.kind === "match" ? resultText(s, rooting) : null;
           return (
             <div
               key={s.eventId}
@@ -311,7 +316,7 @@ export default function PhotoSuggestionsView({ suggestions, unknownTeams, photoB
                 </div>
                 <div className="flex-1 min-w-0">
                   <div className="text-sm text-text-primary font-medium truncate">
-                    {s.away.name} @ {s.home.name}
+                    {s.kind === "match" ? `${s.away.name} @ ${s.home.name}` : s.title}
                   </div>
                   <div className="text-xs text-text-muted truncate">
                     {fmtDate(s.date)} · {s.venueName}
@@ -332,33 +337,39 @@ export default function PhotoSuggestionsView({ suggestions, unknownTeams, photoB
                 </button>
               </div>
 
-              {/* Rooting row */}
-              <div className="px-3 pb-3 -mt-1">
-                {rooting ? (
-                  <div className="flex items-center gap-2 text-xs">
-                    <span className="text-text-secondary">Rooting {teamName.get(rooting)}</span>
-                    {res.label && (
-                      <span className={res.tone === "win" ? "text-win font-medium" : res.tone === "loss" ? "text-loss font-medium" : "text-text-muted"}>
-                        · {res.label}
-                      </span>
-                    )}
-                    <button onClick={() => setRooting(s.eventId, null)} className="ml-auto text-text-muted hover:text-text-secondary">
-                      change
-                    </button>
-                  </div>
-                ) : (
-                  <div className="flex items-center gap-1.5 flex-wrap">
-                    <span className="text-xs text-text-muted mr-1">Who&apos;d you root for?</span>
-                    <button onClick={() => setRooting(s.eventId, s.away.id)} className="px-2.5 py-1 rounded-full text-xs bg-bg-input border border-border text-text-secondary hover:border-accent">
-                      {s.away.name}
-                    </button>
-                    <button onClick={() => setRooting(s.eventId, s.home.id)} className="px-2.5 py-1 rounded-full text-xs bg-bg-input border border-border text-text-secondary hover:border-accent">
-                      {s.home.name}
-                    </button>
-                    <span className="text-xs text-text-muted">· or leave neutral</span>
-                  </div>
-                )}
-              </div>
+              {/* Rooting row — team games only; field-sport days have no team. */}
+              {s.kind === "match" ? (
+                <div className="px-3 pb-3 -mt-1">
+                  {rooting ? (
+                    <div className="flex items-center gap-2 text-xs">
+                      <span className="text-text-secondary">Rooting {teamName.get(rooting)}</span>
+                      {res?.label && (
+                        <span className={res.tone === "win" ? "text-win font-medium" : res.tone === "loss" ? "text-loss font-medium" : "text-text-muted"}>
+                          · {res.label}
+                        </span>
+                      )}
+                      <button onClick={() => setRooting(s.eventId, null)} className="ml-auto text-text-muted hover:text-text-secondary">
+                        change
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      <span className="text-xs text-text-muted mr-1">Who&apos;d you root for?</span>
+                      <button onClick={() => setRooting(s.eventId, s.away.id)} className="px-2.5 py-1 rounded-full text-xs bg-bg-input border border-border text-text-secondary hover:border-accent">
+                        {s.away.name}
+                      </button>
+                      <button onClick={() => setRooting(s.eventId, s.home.id)} className="px-2.5 py-1 rounded-full text-xs bg-bg-input border border-border text-text-secondary hover:border-accent">
+                        {s.home.name}
+                      </button>
+                      <span className="text-xs text-text-muted">· or leave neutral</span>
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <div className="px-3 pb-3 -mt-1">
+                  <span className="text-xs text-text-muted">Marks the day you were there — no team to root for.</span>
+                </div>
+              )}
 
               {/* Photo review — pick which matched photos to attach */}
               {photoMode === "review" && st.included && photoIdFor(s) && (
