@@ -38,6 +38,7 @@ export default async function UserFollowersPage({ params }: Props) {
       <div className="px-4 pt-2 mb-3 flex items-center gap-3">
         <Link
           href={`/user/${username}`}
+          aria-label="Back"
           className="text-text-muted hover:text-text-secondary transition-colors"
         >
           <svg
