@@ -4,6 +4,7 @@ import { useState, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { createList, addListItem, searchVenuesForList } from "@/lib/queries/lists";
+import Button from "@/components/Button";
 import { toastError } from "@/components/Toaster";
 
 type VenueResult = {
@@ -289,13 +290,9 @@ export default function CreateListForm({ userId }: { userId: string }) {
       )}
 
       {/* Save button */}
-      <button
-        onClick={handleSave}
-        disabled={saving || !name.trim()}
-        className="w-full bg-gradient-to-r from-accent to-accent-hover rounded-xl py-3.5 text-center font-display text-lg tracking-[2px] text-white uppercase shadow-lg shadow-accent/20 hover:opacity-90 transition-opacity disabled:opacity-50 cursor-pointer"
-      >
+      <Button onClick={handleSave} disabled={saving || !name.trim()} size="xl" fullWidth glow>
         {saving ? "Creating..." : "Create List"}
-      </button>
+      </Button>
     </div>
   );
 }
