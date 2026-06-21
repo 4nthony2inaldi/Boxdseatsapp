@@ -43,3 +43,7 @@ next-env.d.ts
 # Python bytecode (data scripts)
 __pycache__/
 *.pyc
+
+# Local screenshot/scratch artifacts (never commit)
+scratch-shots/
+shot-*.mjs
