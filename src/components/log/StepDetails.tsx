@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useRef, useCallback } from "react";
+import Button from "@/components/Button";
 import { createClient } from "@/lib/supabase/client";
 import {
   searchUsers,
@@ -436,15 +437,7 @@ export default function StepDetails({
       </div>
 
       {/* Save button */}
-      <button
-        onClick={handleSubmit}
-        disabled={saving}
-        className="w-full py-3.5 rounded-xl text-white font-display text-lg tracking-[2px] cursor-pointer border-none disabled:opacity-50 disabled:cursor-default"
-        style={{
-          background: "linear-gradient(135deg, var(--color-accent), var(--color-accent-brown))",
-          boxShadow: "0 4px 20px rgba(212, 135, 44, 0.25)",
-        }}
-      >
+      <Button onClick={handleSubmit} disabled={saving} size="xl" fullWidth glow>
         {saving
           ? "SAVING..."
           : isEditMode
@@ -452,7 +445,7 @@ export default function StepDetails({
             : multiDayCount && multiDayCount > 1
               ? `SAVE ${multiDayCount} DAYS`
               : "SAVE EVENT"}
-      </button>
+      </Button>
 
       {/* Back */}
       <button
