@@ -30,6 +30,12 @@ const nextConfig: NextConfig = {
     ];
   },
   images: {
+    // Serve AVIF/WebP (big byte savings for fans loading photos on stadium
+    // cellular) and keep optimized variants cached for a month — our remote
+    // images (ESPN logos, Wikipedia venue photos, stored avatars) are static
+    // per URL, and avatars get a fresh URL when changed, so a long TTL is safe.
+    formats: ["image/avif", "image/webp"],
+    minimumCacheTTL: 2_678_400,
     remotePatterns: [
       ...(supabaseHostname
         ? [
