@@ -115,7 +115,8 @@ async function main() {
       // One PATCH per row (jsonb differs per athlete); modest concurrency.
       for (let i = 0; i < updates.length; i += 10) {
         await Promise.all(updates.slice(i, i + 10).map((u) =>
-          fetch(`${BASE}/rest/v1/event_athletes?id=eq.${u.id}`, { method: "PATCH", headers: { ...H, Prefer: "return=minimal" }, body: JSON.stringify({ stat_line: u.stat_line }) })
+          // stat_line is a text column; store the line as JSON.
+          fetch(`${BASE}/rest/v1/event_athletes?id=eq.${u.id}`, { method: "PATCH", headers: { ...H, Prefer: "return=minimal" }, body: JSON.stringify({ stat_line: JSON.stringify(u.stat_line) }) })
         ));
       }
     }
