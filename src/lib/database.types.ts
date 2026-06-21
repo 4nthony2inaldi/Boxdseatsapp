@@ -220,7 +220,8 @@ export type Database = {
         Row: {
           body: string
           created_at: string
-          event_log_id: string
+          event_id: string | null
+          event_log_id: string | null
           id: string
           updated_at: string
           user_id: string
@@ -228,7 +229,8 @@ export type Database = {
         Insert: {
           body: string
           created_at?: string
-          event_log_id: string
+          event_id?: string | null
+          event_log_id?: string | null
           id?: string
           updated_at?: string
           user_id: string
@@ -236,12 +238,20 @@ export type Database = {
         Update: {
           body?: string
           created_at?: string
-          event_log_id?: string
+          event_id?: string | null
+          event_log_id?: string | null
           id?: string
           updated_at?: string
           user_id?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "comments_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "events"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "comments_event_log_id_fkey"
             columns: ["event_log_id"]

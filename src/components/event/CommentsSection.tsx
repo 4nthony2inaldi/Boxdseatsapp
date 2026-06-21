@@ -3,14 +3,18 @@
 import Image from "next/image";
 import { useState } from "react";
 import { createClient } from "@/lib/supabase/client";
-import { postComment, deleteComment, type EventComment } from "@/lib/queries/event";
+import { postComment, postEventComment, deleteComment, type EventComment } from "@/lib/queries/event";
 import { formatRelative } from "@/lib/formatters";
 import ReportButton from "@/components/social/ReportButton";
 
 type Props = {
-  eventLogId: string;
+  /** Per-log thread. Provide exactly one of eventLogId or eventId. */
+  eventLogId?: string;
+  /** Event-level discussion room (the shared per-game thread). */
+  eventId?: string;
   userId: string;
-  logOwnerId: string;
+  /** Log owner can moderate their log's thread (per-log mode only). */
+  logOwnerId?: string;
   initialComments: EventComment[];
   /** Fires with the new total whenever a comment is posted or deleted. */
   onCountChange?: (count: number) => void;
@@ -18,7 +22,7 @@ type Props = {
   stickyInput?: boolean;
 };
 
-export default function CommentsSection({ eventLogId, userId, logOwnerId, initialComments, onCountChange, stickyInput }: Props) {
+export default function CommentsSection({ eventLogId, eventId, userId, logOwnerId, initialComments, onCountChange, stickyInput }: Props) {
   const [comments, setComments] = useState<EventComment[]>(initialComments);
   const [body, setBody] = useState("");
   const [posting, setPosting] = useState(false);
@@ -30,7 +34,9 @@ export default function CommentsSection({ eventLogId, userId, logOwnerId, initia
     setError(null);
 
     const supabase = createClient();
-    const result = await postComment(supabase, userId, eventLogId, body);
+    const result = eventId
+      ? await postEventComment(supabase, userId, eventId, body)
+      : await postComment(supabase, userId, eventLogId!, body);
 
     if ("error" in result) {
       setError(result.error);
@@ -41,8 +47,8 @@ export default function CommentsSection({ eventLogId, userId, logOwnerId, initia
     // Fetch updated comments to get the full data
     const { data } = await supabase
       .from("comments")
-      .select("id, user_id, body, created_at, event_log_id")
-      .eq("event_log_id", eventLogId)
+      .select("id, user_id, body, created_at, event_log_id, event_id")
+      .eq(eventId ? "event_id" : "event_log_id", eventId ?? eventLogId!)
       .order("created_at", { ascending: true });
 
     if (data) {
@@ -68,6 +74,7 @@ export default function CommentsSection({ eventLogId, userId, logOwnerId, initia
             body: c.body,
             created_at: c.created_at,
             event_log_id: c.event_log_id,
+            event_id: c.event_id,
           };
         })
       );
@@ -88,7 +95,8 @@ export default function CommentsSection({ eventLogId, userId, logOwnerId, initia
     });
 
     const supabase = createClient();
-    const result = await deleteComment(supabase, commentId, userId, logOwnerId);
+    // Event-room comments have no "log owner" — only the author can delete.
+    const result = await deleteComment(supabase, commentId, userId, eventId ? undefined : logOwnerId);
 
     if ("error" in result) {
       setComments(prevComments);
@@ -134,7 +142,7 @@ export default function CommentsSection({ eventLogId, userId, logOwnerId, initia
                       {comment.user_id !== userId && (
                         <ReportButton targetType="comment" targetId={comment.id} reporterId={userId} label="comment" />
                       )}
-                      {(comment.user_id === userId || logOwnerId === userId) && (
+                      {(comment.user_id === userId || (!eventId && logOwnerId === userId)) && (
                         <button
                           onClick={() => handleDelete(comment.id)}
                           aria-label="Delete comment"
