@@ -48,6 +48,14 @@ describe("aggregatePlayerStats", () => {
       { label: "TD", value: "3" }, { label: "Pass yds", value: "550" },
     ]);
   });
+  it("soccer outfield sums G/A/SOG, goalie shows SV/GA", () => {
+    expect(aggregatePlayerStats("soccer", [{ stats: { G: "1", A: "1", SOG: "3" } }, { stats: { G: "2", A: "0", SOG: "2" } }])).toEqual([
+      { label: "G", value: "3" }, { label: "A", value: "1" }, { label: "SOG", value: "5" },
+    ]);
+    expect(aggregatePlayerStats("soccer", [{ stats: { SV: "4", GA: "1" } }, { stats: { SV: "2", GA: "0" } }])).toEqual([
+      { label: "SV", value: "6" }, { label: "GA", value: "1" },
+    ]);
+  });
 });
 
 describe("addLeaderboardContribution", () => {
@@ -81,6 +89,22 @@ describe("addLeaderboardContribution", () => {
     expect(t.has("pts")).toBe(false);
     expect(t.has("g")).toBe(false);
   });
+
+  it("sums football receiving yards under its own key", () => {
+    const t = new Map<string, number>();
+    addLeaderboardContribution(t, { receiving: { REC: "7", YDS: "95" } });
+    addLeaderboardContribution(t, { receiving: { REC: "4", YDS: "60" } });
+    expect(fmt("football", "recyds", t.get("recyds")!)).toBe("155");
+  });
+
+  it("totals soccer goals/assists/saves under soccer-specific keys", () => {
+    const t = new Map<string, number>();
+    addLeaderboardContribution(t, { stats: { G: "2", A: "1" } });
+    addLeaderboardContribution(t, { stats: { G: "1", SV: "3" } });
+    expect(fmt("soccer", "sgoals", t.get("sgoals")!)).toBe("3");
+    expect(fmt("soccer", "sassists", t.get("sassists")!)).toBe("1");
+    expect(fmt("soccer", "ssaves", t.get("ssaves")!)).toBe("3");
+  });
 });
 
 describe("formatStatLine", () => {
@@ -102,6 +126,12 @@ describe("formatStatLine", () => {
   it("hockey skater vs goalie", () => {
     expect(formatStatLine("hockey", { skaters: { G: "1", A: "2" } })).toBe("1 G, 2 A");
     expect(formatStatLine("hockey", { goalies: { SV: "31", GA: "2" } })).toBe("31 SV, 2 GA");
+  });
+  it("soccer scorer, keeper, and quiet outfielder", () => {
+    expect(formatStatLine("soccer", { stats: { G: "1", A: "1", SOG: "2" } })).toBe("1 G, 1 A");
+    expect(formatStatLine("soccer", { stats: { SV: "4", GA: "1", SHF: "5" } })).toBe("4 SV, 1 GA");
+    expect(formatStatLine("soccer", { stats: { G: "0", A: "0", SOG: "2" } })).toBe("2 SOG");
+    expect(formatStatLine("soccer", { stats: { G: "0", A: "0", SOG: "0", FC: "2" } })).toBeNull();
   });
   it("returns null for empty / unknown", () => {
     expect(formatStatLine("baseball", null)).toBeNull();

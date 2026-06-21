@@ -108,6 +108,16 @@ export function aggregatePlayerStats(sport: string | null, lines: StatLine[]): A
     return [{ label: "G", value: `${G}` }, { label: "A", value: `${A}` }, { label: "PTS", value: `${G + A}` }];
   }
 
+  if (sport === "soccer") {
+    const SV = flatSum(lines, "SV");
+    if (SV > 0) return [{ label: "SV", value: `${Math.round(SV)}` }, { label: "GA", value: `${Math.round(flatSum(lines, "GA"))}` }];
+    return [
+      { label: "G", value: `${Math.round(flatSum(lines, "G"))}` },
+      { label: "A", value: `${Math.round(flatSum(lines, "A"))}` },
+      { label: "SOG", value: `${Math.round(flatSum(lines, "SOG"))}` },
+    ];
+  }
+
   return [];
 }
 
@@ -149,11 +159,19 @@ export const LEADERBOARD_STATS: Record<string, LeaderboardStat[]> = {
     { key: "td", label: "Most touchdowns", short: "TD", extract: (sl) => toNum(sl.passing?.TD) + toNum(sl.rushing?.TD) + toNum(sl.receiving?.TD), format: round },
     { key: "passyds", label: "Most passing yards", short: "yds", extract: (sl) => toNum(sl.passing?.YDS), format: round },
     { key: "rushyds", label: "Most rushing yards", short: "yds", extract: (sl) => toNum(sl.rushing?.YDS), format: round },
+    { key: "recyds", label: "Most receiving yards", short: "yds", extract: (sl) => toNum(sl.receiving?.YDS), format: round },
   ],
   hockey: [
     { key: "g", label: "Most goals", short: "G", extract: (sl) => flatOne(sl, "G"), format: round },
     { key: "a", label: "Most assists", short: "A", extract: (sl) => flatOne(sl, "A"), format: round },
     { key: "sv", label: "Most saves", short: "SV", extract: (sl) => flatOne(sl, "SV"), format: round },
+  ],
+  // Soccer keys are distinct from hockey's even though the labels match, so the
+  // shared accumulator never double-counts (every stat runs against every line).
+  soccer: [
+    { key: "sgoals", label: "Most goals", short: "G", extract: (sl) => flatOne(sl, "G"), format: round },
+    { key: "sassists", label: "Most assists", short: "A", extract: (sl) => flatOne(sl, "A"), format: round },
+    { key: "ssaves", label: "Most saves", short: "SV", extract: (sl) => flatOne(sl, "SV"), format: round },
   ],
 };
 
@@ -233,6 +251,22 @@ export function formatStatLine(sport: string | null, sl: StatLine | null | undef
     }
     if (flat.G != null || flat.A != null) return `${flat.G ?? 0} G, ${flat.A ?? 0} A`;
     return null;
+  }
+
+  if (sport === "soccer") {
+    // Goalkeepers report saves; everyone else gets a line only when they did
+    // something worth noting (a goal, an assist, or a shot on target).
+    if ((num(flat.SV) ?? 0) > 0 || (num(flat.SHF) ?? 0) > 0) {
+      const parts: string[] = [];
+      if (flat.SV != null) parts.push(`${flat.SV} SV`);
+      if ((num(flat.GA) ?? 0) > 0) parts.push(`${flat.GA} GA`);
+      return parts.length ? parts.join(", ") : null;
+    }
+    const parts: string[] = [];
+    if ((num(flat.G) ?? 0) > 0) parts.push(`${flat.G} G`);
+    if ((num(flat.A) ?? 0) > 0) parts.push(`${flat.A} A`);
+    if (!parts.length && (num(flat.SOG) ?? 0) > 0) parts.push(`${flat.SOG} SOG`);
+    return parts.length ? parts.join(", ") : null;
   }
 
   return null;
