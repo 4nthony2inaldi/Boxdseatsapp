@@ -284,7 +284,7 @@ export default function NotificationList({
                 </p>
               )}
 
-              {/* Companion tag: accept / add to profile / decline */}
+              {/* Companion tag: accept & post (accept + add to own timeline) / accept / decline */}
               {(() => {
                 const tag = n.companionTag;
                 if (!tag) return null;
@@ -299,7 +299,7 @@ export default function NotificationList({
                         className="px-3 py-1.5 rounded-lg text-xs font-semibold text-white disabled:opacity-50 transition-opacity"
                         style={{ background: "linear-gradient(135deg, var(--color-accent), var(--color-accent-brown))" }}
                       >
-                        Add to profile
+                        Accept &amp; post
                       </button>
                       <button
                         onClick={(e) => { e.preventDefault(); handleCompanion(tag.id, "accept"); }}
@@ -323,7 +323,7 @@ export default function NotificationList({
                 return (
                   <p className={`text-xs mt-2 ${outcome === "declined" ? "text-text-muted" : "text-win"}`}>
                     {outcome === "added"
-                      ? "Added to your profile — finish your log"
+                      ? "Accepted & posted — finish your log"
                       : outcome === "accepted"
                         ? "Tag accepted"
                         : "Tag declined"}
