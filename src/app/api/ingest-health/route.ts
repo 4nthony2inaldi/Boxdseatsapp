@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import * as Sentry from "@sentry/nextjs";
+import { INGEST_JOBS } from "@/lib/ingest/jobs";
 
 /**
  * GET/POST /api/ingest-health — the ingest dead-man's switch.
@@ -25,15 +26,6 @@ import * as Sentry from "@sentry/nextjs";
  * vercel.json); requires CRON_SECRET bearer auth.
  */
 export const maxDuration = 30;
-
-type JobSpec = { maxAgeMinutes: number; label: string };
-
-// sync-events runs hourly (vercel.json) — 180m absorbs two missed ticks.
-// event-sync runs every 6h (GitHub Actions) — 840m (14h) absorbs one miss + slack.
-const JOBS: Record<string, JobSpec> = {
-  "sync-events": { maxAgeMinutes: 180, label: "Vercel hourly event sync" },
-  "event-sync": { maxAgeMinutes: 840, label: "GitHub Actions college + individual-sport sync" },
-};
 
 type HeartbeatRow = {
   job: string;
@@ -73,7 +65,7 @@ async function handle(request: Request) {
   const jobs: Array<Record<string, unknown>> = [];
   const stale: string[] = [];
 
-  for (const [job, spec] of Object.entries(JOBS)) {
+  for (const [job, spec] of Object.entries(INGEST_JOBS)) {
     const row = byJob.get(job);
     if (!row) {
       jobs.push({ job, label: spec.label, state: "unseen" });

@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { createClient as createServiceClient } from "@supabase/supabase-js";
 import { redirect, notFound } from "next/navigation";
@@ -31,6 +32,14 @@ export default async function AdminPage() {
   return (
     <div className="max-w-lg mx-auto pb-5">
       <PageHeader title="Admin · Users" backHref="/settings" />
+      <div className="px-4 pt-3">
+        <Link
+          href="/admin/ingest"
+          className="block rounded-xl border border-white/10 px-4 py-3 text-sm text-text-primary hover:bg-white/5"
+        >
+          Ingest health <span className="text-text-muted">· sync jobs and per-league freshness</span>
+        </Link>
+      </div>
       <div className="px-4 pt-3 pb-2 text-xs text-text-muted">
         {users.length} accounts · deleting cascades all of a user&apos;s data and removes their login.
       </div>
