@@ -22,6 +22,30 @@ describe("box-score parsers", () => {
     expect(parseTeam({ boxscore: { players: [{ statistics: [{ athletes: [{ athlete: {} }] }] }] } })).toEqual([]);
   });
 
+  it("parseTeam captures per-category stat lines and merges categories per athlete", () => {
+    const d = {
+      boxscore: {
+        players: [
+          {
+            team: { id: "10" },
+            statistics: [
+              { name: "batting", labels: ["AB", "H", "HR", "RBI"], athletes: [{ athlete: { id: "1", displayName: "A" }, stats: ["4", "2", "1", "3"] }] },
+              { name: "pitching", labels: ["IP", "K"], athletes: [{ athlete: { id: "1", displayName: "A" }, stats: ["2.0", "5"] }] },
+            ],
+          },
+        ],
+      },
+    };
+    const out = parseTeam(d);
+    expect(out).toHaveLength(1);
+    expect(out[0].statLine).toEqual({ batting: { AB: "4", H: "2", HR: "1", RBI: "3" }, pitching: { IP: "2.0", K: "5" } });
+  });
+
+  it("parseTeam yields a null stat line when there are no stats", () => {
+    const d = { boxscore: { players: [{ team: { id: "1" }, statistics: [{ athletes: [{ athlete: { id: "5", displayName: "x" } }] }] }] } };
+    expect(parseTeam(d)[0].statLine).toBeNull();
+  });
+
   it("parseSoccer reads rosters[].roster[].athlete", () => {
     const d = { rosters: [{ team: { id: "5" }, roster: [{ athlete: { id: "99", displayName: "Keeper" } }] }] };
     const out = parseSoccer(d);

@@ -20,12 +20,18 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 
 type Sport = "baseball" | "basketball" | "football" | "hockey" | "soccer" | "golf" | "motorsports" | "tennis";
 
+// stat_line is per-category because sports report wildly different lines
+// (baseball batting/pitching, basketball PTS/REB/AST, football passing/rushing,
+// hockey G/A/TOI). Each category maps an ESPN stat label to its value as given.
+type StatLine = Record<string, Record<string, string>>;
+
 type Participant = {
   espnId: string;
   name: string | null;
   espnTeamId: string | null;
   finish: number | null;
   winner: boolean | null;
+  statLine: StatLine | null;
 };
 
 export type IngestResult = {
@@ -63,17 +69,40 @@ const arr = (v: any): any[] => (Array.isArray(v) ? v : []);
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export function parseTeam(d: any): Participant[] {
-  const out: Participant[] = [];
+  // One participant per athlete, merging the stat categories they appear in
+  // (e.g. a baseball player who both batted and pitched). Each category zips
+  // ESPN's labels to that athlete's aligned stat values.
+  const byId = new Map<string, Participant>();
   for (const t of arr(d?.boxscore?.players)) {
-    const tid = t?.team?.id;
+    const tid = t?.team?.id ? String(t.team.id) : null;
     for (const cat of arr(t?.statistics)) {
+      const labels = (arr(cat?.labels).length ? arr(cat?.labels) : arr(cat?.names)).map((x: unknown) => String(x));
+      const catName = String(cat?.name || cat?.type || "stats");
       for (const a of arr(cat?.athletes)) {
         const ath = a?.athlete || {};
-        if (ath.id) out.push({ espnId: String(ath.id), name: ath.displayName ?? null, espnTeamId: tid ? String(tid) : null, finish: null, winner: null });
+        if (!ath.id) continue;
+        const id = String(ath.id);
+        let p = byId.get(id);
+        if (!p) {
+          p = { espnId: id, name: ath.displayName ?? null, espnTeamId: tid, finish: null, winner: null, statLine: {} };
+          byId.set(id, p);
+        }
+        const vals = arr(a?.stats);
+        if (labels.length && vals.length && p.statLine) {
+          const row: Record<string, string> = {};
+          for (let i = 0; i < labels.length; i++) {
+            const v = vals[i];
+            if (v !== undefined && v !== null && v !== "") row[labels[i]] = String(v);
+          }
+          if (Object.keys(row).length) p.statLine[catName] = row;
+        }
       }
     }
   }
-  return out;
+  return [...byId.values()].map((p) => ({
+    ...p,
+    statLine: p.statLine && Object.keys(p.statLine).length ? p.statLine : null,
+  }));
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -83,7 +112,7 @@ export function parseSoccer(d: any): Participant[] {
     const tid = t?.team?.id;
     for (const r of arr(t?.roster)) {
       const ath = r?.athlete || {};
-      if (ath.id) out.push({ espnId: String(ath.id), name: ath.displayName ?? null, espnTeamId: tid ? String(tid) : null, finish: null, winner: null });
+      if (ath.id) out.push({ espnId: String(ath.id), name: ath.displayName ?? null, espnTeamId: tid ? String(tid) : null, finish: null, winner: null, statLine: null });
     }
   }
   return out;
@@ -98,7 +127,7 @@ export function parseField(d: any): Participant[] {
     for (const comp of arr(e?.competitions)) {
       for (const c of arr(comp?.competitors)) {
         const aid = c?.id || c?.athlete?.id;
-        if (aid) out.push({ espnId: String(aid), name: c?.athlete?.displayName ?? null, espnTeamId: null, finish: c?.order ?? null, winner: !!c?.winner });
+        if (aid) out.push({ espnId: String(aid), name: c?.athlete?.displayName ?? null, espnTeamId: null, finish: c?.order ?? null, winner: !!c?.winner, statLine: null });
       }
     }
   }
@@ -248,6 +277,7 @@ export async function ingestEventBoxScore(
         team_id: p.espnTeamId ? teamMap.get(p.espnTeamId) ?? null : null,
         finish_position: p.finish,
         is_winner: p.winner,
+        stat_line: p.statLine,
       };
     })
     .filter((r): r is NonNullable<typeof r> => !!r);
