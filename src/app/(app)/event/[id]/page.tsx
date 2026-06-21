@@ -19,6 +19,7 @@ import ShareButton from "@/components/sharing/ShareButton";
 import VerifiedBadge from "@/components/VerifiedBadge";
 import { CameraIcon } from "@/components/icons";
 import BackButton from "@/components/BackButton";
+import { ButtonLink } from "@/components/Button";
 import EventGallery from "@/components/event/EventGallery";
 import { formatDate } from "@/lib/formatters";
 
@@ -254,13 +255,9 @@ export default async function EventDetailPage({
             You were there — view your log
           </Link>
         ) : (
-          <Link
-            href={`/log?eventId=${event.id}`}
-            className="flex items-center justify-center gap-2 w-full py-3.5 rounded-xl font-display text-base tracking-widest text-white active:opacity-80 transition-opacity"
-            style={{ background: "linear-gradient(135deg, var(--color-accent), var(--color-accent-brown))" }}
-          >
+          <ButtonLink href={`/log?eventId=${event.id}`} size="lg" fullWidth>
             I WAS THERE — LOG IT
-          </Link>
+          </ButtonLink>
         )}
       </div>
 
