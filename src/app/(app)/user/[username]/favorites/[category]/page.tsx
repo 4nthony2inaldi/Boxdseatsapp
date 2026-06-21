@@ -1,4 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
+import MiniLabel from "@/components/MiniLabel";
 import { redirect } from "next/navigation";
 import { fetchLeagueFavorites } from "@/lib/queries/bigfour";
 import { fetchBigFour } from "@/lib/queries/profile";
@@ -81,9 +82,7 @@ export default async function UserFavoritesCategoryPage({ params }: Props) {
 
       {/* Ranked picks (read-only) */}
       <div className="px-4 pt-3">
-        <div className="font-display text-[11px] text-text-muted tracking-[1.5px] uppercase mb-3">
-          {displayName}&apos;s Ranking
-        </div>
+        <MiniLabel className="mb-3">{displayName}&apos;s Ranking</MiniLabel>
         {ranked.length === 0 ? (
           <p className="text-sm text-text-muted">No picks yet.</p>
         ) : (

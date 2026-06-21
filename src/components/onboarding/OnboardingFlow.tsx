@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import MiniLabel from "@/components/MiniLabel";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { completeOnboarding, finalizeOnboardingExtras } from "@/lib/queries/onboarding";
@@ -67,9 +68,7 @@ export default function OnboardingFlow({ userId, initialUsername }: OnboardingFl
           />
         ))}
       </div>
-      <div className="font-display text-[11px] text-text-muted tracking-[1.5px] uppercase mb-4">
-        {step === 0 ? "Build your fan card" : `Step ${step + 1} of ${STEP_COUNT}`}
-      </div>
+      <MiniLabel className="mb-4">{step === 0 ? "Build your fan card" : `Step ${step + 1} of ${STEP_COUNT}`}</MiniLabel>
 
       {/* The Big Four assembling — the spine of the whole flow */}
       <OnboardingProgress progress={progress} />

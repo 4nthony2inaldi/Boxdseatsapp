@@ -1,4 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
+import MiniLabel from "@/components/MiniLabel";
 import { redirect } from "next/navigation";
 import { fetchLeagueFavorites } from "@/lib/queries/bigfour";
 import { fetchBigFour, fetchProfile } from "@/lib/queries/profile";
@@ -76,9 +77,7 @@ export default async function BigFourCategoryPage({
 
       {/* Ranked picks */}
       <div className="px-4 pt-3">
-        <div className="font-display text-[11px] text-text-muted tracking-[1.5px] uppercase mb-3">
-          Your Ranking
-        </div>
+        <MiniLabel className="mb-3">Your Ranking</MiniLabel>
         {cat === "venue" ? (
           <VenueFavoritesPicker userId={user.id} initialFavorites={leagueFavorites} />
         ) : (
