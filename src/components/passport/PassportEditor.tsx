@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import MiniLabel from "@/components/MiniLabel";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import SportIcon from "@/components/SportIcon";
@@ -69,7 +70,7 @@ export default function PassportEditor({
 
       {/* Section toggles */}
       <div className="px-4 pt-4">
-        <div className="font-display text-[11px] text-text-muted tracking-[1.5px] uppercase mb-2">Sections</div>
+        <MiniLabel className="mb-2">Sections</MiniLabel>
         <div className="rounded-xl border border-border bg-bg-card overflow-hidden">
           {SECTIONS.map((s) => {
             const on = !hidden.has(s.key);
@@ -94,9 +95,7 @@ export default function PassportEditor({
 
       {/* Ring picker */}
       <div className="px-4 pt-5">
-        <div className="font-display text-[11px] text-text-muted tracking-[1.5px] uppercase mb-2">
-          Bucket-list rings ({selected.length})
-        </div>
+        <MiniLabel className="mb-2">Bucket-list rings ({selected.length})</MiniLabel>
         <div className="rounded-xl border border-border bg-bg-card overflow-hidden">
           {options.map((o) => {
             const on = selectedSet.has(o.id);

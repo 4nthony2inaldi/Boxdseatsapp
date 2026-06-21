@@ -3,6 +3,7 @@ import Link from "next/link";
 import SportIcon from "@/components/SportIcon";
 import ShareButton from "@/components/sharing/ShareButton";
 import PageHeader from "@/components/PageHeader";
+import MiniLabel from "@/components/MiniLabel";
 import type { PassportData, PassportRing } from "@/lib/queries/passport";
 import PassportMap from "./PassportMap";
 
@@ -112,7 +113,7 @@ export default function PassportView({ username, displayName, avatarUrl, data, e
       {/* Teams — show all the user roots for; scroll horizontally past what fits */}
       {teams.length > 0 && (
         <div className="mt-5">
-          <div className="font-display text-[11px] text-text-muted tracking-[1.5px] uppercase mb-2 px-4">Teams</div>
+          <MiniLabel className="mb-2 px-4">Teams</MiniLabel>
           <div className="flex gap-3 overflow-x-auto px-4 scroll-fade-x" style={{ scrollbarWidth: "none" }}>
             {teams.map((t) => (
               <Link
@@ -134,7 +135,7 @@ export default function PassportView({ username, displayName, avatarUrl, data, e
       {/* Map */}
       {show("map") && (
       <div className="px-4 mt-5">
-        <div className="font-display text-[11px] text-text-muted tracking-[1.5px] uppercase mb-2">Where you&apos;ve been</div>
+        <MiniLabel className="mb-2">Where you&apos;ve been</MiniLabel>
         <PassportMap venues={venues} />
       </div>
       )}
@@ -142,7 +143,7 @@ export default function PassportView({ username, displayName, avatarUrl, data, e
       {/* Bucketlist rings */}
       {show("rings") && rings.length > 0 && (
         <div className="px-4 mt-6">
-          <div className="font-display text-[11px] text-text-muted tracking-[1.5px] uppercase mb-3">Bucket List</div>
+          <MiniLabel className="mb-3">Bucket List</MiniLabel>
           <div className="grid grid-cols-3 gap-y-4 gap-x-2">
             {rings.map((r) => (
               <Link key={r.list_id} href={`/lists/${r.list_id}`} className="block hover:opacity-80 transition-opacity">
@@ -156,7 +157,7 @@ export default function PassportView({ username, displayName, avatarUrl, data, e
       {/* Top venues */}
       {show("topVenues") && topVenues.length > 0 && (
         <div className="mt-7">
-          <div className="font-display text-[11px] text-text-muted tracking-[1.5px] uppercase mb-3 px-4">Top venues</div>
+          <MiniLabel className="mb-3 px-4">Top venues</MiniLabel>
           <div className="flex gap-3 overflow-x-auto px-4 scroll-fade-x" style={{ scrollbarWidth: "none" }}>
             {topVenues.map((v) => (
               <Link key={v.venue_id} href={`/venue/${v.venue_id}`} className="flex flex-col items-center text-center w-20 flex-shrink-0 hover:opacity-80 transition-opacity">
@@ -178,7 +179,7 @@ export default function PassportView({ username, displayName, avatarUrl, data, e
       {/* Sport breakdown */}
       {show("sports") && sports.length > 0 && (
         <div className="px-4 mt-7">
-          <div className="font-display text-[11px] text-text-muted tracking-[1.5px] uppercase mb-3">By sport</div>
+          <MiniLabel className="mb-3">By sport</MiniLabel>
           <div className="space-y-2">
             {sports.map((s) => (
               <div key={s.sport} className="flex items-center gap-3">
@@ -198,7 +199,7 @@ export default function PassportView({ username, displayName, avatarUrl, data, e
       {show("players") && players.length > 0 && (
         <div className="mt-7">
           <div className="flex items-baseline gap-2 mb-3 px-4">
-            <div className="font-display text-[11px] text-text-muted tracking-[1.5px] uppercase">Players you&apos;ve seen</div>
+            <MiniLabel>Players you&apos;ve seen</MiniLabel>
             <div className="text-[10px] text-text-muted">{playersTotal.toLocaleString()} total</div>
           </div>
           <div className="flex gap-3 overflow-x-auto px-4 scroll-fade-x" style={{ scrollbarWidth: "none" }}>
