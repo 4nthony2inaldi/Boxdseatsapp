@@ -1,6 +1,7 @@
 "use client";
 
 import { AlertTriangleIcon } from "@/components/icons";
+import Button from "@/components/Button";
 
 export default function AppError({
   error,
@@ -20,15 +21,7 @@ export default function AppError({
       <p className="text-sm text-text-muted mb-6">
         {error.message || "An unexpected error occurred. Please try again."}
       </p>
-      <button
-        onClick={reset}
-        className="px-6 py-2.5 rounded-xl text-sm font-medium text-white transition-opacity"
-        style={{
-          background: "linear-gradient(135deg, var(--color-accent), var(--color-accent-brown))",
-        }}
-      >
-        Try Again
-      </button>
+      <Button onClick={reset} size="md">Try Again</Button>
     </div>
   );
 }
