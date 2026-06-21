@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import Button from "@/components/Button";
 import { createClient } from "@/lib/supabase/client";
 import { fetchEventDatesForVenue } from "@/lib/queries/log";
 import { toastError } from "@/components/Toaster";
@@ -406,16 +407,9 @@ export default function StepDate({
           <div className="text-[11px] text-text-muted text-center mb-2">
             No events found on this date — you can still log a manual entry.
           </div>
-          <button
-            onClick={handleContinue}
-            className="w-full py-3.5 rounded-xl text-white font-display text-lg tracking-[2px] cursor-pointer border-none"
-            style={{
-              background: "linear-gradient(135deg, var(--color-accent), var(--color-accent-brown))",
-              boxShadow: "0 4px 20px rgba(212, 135, 44, 0.25)",
-            }}
-          >
+          <Button onClick={handleContinue} size="xl" fullWidth glow>
             CONTINUE ANYWAY
-          </button>
+          </Button>
         </div>
       )}
 

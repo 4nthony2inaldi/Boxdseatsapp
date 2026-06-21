@@ -2,6 +2,7 @@
 
 import { useState, useCallback, useEffect } from "react";
 import Cropper, { type Area } from "react-easy-crop";
+import Button from "@/components/Button";
 
 type PhotoCropperProps = {
   /** Object URL of the source image */
@@ -168,16 +169,9 @@ export default function PhotoCropper({
 
         {error && <p className="text-sm text-red-400 text-center">{error}</p>}
 
-        <button
-          onClick={handleApply}
-          disabled={working || !areaPixels}
-          className="w-full py-3.5 rounded-xl text-white font-display text-lg tracking-[2px] cursor-pointer border-none disabled:opacity-50"
-          style={{
-            background: "linear-gradient(135deg, var(--color-accent), var(--color-accent-brown))",
-          }}
-        >
+        <Button onClick={handleApply} disabled={working || !areaPixels} size="xl" fullWidth>
           {working ? "CROPPING..." : "APPLY CROP"}
-        </button>
+        </Button>
       </div>
     </div>
   );

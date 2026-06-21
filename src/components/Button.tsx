@@ -28,6 +28,8 @@ const SIZE: Record<ButtonSize, string> = {
 const GRADIENT = {
   background: "linear-gradient(135deg, var(--color-accent), var(--color-accent-brown))",
 };
+// Accent glow under the most prominent submit CTAs (log it, save).
+const GLOW = { boxShadow: "0 4px 20px rgba(212, 135, 44, 0.25)" };
 
 export function buttonClass(size: ButtonSize = "lg", className = ""): string {
   return `${BASE} ${SIZE[size]} ${className}`.trim();
@@ -36,14 +38,15 @@ export function buttonClass(size: ButtonSize = "lg", className = ""): string {
 type ButtonProps = ButtonHTMLAttributes<HTMLButtonElement> & {
   size?: ButtonSize;
   fullWidth?: boolean;
+  glow?: boolean;
 };
 
-export default function Button({ size = "lg", fullWidth, className = "", children, ...rest }: ButtonProps) {
+export default function Button({ size = "lg", fullWidth, glow, className = "", children, ...rest }: ButtonProps) {
   return (
     <button
       {...rest}
       className={buttonClass(size, `${fullWidth ? "w-full " : ""}${className}`)}
-      style={GRADIENT}
+      style={glow ? { ...GRADIENT, ...GLOW } : GRADIENT}
     >
       {children}
     </button>
@@ -54,16 +57,17 @@ type ButtonLinkProps = {
   href: string;
   size?: ButtonSize;
   fullWidth?: boolean;
+  glow?: boolean;
   className?: string;
   children: ReactNode;
 };
 
-export function ButtonLink({ href, size = "lg", fullWidth, className = "", children }: ButtonLinkProps) {
+export function ButtonLink({ href, size = "lg", fullWidth, glow, className = "", children }: ButtonLinkProps) {
   return (
     <Link
       href={href}
       className={buttonClass(size, `${fullWidth ? "w-full " : ""}${className}`)}
-      style={GRADIENT}
+      style={glow ? { ...GRADIENT, ...GLOW } : GRADIENT}
     >
       {children}
     </Link>
