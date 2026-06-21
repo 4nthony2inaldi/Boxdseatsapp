@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import SportIcon from "@/components/SportIcon";
+import PageHeader from "@/components/PageHeader";
 import { toastError } from "@/components/Toaster";
 import type { PassportListOption } from "@/lib/queries/passport";
 
@@ -64,14 +65,7 @@ export default function PassportEditor({
 
   return (
     <div className="max-w-lg mx-auto pb-28">
-      <div className="flex items-center gap-3 px-4 py-3 border-b border-border">
-        <button onClick={() => router.push(`/u/${username}/passport`)} className="p-1 hover:opacity-80">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--color-text-secondary)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <polyline points="15 18 9 12 15 6" />
-          </svg>
-        </button>
-        <h1 className="font-display text-lg text-text-primary tracking-wide">Edit Passport</h1>
-      </div>
+      <PageHeader title="Edit Passport" backHref={`/u/${username}/passport`} />
 
       {/* Section toggles */}
       <div className="px-4 pt-4">

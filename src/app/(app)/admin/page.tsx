@@ -1,9 +1,9 @@
 import { createClient } from "@/lib/supabase/server";
 import { createClient as createServiceClient } from "@supabase/supabase-js";
 import { redirect, notFound } from "next/navigation";
-import Link from "next/link";
 import { isAdmin, fetchAllUsersForAdmin } from "@/lib/queries/admin";
 import AdminUserList from "@/components/admin/AdminUserList";
+import PageHeader from "@/components/PageHeader";
 
 export const dynamic = "force-dynamic";
 
@@ -30,14 +30,7 @@ export default async function AdminPage() {
 
   return (
     <div className="max-w-lg mx-auto pb-5">
-      <div className="flex items-center gap-3 px-4 py-3 border-b border-border">
-        <Link href="/settings" className="p-1 hover:opacity-80 transition-opacity">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--color-text-secondary)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <polyline points="15 18 9 12 15 6" />
-          </svg>
-        </Link>
-        <h1 className="font-display text-lg text-text-primary tracking-wide">Admin · Users</h1>
-      </div>
+      <PageHeader title="Admin · Users" backHref="/settings" />
       <div className="px-4 pt-3 pb-2 text-xs text-text-muted">
         {users.length} accounts · deleting cascades all of a user&apos;s data and removes their login.
       </div>

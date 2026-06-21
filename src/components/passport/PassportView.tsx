@@ -2,6 +2,7 @@ import Image from "next/image";
 import Link from "next/link";
 import SportIcon from "@/components/SportIcon";
 import ShareButton from "@/components/sharing/ShareButton";
+import PageHeader from "@/components/PageHeader";
 import type { PassportData, PassportRing } from "@/lib/queries/passport";
 import PassportMap from "./PassportMap";
 
@@ -77,18 +78,11 @@ export default function PassportView({ username, displayName, avatarUrl, data, e
 
   return (
     <div className="max-w-lg mx-auto pb-10">
-      {/* Header */}
-      <div className="flex items-center gap-3 px-4 py-3 border-b border-border">
-        <Link href={backHref} className="p-1 hover:opacity-80 transition-opacity">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--color-text-secondary)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <polyline points="15 18 9 12 15 6" />
-          </svg>
-        </Link>
-        <h1 className="font-display text-lg text-text-primary tracking-wide">Fan Passport</h1>
-        {editHref && (
-          <Link href={editHref} className="ml-auto text-xs text-accent hover:opacity-80">Edit</Link>
-        )}
-      </div>
+      <PageHeader
+        title="Fan Passport"
+        backHref={backHref}
+        right={editHref ? <Link href={editHref} className="text-xs text-accent hover:opacity-80">Edit</Link> : undefined}
+      />
 
       {/* Identity */}
       <div className="flex items-center gap-3 px-4 pt-4 pb-3">
