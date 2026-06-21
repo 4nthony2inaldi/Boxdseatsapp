@@ -391,7 +391,7 @@ export default function LogFlow({ userId, prefillVenue, prefillEvent, editLog }:
                       boxShadow: "0 0 16px rgba(212, 135, 44, 0.5), 0 0 6px rgba(212, 135, 44, 0.3)",
                     }}
                   >
-                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#D4872C" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="var(--color-accent)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                       <path d="M12 2l3 6h6l-4.5 4 1.5 6L12 15l-6 3 1.5-6L3 8h6z" />
                     </svg>
                   </div>

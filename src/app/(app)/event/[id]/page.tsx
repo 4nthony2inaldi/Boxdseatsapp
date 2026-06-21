@@ -226,7 +226,7 @@ export default async function EventDetailPage({
 
       {/* Date + Venue */}
       <div className="flex items-center gap-2 mb-6 text-sm">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#9BA1B5" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--color-text-secondary)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
           <rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
           <line x1="16" y1="2" x2="16" y2="6" />
           <line x1="8" y1="2" x2="8" y2="6" />
@@ -388,7 +388,7 @@ export default async function EventDetailPage({
             {/* Seat */}
             {userLog.seat_location && userLog.privacy === "show_all" && (
               <div className="flex items-center gap-1.5 mb-2">
-                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#5A5F72" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="var(--color-text-faint)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                   <path d="M4 16v-4a8 8 0 0 1 16 0v4" />
                   <path d="M4 16h16" />
                   <path d="M6 20v-4" />
@@ -408,7 +408,7 @@ export default async function EventDetailPage({
             {/* Companions */}
             {userLog.companions.length > 0 && userLog.privacy === "show_all" && (
               <div className="flex items-center gap-1.5 flex-wrap">
-                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#5A5F72" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="var(--color-text-faint)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                   <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
                   <circle cx="9" cy="7" r="4" />
                   <path d="M23 21v-2a4 4 0 0 0-3-3.87" />

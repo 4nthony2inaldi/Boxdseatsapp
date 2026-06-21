@@ -84,7 +84,7 @@ export default function ShareButton({
             height="16"
             viewBox="0 0 24 24"
             fill="none"
-            stroke="#3CB878"
+            stroke="var(--color-win)"
             strokeWidth="2"
             strokeLinecap="round"
             strokeLinejoin="round"

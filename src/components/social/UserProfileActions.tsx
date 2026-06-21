@@ -89,7 +89,7 @@ export default function UserProfileActions({
           width="16"
           height="16"
           viewBox="0 0 24 24"
-          fill="#9BA1B5"
+          fill="var(--color-text-secondary)"
           stroke="none"
         >
           <circle cx="12" cy="5" r="2" />

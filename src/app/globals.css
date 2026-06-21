@@ -10,6 +10,8 @@
   --color-text-primary: #F0EBE0;
   --color-text-secondary: #9BA1B5;
   --color-text-muted: #8A90A4;
+  /* Fainter than text-muted; used for subtle chevrons and secondary icons. */
+  --color-text-faint: #5A5F72;
   --color-border: #2A2D3A;
   --color-win: #3CB878;
   --color-loss: #E66A5A;

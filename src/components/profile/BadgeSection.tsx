@@ -59,7 +59,7 @@ export default function BadgeSection({ badges, tracked, userId, showTracked = fa
               {badge.is_legacy && (
                 <div className="absolute -top-1 -right-1 w-4 h-4 bg-accent-brown rounded-full flex items-center justify-center">
                   <svg width="8" height="8" viewBox="0 0 12 12" fill="none">
-                    <path d="M6 1l1.5 3H11l-2.5 2 1 3L6 7.5 2.5 9l1-3L1 4h3.5z" fill="#F0EBE0" />
+                    <path d="M6 1l1.5 3H11l-2.5 2 1 3L6 7.5 2.5 9l1-3L1 4h3.5z" fill="var(--color-text-primary)" />
                   </svg>
                 </div>
               )}
@@ -82,7 +82,7 @@ export default function BadgeSection({ badges, tracked, userId, showTracked = fa
                 <SportIcon sport={list.list_sport} size={24} className="opacity-40" />
                 {/* Lock icon overlay */}
                 <div className="absolute inset-0 flex items-center justify-center">
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#5A5F72" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--color-text-faint)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                     <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
                     <path d="M7 11V7a5 5 0 0 1 10 0v4" />
                   </svg>
