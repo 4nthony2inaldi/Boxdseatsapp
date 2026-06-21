@@ -81,7 +81,8 @@ export type EventComment = {
   avatar_url: string | null;
   body: string;
   created_at: string;
-  event_log_id: string;
+  event_log_id: string | null;
+  event_id?: string | null;
 };
 
 // League config
@@ -291,6 +292,65 @@ export async function fetchEventComments(
       event_log_id: c.event_log_id,
     };
   });
+}
+
+// ── Fetch the event-level discussion (one shared room per game) ──
+
+export async function fetchEventDiscussion(
+  supabase: SupabaseClient,
+  eventId: string
+): Promise<EventComment[]> {
+  const { data } = await supabase
+    .from("comments")
+    .select("id, user_id, body, created_at, event_log_id, event_id")
+    .eq("event_id", eventId)
+    .order("created_at", { ascending: true });
+
+  if (!data || data.length === 0) return [];
+
+  const userIds = [...new Set(data.map((d) => d.user_id))];
+  const { data: profiles } = await supabase
+    .from("profiles")
+    .select("id, username, display_name, avatar_url")
+    .in("id", userIds);
+
+  const profileMap = new Map((profiles || []).map((p) => [p.id, p]));
+
+  return data.map((c) => {
+    const profile = profileMap.get(c.user_id);
+    return {
+      id: c.id,
+      user_id: c.user_id,
+      username: profile?.username || "unknown",
+      display_name: profile?.display_name || null,
+      avatar_url: profile?.avatar_url || null,
+      body: c.body,
+      created_at: c.created_at,
+      event_log_id: c.event_log_id,
+      event_id: c.event_id,
+    };
+  });
+}
+
+// ── Post a comment to the event-level discussion ──
+
+export async function postEventComment(
+  supabase: SupabaseClient,
+  userId: string,
+  eventId: string,
+  body: string
+): Promise<{ id: string } | { error: string }> {
+  const trimmed = body.trim();
+  if (!trimmed) return { error: "Comment cannot be empty." };
+
+  const { data, error } = await supabase
+    .from("comments")
+    .insert({ user_id: userId, event_id: eventId, body: trimmed })
+    .select("id")
+    .single();
+
+  if (error) return { error: "Failed to post comment. Please try again." };
+  return { id: data.id };
 }
 
 // ── Post a comment ──

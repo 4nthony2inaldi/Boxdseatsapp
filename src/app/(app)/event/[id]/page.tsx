@@ -4,6 +4,7 @@ import {
   fetchUserEventLog,
   fetchEventAttendees,
   fetchEventComments,
+  fetchEventDiscussion,
   fetchEventGallery,
   fetchTournamentAttendance,
 } from "@/lib/queries/event";
@@ -68,6 +69,9 @@ export default async function EventDetailPage({
       ? fetchTournamentAttendance(supabase, event.tournament_id, user.id)
       : Promise.resolve([]),
   ]);
+
+  // Event-level discussion room (shared per-game thread, open to anyone).
+  const discussion = await fetchEventDiscussion(supabase, id);
 
   // Fetch comments for the user's log if they have one
   const comments = userLog
@@ -522,10 +526,20 @@ export default async function EventDetailPage({
         </div>
       )}
 
-      {/* Comments Section */}
+      {/* Event-level discussion: the shared room for everyone at/watching the game */}
+      <div className="mb-6" id="discussion">
+        <SectionLabel>Discussion</SectionLabel>
+        <CommentsSection
+          eventId={id}
+          userId={user.id}
+          initialComments={discussion}
+        />
+      </div>
+
+      {/* The viewer's own check-in thread (distinct from the game discussion) */}
       {userLog && (
         <div className="mb-6">
-          <SectionLabel>Comments</SectionLabel>
+          <SectionLabel>Comments on your log</SectionLabel>
           <CommentsSection
             eventLogId={userLog.id}
             userId={user.id}
