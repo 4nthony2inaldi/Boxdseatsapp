@@ -28,6 +28,8 @@ export type FeedEntry = {
   sport: string | null;
   manual_title: string | null;
   is_manual: boolean;
+  photo_url: string | null;
+  photo_is_verified: boolean;
   created_at: string;
   // Author info
   author: {
@@ -106,6 +108,126 @@ export type FeedPage = {
 };
 
 // ── Feed query ──
+
+// Shared select + row→entry mapper, so the friends feed and the discovery feed
+// produce identical FeedEntry shapes.
+const FEED_LOG_SELECT = `
+  id, event_date, rating, notes, outcome, privacy, like_count, comment_count,
+  seat_location, sport, is_manual, manual_title, created_at,
+  photo_url, photo_is_verified,
+  user_id, event_id, venue_id,
+  venues(name),
+  leagues(slug, name),
+  events!event_logs_event_id_fkey(
+    home_score, away_score,
+    home_team:teams!events_home_team_id_fkey(name, short_name, abbreviation, city),
+    away_team:teams!events_away_team_id_fkey(name, short_name, abbreviation, city),
+    tournament_name
+  )
+`;
+
+type FeedLogRow = {
+  id: string; event_date: string; rating: number | null; notes: string | null;
+  outcome: string | null; privacy: string; like_count: number; comment_count: number;
+  seat_location: string | null; sport: string | null; is_manual: boolean;
+  manual_title: string | null; created_at: string; photo_url: string | null;
+  photo_is_verified: boolean; user_id: string; event_id: string | null; venue_id: string | null;
+  venues: unknown; leagues: unknown; events: unknown;
+};
+
+type AuthorProfile = { username: string; display_name: string | null; avatar_url: string | null };
+
+function toFeedEntry(log: FeedLogRow, profile: AuthorProfile | undefined, liked: boolean): FeedEntry {
+  const venue = log.venues as unknown as { name: string } | null;
+  const league = log.leagues as unknown as { slug: string; name: string } | null;
+  const event = log.events as unknown as {
+    home_score: number | null;
+    away_score: number | null;
+    home_team: { name: string; short_name: string; abbreviation: string; city: string | null } | null;
+    away_team: { name: string; short_name: string; abbreviation: string; city: string | null } | null;
+    tournament_name: string | null;
+  } | null;
+
+  let matchup: string | null = null;
+  if (event?.home_team && event?.away_team) {
+    matchup = event.home_score != null && event.away_score != null
+      ? `${event.home_team.name} ${event.home_score} — ${event.away_team.name} ${event.away_score}`
+      : `${event.home_team.name} — ${event.away_team.name}`;
+  } else if (event?.tournament_name) {
+    matchup = event.tournament_name;
+  }
+
+  return {
+    id: log.id, event_date: log.event_date, rating: log.rating, notes: log.notes,
+    outcome: log.outcome, privacy: log.privacy, like_count: log.like_count,
+    comment_count: log.comment_count, seat_location: log.seat_location,
+    league_slug: league?.slug?.toUpperCase() || null,
+    league_name: league?.name || null,
+    venue_name: venue?.name || null, venue_id: log.venue_id, event_id: log.event_id,
+    matchup,
+    home_team_short: event?.home_team?.short_name || null,
+    away_team_short: event?.away_team?.short_name || null,
+    home_team_abbr: event?.home_team?.abbreviation || null,
+    away_team_abbr: event?.away_team?.abbreviation || null,
+    home_score: event?.home_score ?? null, away_score: event?.away_score ?? null,
+    sport: log.sport, manual_title: log.manual_title, is_manual: log.is_manual,
+    photo_url: log.photo_url || null, photo_is_verified: log.photo_is_verified || false,
+    created_at: log.created_at,
+    author: {
+      id: log.user_id,
+      username: profile?.username || "unknown",
+      display_name: profile?.display_name || null,
+      avatar_url: profile?.avatar_url || null,
+    },
+    liked_by_me: liked,
+  };
+}
+
+/**
+ * Discovery feed: recent fully-public logs from people the viewer doesn't
+ * follow. This is what fills the home feed before a new user has followed
+ * anyone, so a fresh account never lands on a blank screen.
+ */
+export async function fetchDiscoveryFeed(
+  supabase: SupabaseClient,
+  userId: string,
+  limit = 20,
+  offset = 0
+): Promise<FeedPage> {
+  const { data: blockedRows } = await supabase
+    .from("blocks")
+    .select("blocker_id, blocked_id")
+    .or(`blocker_id.eq.${userId},blocked_id.eq.${userId}`);
+  const blockedIds = new Set<string>();
+  for (const b of blockedRows || []) {
+    if (b.blocker_id === userId) blockedIds.add(b.blocked_id as string);
+    if (b.blocked_id === userId) blockedIds.add(b.blocker_id as string);
+  }
+
+  const { data: logs } = await supabase
+    .from("event_logs")
+    .select(FEED_LOG_SELECT)
+    .eq("privacy", "show_all")
+    .neq("user_id", userId)
+    .order("created_at", { ascending: false })
+    .range(offset, offset + limit);
+
+  if (!logs || logs.length === 0) return { entries: [], hasMore: false };
+  const hasMore = logs.length > limit;
+  const page = (logs as unknown as FeedLogRow[]).slice(0, limit).filter((l) => !blockedIds.has(l.user_id));
+
+  const authorIds = [...new Set(page.map((l) => l.user_id))];
+  const logIds = page.map((l) => l.id);
+  const [profilesRes, likesRes] = await Promise.all([
+    supabase.from("profiles").select("id, username, display_name, avatar_url").in("id", authorIds),
+    supabase.from("likes").select("event_log_id").eq("user_id", userId).in("event_log_id", logIds),
+  ]);
+  const profileMap = new Map((profilesRes.data || []).map((p) => [p.id as string, p as AuthorProfile]));
+  const likedSet = new Set((likesRes.data || []).map((l) => l.event_log_id as string));
+
+  const entries = page.map((l) => toFeedEntry(l, profileMap.get(l.user_id), likedSet.has(l.id)));
+  return { entries, hasMore };
+}
 
 export async function fetchFeed(
   supabase: SupabaseClient,

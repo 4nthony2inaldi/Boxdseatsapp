@@ -1,5 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
-import { fetchFeed } from "@/lib/queries/social";
+import { fetchFeed, fetchDiscoveryFeed, type FeedPage } from "@/lib/queries/social";
 import { fetchNearbyEvents, type NearbyPage } from "@/lib/queries/nearby";
 import FeedList from "@/components/feed/FeedList";
 import NearbySection from "@/components/feed/NearbySection";
@@ -29,6 +29,15 @@ export default async function FeedPage() {
     nearby = await fetchNearbyEvents(supabase, homeCity);
   }
 
+  // Cold-start: a brand-new account follows no one and has logged nothing, so
+  // the friends feed is empty. Fall back to recent public activity so the home
+  // screen is never blank.
+  let discovery: FeedPage | null = null;
+  if (entries.length === 0) {
+    discovery = await fetchDiscoveryFeed(supabase, user.id);
+  }
+  const showDiscovery = entries.length === 0 && !!discovery && discovery.entries.length > 0;
+
   return (
     <PullToRefresh>
     <div className="max-w-lg mx-auto">
@@ -42,10 +51,19 @@ export default async function FeedPage() {
 
       <div className="px-4 mb-2.5">
         <span className="font-display text-[13px] text-text-muted tracking-[2px] uppercase">
-          From Friends
+          {showDiscovery ? "Popular on BoxdSeats" : "From Friends"}
         </span>
       </div>
-      <FeedList initialEntries={entries} initialHasMore={hasMore} userId={user.id} />
+      {showDiscovery ? (
+        <FeedList
+          initialEntries={discovery!.entries}
+          initialHasMore={discovery!.hasMore}
+          userId={user.id}
+          endpoint="/api/discovery"
+        />
+      ) : (
+        <FeedList initialEntries={entries} initialHasMore={hasMore} userId={user.id} />
+      )}
     </div>
     </PullToRefresh>
   );

@@ -17,9 +17,13 @@ type Props = {
   initialEntries: FeedEntry[];
   initialHasMore: boolean;
   userId: string;
+  /** Pagination endpoint; defaults to the friends feed. */
+  endpoint?: string;
+  /** Optional custom empty state (the discovery feed renders its own). */
+  emptyState?: React.ReactNode;
 };
 
-export default function FeedList({ initialEntries, initialHasMore, userId }: Props) {
+export default function FeedList({ initialEntries, initialHasMore, userId, endpoint = "/api/feed", emptyState }: Props) {
   const [entries, setEntries] = useState(initialEntries);
   const [hasMore, setHasMore] = useState(initialHasMore);
   const [loadingMore, setLoadingMore] = useState(false);
@@ -77,7 +81,7 @@ export default function FeedList({ initialEntries, initialHasMore, userId }: Pro
 
     try {
       const offset = entries.length;
-      const res = await fetch(`/api/feed?offset=${offset}&limit=${PAGE_SIZE}`);
+      const res = await fetch(`${endpoint}?offset=${offset}&limit=${PAGE_SIZE}`);
       if (!res.ok) throw new Error(`feed ${res.status}`);
       const data = await res.json();
       setEntries((prev) => [...prev, ...data.entries]);
@@ -90,13 +94,14 @@ export default function FeedList({ initialEntries, initialHasMore, userId }: Pro
     } finally {
       setLoadingMore(false);
     }
-  }, [entries.length, hasMore, loadingMore]);
+  }, [entries.length, hasMore, loadingMore, endpoint]);
 
   const sentinelRef = useInfiniteScroll(loadMore, {
     enabled: hasMore && !loadingMore && !loadError,
   });
 
   if (entries.length === 0) {
+    if (emptyState) return <>{emptyState}</>;
     return (
       <div className="px-4">
         <div className="rounded-xl border border-border bg-bg-card p-8 text-center">
