@@ -1,5 +1,7 @@
 "use client";
 
+import { useEffect } from "react";
+import * as Sentry from "@sentry/nextjs";
 import { AlertTriangleIcon } from "@/components/icons";
 import Button from "@/components/Button";
 
@@ -10,6 +12,10 @@ export default function AppError({
   error: Error & { digest?: string };
   reset: () => void;
 }) {
+  useEffect(() => {
+    Sentry.captureException(error);
+  }, [error]);
+
   return (
     <div className="max-w-lg mx-auto px-4 py-16 text-center">
       <div className="mb-3 flex justify-center text-loss">

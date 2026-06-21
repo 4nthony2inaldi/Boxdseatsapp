@@ -1,9 +1,15 @@
 "use client";
 
+import { useEffect } from "react";
+import * as Sentry from "@sentry/nextjs";
 import { AlertTriangleIcon } from "@/components/icons";
 import Button from "@/components/Button";
 
-export default function PublicError({ reset }: { error: Error & { digest?: string }; reset: () => void }) {
+export default function PublicError({ error, reset }: { error: Error & { digest?: string }; reset: () => void }) {
+  useEffect(() => {
+    Sentry.captureException(error);
+  }, [error]);
+
   return (
     <div className="min-h-screen flex flex-col items-center justify-center px-6 text-center">
       <div className="mb-3 text-loss"><AlertTriangleIcon size={40} /></div>
