@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { ButtonLink } from "@/components/Button";
 import type { PinnedListData } from "@/lib/queries/profile";
 import SportIcon from "@/components/SportIcon";
 import SectionLabel from "./SectionLabel";
@@ -31,16 +32,7 @@ export default function PinnedLists({ lists, compareUserId, isOwner = false }: P
           <p className="text-text-muted text-sm mb-4">
             Pin a list to track your progress right here on your profile.
           </p>
-          <Link
-            href="/lists"
-            className="inline-block px-5 py-2.5 rounded-xl text-sm font-medium text-white transition-opacity hover:opacity-90"
-            style={{
-              background:
-                "linear-gradient(135deg, var(--color-accent), var(--color-accent-brown))",
-            }}
-          >
-            Browse Lists
-          </Link>
+          <ButtonLink href="/lists" size="md">Browse Lists</ButtonLink>
         </div>
       </div>
     );

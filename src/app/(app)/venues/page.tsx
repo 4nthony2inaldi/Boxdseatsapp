@@ -1,4 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
+import { ButtonLink } from "@/components/Button";
 import { SupabaseClient } from "@supabase/supabase-js";
 import Link from "next/link";
 import { BackLinkCircle } from "@/components/PageHeader";
@@ -163,16 +164,7 @@ export default async function VenuesPage() {
             <p className="text-text-muted text-sm mb-4">
               Log your first event to start tracking venues you&apos;ve visited.
             </p>
-            <Link
-              href="/log"
-              className="inline-block px-5 py-2.5 rounded-xl text-sm font-medium text-white transition-opacity"
-              style={{
-                background:
-                  "linear-gradient(135deg, var(--color-accent), var(--color-accent-brown))",
-              }}
-            >
-              Log an Event
-            </Link>
+            <ButtonLink href="/log" size="md">Log an Event</ButtonLink>
           </div>
         )}
       </div>

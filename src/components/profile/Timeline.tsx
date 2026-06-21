@@ -4,6 +4,7 @@ import { useState, useCallback, useRef, useEffect, useMemo } from "react";
 import type { TimelineEntry } from "@/lib/queries/profile";
 import { LEAGUES } from "@/lib/constants";
 import SectionLabel from "./SectionLabel";
+import { ButtonLink } from "@/components/Button";
 import TimelineCard from "../TimelineCard";
 import CommentSheet from "../event/CommentSheet";
 import { SkeletonTimelineCard } from "../Skeleton";
@@ -346,15 +347,7 @@ export default function Timeline({ initialEntries, initialHasMore, userId, viewe
           <p className="text-text-muted text-sm mb-4">
             Start building your sports timeline by logging a game you attended.
           </p>
-          <a
-            href="/log"
-            className="inline-block px-5 py-2.5 rounded-xl text-sm font-medium text-white transition-opacity"
-            style={{
-              background: "linear-gradient(135deg, var(--color-accent), var(--color-accent-brown))",
-            }}
-          >
-            Log an Event
-          </a>
+          <ButtonLink href="/log" size="md">Log an Event</ButtonLink>
         </div>
       )}
 

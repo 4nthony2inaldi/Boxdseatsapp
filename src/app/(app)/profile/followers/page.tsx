@@ -1,4 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
+import { ButtonLink } from "@/components/Button";
 import { fetchFollowersList } from "@/lib/queries/social";
 import UserList from "@/components/social/UserList";
 import Link from "next/link";
@@ -57,16 +58,7 @@ export default async function FollowersPage() {
               <p className="text-text-muted text-sm mb-4">
                 Follow others and log events — fans will start following you back.
               </p>
-              <Link
-                href="/explore"
-                className="inline-block px-5 py-2.5 rounded-xl text-sm font-medium text-white transition-opacity hover:opacity-90"
-                style={{
-                  background:
-                    "linear-gradient(135deg, var(--color-accent), var(--color-accent-brown))",
-                }}
-              >
-                Find Fans to Follow
-              </Link>
+              <ButtonLink href="/explore" size="md">Find Fans to Follow</ButtonLink>
             </div>
           </div>
         }
