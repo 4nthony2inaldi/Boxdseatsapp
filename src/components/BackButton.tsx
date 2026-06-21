@@ -18,7 +18,7 @@ export default function BackButton({ fallback = "/" }: { fallback?: string }) {
       aria-label="Back"
       className="flex items-center justify-center w-8 h-8 rounded-full bg-bg-elevated border-none cursor-pointer active:opacity-70 transition-opacity"
     >
-      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#F0EBE0" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--color-text-primary)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
         <polyline points="15 18 9 12 15 6" />
       </svg>
     </button>

@@ -28,7 +28,7 @@ function Ring({ ring }: { ring: PassportRing }) {
     <div className="flex flex-col items-center text-center">
       <div className="relative">
         <svg width="78" height="78" viewBox="0 0 78 78">
-          <circle cx="39" cy="39" r={R} fill="none" stroke="#2A2D3A" strokeWidth="6" />
+          <circle cx="39" cy="39" r={R} fill="none" stroke="var(--color-border)" strokeWidth="6" />
           <circle
             cx="39" cy="39" r={R} fill="none"
             stroke={done ? "#D4872C" : "#3CB878"} strokeWidth="6" strokeLinecap="round"

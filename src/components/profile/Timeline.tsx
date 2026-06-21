@@ -299,7 +299,7 @@ export default function Timeline({ initialEntries, initialHasMore, userId, viewe
               height="12"
               viewBox="0 0 24 24"
               fill="none"
-              stroke="#9BA1B5"
+              stroke="var(--color-text-secondary)"
               strokeWidth="2"
               strokeLinecap="round"
               strokeLinejoin="round"

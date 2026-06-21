@@ -119,7 +119,7 @@ export default async function UserProfilePage({ params }: Props) {
             height="32"
             viewBox="0 0 24 24"
             fill="none"
-            stroke="#5A5F72"
+            stroke="var(--color-text-faint)"
             strokeWidth="2"
             strokeLinecap="round"
             strokeLinejoin="round"
