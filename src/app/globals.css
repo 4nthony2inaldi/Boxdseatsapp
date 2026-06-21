@@ -34,6 +34,17 @@ select {
   font-size: 16px;
 }
 
+/* Keyboard focus indicator. Touch and mouse users never see it (:focus-visible
+   only matches keyboard/assistive-tech focus), but several interactive elements
+   set `outline-none` with no replacement, leaving keyboard users with no focus
+   cue (fails WCAG 2.4.7). A box-shadow ring is used instead of `outline` so it
+   isn't cancelled by `outline-none`, follows each element's border-radius, and
+   never affects layout. */
+:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px var(--color-bg), 0 0 0 4px var(--color-accent);
+}
+
 /* Utility class for display font */
 .font-display {
   font-family: var(--font-display);
