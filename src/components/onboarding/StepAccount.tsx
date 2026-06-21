@@ -7,6 +7,7 @@ import {
   updateProfileSetup,
 } from "@/lib/queries/onboarding";
 import AvatarUpload from "@/components/AvatarUpload";
+import Button from "@/components/Button";
 import { METROS } from "@/lib/metros";
 import OnboardingActionBar from "./OnboardingActionBar";
 
@@ -214,16 +215,9 @@ export default function StepAccount({
 
       <OnboardingActionBar>
         {error && <p className="text-loss text-sm mb-2">{error}</p>}
-        <button
-          onClick={handleNext}
-          disabled={saving || !usernameValid}
-          className="w-full py-3.5 rounded-xl font-display text-base tracking-widest text-white disabled:opacity-50 transition-opacity"
-          style={{
-            background: "linear-gradient(135deg, var(--color-accent), var(--color-accent-brown))",
-          }}
-        >
+        <Button onClick={handleNext} disabled={saving || !usernameValid} fullWidth>
           {saving ? "SAVING..." : "NEXT"}
-        </button>
+        </Button>
       </OnboardingActionBar>
     </div>
   );

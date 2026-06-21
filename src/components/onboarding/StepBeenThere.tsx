@@ -1,6 +1,7 @@
 "use client";
 
 import VenueFavoritesPicker from "@/components/profile/VenueFavoritesPicker";
+import Button from "@/components/Button";
 import OnboardingActionBar from "./OnboardingActionBar";
 
 type Summary = { count: number; topName: string | null };
@@ -33,15 +34,14 @@ export default function StepBeenThere({ userId, canNext, onVenueChange, onBack, 
           >
             Back
           </button>
-          <button
+          <Button
             onClick={onNext}
             disabled={!canNext}
             title={canNext ? "" : "Add at least one venue"}
-            className="flex-[2] py-3.5 rounded-xl font-display text-base tracking-widest text-white disabled:opacity-40 active:opacity-80 transition-opacity"
-            style={{ background: "linear-gradient(135deg, var(--color-accent), var(--color-accent-brown))" }}
+            className="flex-[2]"
           >
             NEXT
-          </button>
+          </Button>
         </div>
       </OnboardingActionBar>
     </div>

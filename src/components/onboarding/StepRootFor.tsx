@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import BigFourDrillThrough from "@/components/profile/BigFourDrillThrough";
+import Button from "@/components/Button";
 import OnboardingActionBar from "./OnboardingActionBar";
 
 type Summary = { count: number; topName: string | null };
@@ -94,15 +95,14 @@ export default function StepRootFor({
           >
             Back
           </button>
-          <button
+          <Button
             onClick={onNext}
             disabled={!canNext}
             title={needTeam ? "Add at least one team" : needAthlete ? "Choose at least one favorite athlete" : ""}
-            className="flex-[2] py-3.5 rounded-xl font-display text-base tracking-widest text-white disabled:opacity-40 active:opacity-80 transition-opacity"
-            style={{ background: "linear-gradient(135deg, var(--color-accent), var(--color-accent-brown))" }}
+            className="flex-[2]"
           >
             {needAthlete ? "PICK AN ATHLETE" : "NEXT"}
-          </button>
+          </Button>
         </div>
       </OnboardingActionBar>
     </div>

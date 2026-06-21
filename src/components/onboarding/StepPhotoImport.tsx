@@ -1,5 +1,6 @@
 "use client";
 
+import Button from "@/components/Button";
 import OnboardingActionBar from "./OnboardingActionBar";
 
 type Props = {
@@ -60,14 +61,9 @@ export default function StepPhotoImport({ finishing, onScan, onSkip, onBack }: P
           >
             Skip for now
           </button>
-          <button
-            onClick={onScan}
-            disabled={finishing}
-            className="flex-[2] py-3.5 rounded-xl font-display text-base tracking-widest text-white disabled:opacity-50 active:opacity-80 transition-opacity"
-            style={{ background: "linear-gradient(135deg, var(--color-accent), var(--color-accent-brown))" }}
-          >
+          <Button onClick={onScan} disabled={finishing} className="flex-[2]">
             {finishing ? "…" : "FIND MY GAMES"}
-          </button>
+          </Button>
         </div>
       </OnboardingActionBar>
 
