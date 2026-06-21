@@ -8,6 +8,7 @@ import { toastError } from "@/components/Toaster";
 import StepVenue from "@/components/log/StepVenue";
 import StepDate from "@/components/log/StepDate";
 import StepEvent from "@/components/log/StepEvent";
+import Button from "@/components/Button";
 import OnboardingActionBar from "./OnboardingActionBar";
 import type { VenueResult, EventMatch } from "@/lib/queries/log";
 
@@ -145,15 +146,14 @@ export default function StepBestGame({ userId, best, onBestChange, finishing, on
           >
             Back
           </button>
-          <button
+          <Button
             onClick={onFinish}
             disabled={finishing || !best.filled}
             title={best.filled ? "" : "Pick your best game to finish"}
-            className="flex-[2] py-3.5 rounded-xl font-display text-base tracking-widest text-white disabled:opacity-40 active:opacity-80 transition-opacity"
-            style={{ background: "linear-gradient(135deg, var(--color-accent), var(--color-accent-brown))" }}
+            className="flex-[2]"
           >
             {finishing ? "BUILDING YOUR PROFILE…" : finishLabel}
-          </button>
+          </Button>
         </div>
       </OnboardingActionBar>
     </div>
