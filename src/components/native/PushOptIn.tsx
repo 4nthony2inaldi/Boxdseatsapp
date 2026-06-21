@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Button from "@/components/Button";
 import { enablePush, markPushOffered } from "@/lib/native/push";
 
 /**
@@ -75,14 +76,9 @@ export default function PushOptIn() {
           or tags you at a game.
         </p>
         <div className="flex flex-col gap-2">
-          <button
-            onClick={enable}
-            disabled={busy}
-            className="w-full py-3 rounded-xl text-sm font-medium text-white transition-opacity disabled:opacity-60"
-            style={{ background: "linear-gradient(135deg, var(--color-accent), var(--color-accent-brown))" }}
-          >
+          <Button onClick={enable} disabled={busy} size="md" fullWidth>
             {busy ? "Enabling…" : "Enable notifications"}
-          </button>
+          </Button>
           <button
             onClick={dismiss}
             disabled={busy}
