@@ -1,6 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { SupabaseClient } from "@supabase/supabase-js";
 import Link from "next/link";
+import { BackLinkCircle } from "@/components/PageHeader";
 
 type VisitedVenue = {
   venue_id: string;
@@ -75,23 +76,7 @@ export default async function VenuesPage() {
     <div className="max-w-lg mx-auto pb-5">
       {/* Back header */}
       <div className="flex items-center gap-3 px-4 mt-4 mb-4">
-        <Link
-          href="/profile"
-          className="flex items-center justify-center w-8 h-8 rounded-full bg-bg-elevated"
-        >
-          <svg
-            width="18"
-            height="18"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="#F0EBE0"
-            strokeWidth="2"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-          >
-            <polyline points="15 18 9 12 15 6" />
-          </svg>
-        </Link>
+        <BackLinkCircle href="/profile" />
         <div>
           <h1 className="font-display text-2xl text-text-primary tracking-wide leading-tight">
             Visited Venues

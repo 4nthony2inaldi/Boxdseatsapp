@@ -25,6 +25,25 @@ export function BackLink({
 }
 
 /**
+ * Circular back affordance (filled chip) used by the larger section headers
+ * (timeline, venues, lists, …). Visually matches the detail-page BackButton but
+ * navigates to a fixed href. Icon-only, so it carries an aria-label.
+ */
+export function BackLinkCircle({ href, label = "Back" }: { href: string; label?: string }) {
+  return (
+    <Link
+      href={href}
+      aria-label={label}
+      className="flex items-center justify-center w-8 h-8 rounded-full bg-bg-elevated hover:opacity-80 transition-opacity"
+    >
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--color-text-primary)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <polyline points="15 18 9 12 15 6" />
+      </svg>
+    </Link>
+  );
+}
+
+/**
  * Standard sub-page header bar: a back chevron, a title, and an optional
  * right-aligned action. Replaces the same markup that was hand-copied across
  * ~20 screens (and adds the missing back-button aria-label everywhere).
