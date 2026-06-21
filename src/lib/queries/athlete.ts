@@ -1,5 +1,6 @@
 import { SupabaseClient } from "@supabase/supabase-js";
 import { getSportIconPath } from "@/lib/sportIcons";
+import type { MapVenue } from "@/lib/passportMap";
 
 export type AthleteGame = {
   eventId: string;
@@ -47,6 +48,9 @@ export type AthleteForUser = {
   /** Teams the athlete was on across the games you saw, with how many of your
       games fell under each — most-seen first. Drives the team split chart. */
   teams: { id: string; name: string; logoUrl: string | null; count: number }[];
+  /** Venues where you saw the athlete (with coords), for the map; bubble size
+      is how many of your games with them were there. */
+  mapVenues: MapVenue[];
   games: AthleteGame[];
 };
 
@@ -70,6 +74,7 @@ function base(ath: AthleteRow): AthleteForUser {
     podiums: 0,
     bestFinish: null,
     teams: [],
+    mapVenues: [],
     games: [],
   };
 }
@@ -224,6 +229,16 @@ export async function fetchAthleteForUser(
   result.teams = [...teamCount.entries()]
     .map(([id, count]) => ({ id, name: teamMap.get(id)?.name || "", logoUrl: teamMap.get(id)?.logoUrl ?? null, count }))
     .sort((a, b) => b.count - a.count);
+
+  // Map of where you saw them: per-venue counts placed via the same coords RPC
+  // the passport uses (venues without coords are simply absent, as there).
+  const venueCount = new Map<string, number>();
+  for (const g of games) venueCount.set(g.venueId, (venueCount.get(g.venueId) || 0) + 1);
+  const { data: pv } = await supabase.rpc("passport_venues", { p_user: userId });
+  result.mapVenues = ((pv as { venue_id: string; name: string; lat: number; lng: number }[] | null) || [])
+    .filter((v) => venueCount.has(v.venue_id))
+    .map((v) => ({ venue_id: v.venue_id, name: v.name, lat: Number(v.lat), lng: Number(v.lng), games: venueCount.get(v.venue_id) || 0 }));
+
   result.games = games;
   return result;
 }

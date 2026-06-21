@@ -7,6 +7,7 @@ import SectionLabel from "@/components/profile/SectionLabel";
 import OutcomeBadge from "@/components/profile/OutcomeBadge";
 import StarRating from "@/components/profile/StarRating";
 import SportIcon from "@/components/SportIcon";
+import PassportMap from "@/components/passport/PassportMap";
 import { formatDate } from "@/lib/formatters";
 
 type Props = { params: Promise<{ username: string; id: string }> };
@@ -88,14 +89,8 @@ export default async function UserAthletePage({ params }: Props) {
   }
 
   const who = isOwner ? "You" : profile.display_name || `@${profile.username}`;
-  const possessive = isOwner ? "your" : "their";
-  const decided = athlete.wins + athlete.losses;
-  const winPct = decided > 0 ? Math.round((athlete.wins / decided) * 100) : null;
-  const record =
-    athlete.draws > 0
-      ? `${athlete.wins}-${athlete.losses}-${athlete.draws}`
-      : `${athlete.wins}-${athlete.losses}`;
   const teamTotal = athlete.teams.reduce((s, t) => s + t.count, 0);
+  const venueWord = athlete.mapVenues.length === 1 ? "venue" : "venues";
 
   return (
     <div className="min-h-screen bg-bg">
@@ -110,60 +105,54 @@ export default async function UserAthletePage({ params }: Props) {
           <span className="text-xs text-text-muted">{who === "You" ? "Your passport" : `${who}'s passport`}</span>
         </div>
 
-        {/* Identity */}
-        <div className="flex flex-col items-center text-center pt-2 pb-5">
-          <div className="w-24 h-24 rounded-full overflow-hidden bg-bg-elevated flex items-center justify-center">
-            {athlete.headshotUrl ? (
-              <Image src={athlete.headshotUrl} alt={athlete.name} width={96} height={96} className="w-full h-full object-cover" />
-            ) : (
-              <span className="font-display text-2xl text-text-secondary">{initials(athlete.name)}</span>
+        {/* Identity on the left, a map of where you saw them on the right. */}
+        <div className="flex gap-4 pt-2 pb-1">
+          <div className="w-[40%] shrink-0 flex flex-col items-center text-center">
+            <div className="w-20 h-20 rounded-full overflow-hidden bg-bg-elevated flex items-center justify-center">
+              {athlete.headshotUrl ? (
+                <Image src={athlete.headshotUrl} alt={athlete.name} width={80} height={80} className="w-full h-full object-cover" />
+              ) : (
+                <span className="font-display text-2xl text-text-secondary">{initials(athlete.name)}</span>
+              )}
+            </div>
+            <h1 className="font-display text-xl text-text-primary tracking-wide mt-2.5 leading-tight">{athlete.name}</h1>
+            {athlete.sport && (
+              <div className="flex items-center gap-1.5 mt-1">
+                {athlete.icon && <SportIcon src={athlete.icon} size={14} />}
+                <span className="text-xs text-text-secondary capitalize">{athlete.sport}</span>
+              </div>
+            )}
+            <div className="mt-4">
+              <div className="font-display text-3xl text-text-primary tracking-wide leading-none">{athlete.seenCount}</div>
+              <div className="text-[10px] text-text-secondary uppercase tracking-wider mt-1.5">
+                {athlete.seenCount === 1 ? "Time seen" : "Times seen"}
+              </div>
+            </div>
+            {athlete.isIndividual && athlete.bestFinish != null && (
+              <div className="mt-3 text-xs text-text-muted">
+                Best finish <span className="text-text-secondary">{ordinal(athlete.bestFinish)}</span>
+                {athlete.victories > 0 && <> · {athlete.victories} {athlete.victories === 1 ? "win" : "wins"} seen</>}
+              </div>
             )}
           </div>
-          <h1 className="font-display text-2xl text-text-primary tracking-wide mt-3">{athlete.name}</h1>
-          {athlete.sport && (
-            <div className="flex items-center gap-2 mt-1.5">
-              {athlete.icon && <SportIcon src={athlete.icon} size={16} />}
-              <span className="text-sm text-text-secondary capitalize">{athlete.sport}</span>
-            </div>
-          )}
-        </div>
 
-        {/* Stats — what we can derive from the box scores + your logs */}
-        <div className="flex gap-2 rounded-2xl border border-border bg-bg-card px-2 py-4">
-          <div className="flex-1 text-center">
-            <div className="font-display text-2xl text-text-primary tracking-wide leading-none">{athlete.seenCount}</div>
-            <div className="text-[10px] text-text-secondary uppercase tracking-wider mt-1.5">
-              {athlete.seenCount === 1 ? "Time seen" : "Times seen"}
+          <div className="flex-1 min-w-0">
+            <div className="font-display text-[11px] text-text-muted tracking-[1.5px] uppercase mb-2">
+              {isOwner ? "Where you saw" : "Where seen"}
             </div>
+            {athlete.mapVenues.length > 0 ? (
+              <>
+                <PassportMap venues={athlete.mapVenues} />
+                <div className="text-[10px] text-text-muted mt-1.5">
+                  {athlete.mapVenues.length} {venueWord}
+                </div>
+              </>
+            ) : (
+              <div className="rounded-2xl border border-border bg-bg-card h-40 flex items-center justify-center text-center px-4 text-xs text-text-muted">
+                No mapped venues for these games yet.
+              </div>
+            )}
           </div>
-
-          {athlete.isIndividual ? (
-            <>
-              <div className="flex-1 text-center">
-                <div className="font-display text-2xl text-text-primary tracking-wide leading-none">{athlete.victories}</div>
-                <div className="text-[10px] text-text-secondary uppercase tracking-wider mt-1.5">Wins seen</div>
-              </div>
-              <div className="flex-1 text-center">
-                <div className="font-display text-2xl text-text-primary tracking-wide leading-none">
-                  {athlete.bestFinish != null ? ordinal(athlete.bestFinish) : "—"}
-                </div>
-                <div className="text-[10px] text-text-secondary uppercase tracking-wider mt-1.5">Best finish</div>
-              </div>
-            </>
-          ) : (
-            <>
-              <div className="flex-1 text-center">
-                <div className="font-display text-2xl text-text-primary tracking-wide leading-none">{record}</div>
-                <div className="text-[10px] text-text-secondary uppercase tracking-wider mt-1.5">{possessive} record</div>
-              </div>
-              <div className="flex-1 text-center">
-                <div className="font-display text-2xl text-text-primary tracking-wide leading-none">
-                  {winPct !== null ? `${winPct}%` : "—"}
-                </div>
-                <div className="text-[10px] text-text-secondary uppercase tracking-wider mt-1.5">Win%</div>
-              </div>
-            </>
-          )}
         </div>
 
         {/* Team split — the teams the athlete was on across the games you saw,
