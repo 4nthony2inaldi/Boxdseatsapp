@@ -181,26 +181,24 @@ export async function fetchFeed(
   const hasMore = logs.length > limit;
   const pageLogs = hasMore ? logs.slice(0, limit) : logs;
 
-  // 4. Fetch profiles for all authors
+  // 4 + 5. Author profiles and the viewer's likes both derive from this page's
+  // logs and are independent of each other — fetch them in parallel.
   const authorIds = [...new Set(pageLogs.map((l) => l.user_id))];
-  const { data: profiles } = await supabase
-    .from("profiles")
-    .select("id, username, display_name, avatar_url")
-    .in("id", authorIds);
-
-  const profileMap = new Map(
-    (profiles || []).map((p) => [p.id, p])
-  );
-
-  // 5. Fetch which entries the current user has liked
   const logIds = pageLogs.map((l) => l.id);
-  const { data: myLikes } = await supabase
-    .from("likes")
-    .select("event_log_id")
-    .eq("user_id", userId)
-    .in("event_log_id", logIds);
+  const [profilesRes, myLikesRes] = await Promise.all([
+    supabase
+      .from("profiles")
+      .select("id, username, display_name, avatar_url")
+      .in("id", authorIds),
+    supabase
+      .from("likes")
+      .select("event_log_id")
+      .eq("user_id", userId)
+      .in("event_log_id", logIds),
+  ]);
 
-  const likedSet = new Set((myLikes || []).map((l) => l.event_log_id));
+  const profileMap = new Map((profilesRes.data || []).map((p) => [p.id, p]));
+  const likedSet = new Set((myLikesRes.data || []).map((l) => l.event_log_id));
 
   // 6. Map to feed entries, filtering out blocked users
   const entries = pageLogs
