@@ -10,7 +10,7 @@ import {
   fetchVenueVisitStatus,
 } from "@/lib/queries/venue";
 import { fetchVenueCoverPhoto } from "@/lib/queries/coverPhotos";
-import Link from "next/link";
+import { ButtonLink } from "@/components/Button";
 import BackButton from "@/components/BackButton";
 import SectionLabel from "@/components/profile/SectionLabel";
 import StatBox from "@/components/profile/StatBox";
@@ -256,14 +256,14 @@ export default async function VenueDetailPage({
       )}
 
       {/* Log Event Here CTA */}
-      <Link
+      <ButtonLink
         href={`/log?venueId=${venue.id}&venueName=${encodeURIComponent(venue.name)}&venueCity=${encodeURIComponent(venue.city)}&venueState=${encodeURIComponent(venue.state || "")}`}
-        className="block w-full"
+        size="xl"
+        fullWidth
+        glow
       >
-        <div className="bg-gradient-to-r from-accent to-accent-hover rounded-xl py-3.5 text-center font-display text-lg tracking-[2px] text-white uppercase shadow-lg shadow-accent/20 hover:opacity-90 transition-opacity">
-          Log Event Here
-        </div>
-      </Link>
+        Log Event Here
+      </ButtonLink>
     </div>
   );
 }

@@ -10,6 +10,7 @@ import {
   removeListItem,
   searchVenuesForList,
 } from "@/lib/queries/lists";
+import Button from "@/components/Button";
 import { toastError } from "@/components/Toaster";
 
 type ExistingItem = {
@@ -263,13 +264,9 @@ export default function EditListForm({
       )}
 
       {/* Save */}
-      <button
-        onClick={handleSave}
-        disabled={saving || !name.trim()}
-        className="w-full bg-gradient-to-r from-accent to-accent-hover rounded-xl py-3.5 text-center font-display text-lg tracking-[2px] text-white uppercase shadow-lg shadow-accent/20 hover:opacity-90 transition-opacity disabled:opacity-50 cursor-pointer"
-      >
+      <Button onClick={handleSave} disabled={saving || !name.trim()} size="xl" fullWidth glow>
         {saving ? "Saving..." : "Save Changes"}
-      </button>
+      </Button>
 
       {/* Delete */}
       <div className="border-t border-border pt-6">
