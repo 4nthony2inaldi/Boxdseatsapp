@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createLogsFromSuggestions } from "@/lib/queries/photoLogs";
+import { isUuid } from "@/lib/validate";
 
 /**
  * POST /api/photo-logs
@@ -25,9 +26,9 @@ export async function POST(req: Request) {
       (p): p is { eventId: string; rootingTeamId: string | null } =>
         !!p &&
         typeof p === "object" &&
-        typeof (p as Record<string, unknown>).eventId === "string" &&
+        isUuid((p as Record<string, unknown>).eventId) &&
         ((p as Record<string, unknown>).rootingTeamId === null ||
-          typeof (p as Record<string, unknown>).rootingTeamId === "string")
+          isUuid((p as Record<string, unknown>).rootingTeamId))
     )
     .slice(0, 500);
 

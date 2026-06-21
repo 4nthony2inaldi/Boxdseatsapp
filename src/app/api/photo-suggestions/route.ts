@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { fetchPhotoSuggestions } from "@/lib/queries/photoSuggestions";
+import { isUuid, isIsoDate } from "@/lib/validate";
 
 /**
  * POST /api/photo-suggestions
@@ -23,13 +24,16 @@ export async function POST(req: Request) {
       ? ((body as { items: unknown[] }).items)
       : [];
 
+  // venueId/date are interpolated into a PostgREST `.or()` filter downstream,
+  // so require exact shapes (uuid + YYYY-MM-DD) — not just "is a string" — to
+  // rule out filter injection from a crafted client.
   const items = rawItems
     .filter(
       (i): i is { venueId: string; date: string } =>
         !!i &&
         typeof i === "object" &&
-        typeof (i as Record<string, unknown>).venueId === "string" &&
-        typeof (i as Record<string, unknown>).date === "string"
+        isUuid((i as Record<string, unknown>).venueId) &&
+        isIsoDate((i as Record<string, unknown>).date)
     )
     .slice(0, 1000);
 

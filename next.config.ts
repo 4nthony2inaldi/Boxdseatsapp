@@ -13,6 +13,22 @@ const externalImageHosts = [
 ];
 
 const nextConfig: NextConfig = {
+  // Baseline security headers for every response. Deliberately conservative:
+  // no Content-Security-Policy or Permissions-Policy, since the iOS Capacitor
+  // shell loads this site in a WKWebView and the in-app camera uses getUserMedia
+  // — a strict policy there risks breaking the app. These three are safe.
+  async headers() {
+    return [
+      {
+        source: "/:path*",
+        headers: [
+          { key: "X-Content-Type-Options", value: "nosniff" },
+          { key: "X-Frame-Options", value: "SAMEORIGIN" },
+          { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
+        ],
+      },
+    ];
+  },
   images: {
     remotePatterns: [
       ...(supabaseHostname

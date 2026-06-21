@@ -1,4 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { isUuid } from "@/lib/validate";
 
 export type TeamDetail = {
   id: string;
@@ -129,6 +130,9 @@ export async function fetchTeamRecentEvents(
   userId: string,
   limit = 15
 ): Promise<TeamEventRow[]> {
+  // teamId reaches this from the /team/[id] route param and is interpolated
+  // into the `.or()` filter below, so reject anything that isn't a uuid.
+  if (!isUuid(teamId)) return [];
   const today = new Date().toISOString().slice(0, 10);
 
   const { data: events } = await supabase
