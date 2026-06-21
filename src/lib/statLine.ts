@@ -6,6 +6,21 @@
  */
 export type StatLine = Record<string, Record<string, string>>;
 
+/**
+ * stat_line is a `text` column holding JSON (sports vary too much for fixed
+ * columns), so reads come back as a string — parse it to a usable object.
+ */
+export function parseStatLine(value: string | null | undefined): StatLine | null {
+  if (!value) return null;
+  if (typeof value === "object") return value as StatLine;
+  try {
+    const o = JSON.parse(value);
+    return o && typeof o === "object" && !Array.isArray(o) ? (o as StatLine) : null;
+  } catch {
+    return null;
+  }
+}
+
 const num = (v: string | undefined): number | null => {
   if (v == null) return null;
   const n = parseFloat(v);

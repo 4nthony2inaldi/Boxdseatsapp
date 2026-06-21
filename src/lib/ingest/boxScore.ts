@@ -277,7 +277,8 @@ export async function ingestEventBoxScore(
         team_id: p.espnTeamId ? teamMap.get(p.espnTeamId) ?? null : null,
         finish_position: p.finish,
         is_winner: p.winner,
-        stat_line: p.statLine,
+        // stat_line is a text column; store the per-category line as JSON.
+        stat_line: p.statLine ? JSON.stringify(p.statLine) : null,
       };
     })
     .filter((r): r is NonNullable<typeof r> => !!r);

@@ -1,7 +1,7 @@
 import { SupabaseClient } from "@supabase/supabase-js";
 import { getSportIconPath } from "@/lib/sportIcons";
 import type { MapVenue } from "@/lib/passportMap";
-import type { StatLine } from "@/lib/statLine";
+import { parseStatLine, type StatLine } from "@/lib/statLine";
 
 export type AthleteGame = {
   eventId: string;
@@ -121,7 +121,7 @@ export async function fetchAthleteForUser(
 
   // The athlete's box-score rows within the fan's attended events (chunked to
   // stay under the PostgREST .in() list cap).
-  type EaRow = { event_id: string; team_id: string | null; finish_position: number | null; is_winner: boolean | null; stat_line: StatLine | null };
+  type EaRow = { event_id: string; team_id: string | null; finish_position: number | null; is_winner: boolean | null; stat_line: string | null };
   const eaRows: EaRow[] = [];
   for (let i = 0; i < eventIds.length; i += 200) {
     const { data } = await supabase
@@ -196,7 +196,7 @@ export async function fetchAthleteForUser(
         athleteTeamId: ea.team_id,
         finishPosition: ea.finish_position,
         isWinner: ea.is_winner,
-        statLine: ea.stat_line,
+        statLine: parseStatLine(ea.stat_line),
       };
     })
     .filter((g): g is AthleteGame => !!g)
