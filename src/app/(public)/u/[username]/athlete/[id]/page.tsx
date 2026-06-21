@@ -9,7 +9,7 @@ import OutcomeBadge from "@/components/profile/OutcomeBadge";
 import StarRating from "@/components/profile/StarRating";
 import SportIcon from "@/components/SportIcon";
 import PassportMap from "@/components/passport/PassportMap";
-import { formatStatLine } from "@/lib/statLine";
+import { formatStatLine, aggregatePlayerStats, type StatLine } from "@/lib/statLine";
 import { formatDate } from "@/lib/formatters";
 
 type Props = { params: Promise<{ username: string; id: string }> };
@@ -93,6 +93,10 @@ export default async function UserAthletePage({ params }: Props) {
   const who = isOwner ? "You" : profile.display_name || `@${profile.username}`;
   const teamTotal = athlete.teams.reduce((s, t) => s + t.count, 0);
   const venueWord = athlete.mapVenues.length === 1 ? "venue" : "venues";
+  const aggStats = aggregatePlayerStats(
+    athlete.sport,
+    athlete.games.map((g) => g.statLine).filter((s): s is StatLine => !!s),
+  );
 
   return (
     <div className="min-h-screen bg-bg">
@@ -156,6 +160,21 @@ export default async function UserAthletePage({ params }: Props) {
             )}
           </div>
         </div>
+
+        {/* Aggregate stat line across the games you saw them in. */}
+        {aggStats.length > 0 && (
+          <div className="mt-6">
+            <MiniLabel className="mb-2">{isOwner ? "In games you saw" : "In these games"}</MiniLabel>
+            <div className="flex gap-2 rounded-2xl border border-border bg-bg-card px-2 py-4">
+              {aggStats.map((s) => (
+                <div key={s.label} className="flex-1 min-w-0 text-center">
+                  <div className="font-display text-xl text-text-primary tracking-wide leading-none">{s.value}</div>
+                  <div className="text-[10px] text-text-secondary uppercase tracking-wider mt-1.5">{s.label}</div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
 
         {/* Team split — the teams the athlete was on across the games you saw,
             by share of those games (just the team name when it's always one). */}

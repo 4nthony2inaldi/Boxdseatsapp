@@ -1,5 +1,48 @@
 import { describe, it, expect } from "vitest";
-import { formatStatLine } from "../statLine";
+import { formatStatLine, aggregatePlayerStats, parseStatLine } from "../statLine";
+
+describe("parseStatLine", () => {
+  it("parses JSON text from the column into an object", () => {
+    expect(parseStatLine('{"batting":{"HR":"1"}}')).toEqual({ batting: { HR: "1" } });
+    expect(parseStatLine(null)).toBeNull();
+    expect(parseStatLine("not json")).toBeNull();
+  });
+});
+
+describe("aggregatePlayerStats", () => {
+  it("baseball hitter: recomputes AVG, sums HR/RBI/H", () => {
+    const lines = [
+      { batting: { AB: "4", H: "2", HR: "1", RBI: "3" } },
+      { batting: { AB: "4", H: "1", HR: "0", RBI: "0" } },
+    ];
+    expect(aggregatePlayerStats("baseball", lines)).toEqual([
+      { label: "AVG", value: ".375" }, { label: "HR", value: "1" }, { label: "RBI", value: "3" }, { label: "H", value: "3" },
+    ]);
+  });
+  it("baseball pitcher: sums innings via outs and recomputes ERA", () => {
+    const lines = [
+      { pitching: { IP: "6.2", ER: "2", K: "7" } }, // 20 outs
+      { pitching: { IP: "7.0", ER: "1", K: "9" } }, // 21 outs -> 41 outs = 13.2 IP
+    ];
+    const out = aggregatePlayerStats("baseball", lines);
+    expect(out.find((s) => s.label === "IP")?.value).toBe("13.2");
+    expect(out.find((s) => s.label === "K")?.value).toBe("16");
+    // ERA = 3 ER * 9 / (41/3 innings) = 1.98
+    expect(out.find((s) => s.label === "ERA")?.value).toBe("1.98");
+  });
+  it("basketball sums PTS/REB/AST", () => {
+    const lines = [{ stats: { PTS: "28", REB: "11", AST: "6" } }, { stats: { PTS: "20", REB: "5", AST: "9" } }];
+    expect(aggregatePlayerStats("basketball", lines)).toEqual([
+      { label: "PTS", value: "48" }, { label: "REB", value: "16" }, { label: "AST", value: "15" },
+    ]);
+  });
+  it("football shows only non-zero yard/TD totals", () => {
+    const lines = [{ passing: { YDS: "300", TD: "2" } }, { passing: { YDS: "250", TD: "1" } }];
+    expect(aggregatePlayerStats("football", lines)).toEqual([
+      { label: "TD", value: "3" }, { label: "Pass yds", value: "550" },
+    ]);
+  });
+});
 
 describe("formatStatLine", () => {
   it("baseball batting: H-AB plus HR/RBI when nonzero", () => {
