@@ -204,17 +204,21 @@ export async function fetchDiscoveryFeed(
     if (b.blocked_id === userId) blockedIds.add(b.blocker_id as string);
   }
 
-  const { data: logs } = await supabase
+  // Exclude blocked authors in the query (not after slicing) so the page comes
+  // back full and hasMore stays accurate.
+  let query = supabase
     .from("event_logs")
     .select(FEED_LOG_SELECT)
     .eq("privacy", "show_all")
-    .neq("user_id", userId)
+    .neq("user_id", userId);
+  if (blockedIds.size > 0) query = query.not("user_id", "in", `(${[...blockedIds].join(",")})`);
+  const { data: logs } = await query
     .order("created_at", { ascending: false })
     .range(offset, offset + limit);
 
   if (!logs || logs.length === 0) return { entries: [], hasMore: false };
   const hasMore = logs.length > limit;
-  const page = (logs as unknown as FeedLogRow[]).slice(0, limit).filter((l) => !blockedIds.has(l.user_id));
+  const page = (logs as unknown as FeedLogRow[]).slice(0, limit);
 
   const authorIds = [...new Set(page.map((l) => l.user_id))];
   const logIds = page.map((l) => l.id);
@@ -264,8 +268,10 @@ export async function fetchFeed(
     if (b.blocked_id === userId) blockedIds.add(b.blocker_id);
   }
 
-  // 3. Fetch event logs from followed users + self
-  const { data: logs, error: logsError } = await supabase
+  // 3. Fetch event logs from followed users + self. Exclude blocked users in
+  // the query (not after slicing) so the page comes back full and hasMore is
+  // accurate.
+  let logsQuery = supabase
     .from("event_logs")
     .select(
       `
@@ -286,7 +292,9 @@ export async function fetchFeed(
     `
     )
     .in("user_id", feedUserIds)
-    .neq("privacy", "hide_all")
+    .neq("privacy", "hide_all");
+  if (blockedIds.size > 0) logsQuery = logsQuery.not("user_id", "in", `(${[...blockedIds].join(",")})`);
+  const { data: logs, error: logsError } = await logsQuery
     // Chronological by when the event HAPPENED, not when it was logged —
     // you can rewatch a 2005 film today but you attended a 2005 game in 2005.
     .order("event_date", { ascending: false })
@@ -322,9 +330,8 @@ export async function fetchFeed(
   const profileMap = new Map((profilesRes.data || []).map((p) => [p.id, p]));
   const likedSet = new Set((myLikesRes.data || []).map((l) => l.event_log_id));
 
-  // 6. Map to feed entries, filtering out blocked users
+  // 6. Map to feed entries (blocked authors already excluded in the query)
   const entries = pageLogs
-    .filter((log) => !blockedIds.has(log.user_id))
     .map((log) => {
       const venue = log.venues as unknown as { name: string } | null;
       const league = log.leagues as unknown as {
