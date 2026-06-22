@@ -60,8 +60,8 @@ export const metadata: Metadata = {
 export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
-  maximumScale: 1,
-  userScalable: false,
+  // Allow pinch-zoom (WCAG 1.4.4 / App Store accessibility). The 16px input
+  // font rule already prevents iOS focus-zoom, so no need to lock scaling.
   viewportFit: "cover",
   themeColor: "#0D0F14",
 };

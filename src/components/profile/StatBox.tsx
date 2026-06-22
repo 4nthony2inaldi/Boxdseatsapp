@@ -18,7 +18,9 @@ export default function StatBox({ value, label, href }: StatBoxProps) {
     </div>
   );
 
-  if (href) {
+  // "#" is the "no destination" sentinel (e.g. follower/following counts on a
+  // public profile) — render it as a plain, non-interactive stat, not a dead link.
+  if (href && href !== "#") {
     return (
       <Link href={href} className="flex-1 hover:opacity-80 transition-opacity">
         {content}
