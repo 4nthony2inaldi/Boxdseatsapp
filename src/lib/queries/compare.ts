@@ -129,10 +129,29 @@ export async function fetchComparison(
   const viewerId = viewer.id;
   const targetId = target.id;
 
-  const [myPassport, theirPassport, logsRes, tagsRes, favsRes] = await Promise.all([
+  // Paginate the dual-user log fetch: a single PostgREST response caps at 1000
+  // rows, so two heavy users together would otherwise truncate and drop
+  // games-together / venue-Venn matches.
+  const fetchBothLogs = async (): Promise<RawLog[]> => {
+    const all: RawLog[] = [];
+    for (let from = 0; ; from += 1000) {
+      const { data } = await supabase
+        .from("event_logs")
+        .select(LOG_SELECT)
+        .in("user_id", [viewerId, targetId])
+        .order("id", { ascending: true })
+        .range(from, from + 999);
+      if (!data || data.length === 0) break;
+      all.push(...(data as unknown as RawLog[]));
+      if (data.length < 1000) break;
+    }
+    return all;
+  };
+
+  const [myPassport, theirPassport, allLogs, tagsRes, favsRes] = await Promise.all([
     fetchPassport(supabase, viewer),
     fetchPassport(supabase, target),
-    supabase.from("event_logs").select(LOG_SELECT).in("user_id", [viewerId, targetId]),
+    fetchBothLogs(),
     supabase
       .from("companion_tags")
       .select("event_log_id, tagged_user_id, status")
@@ -166,7 +185,7 @@ export async function fetchComparison(
   }
 
   // ── Games together ──
-  const logs = (logsRes.data || []) as unknown as RawLog[];
+  const logs = allLogs;
   const myLogs = logs.filter((l) => l.user_id === viewerId);
   const theirLogs = logs.filter((l) => l.user_id === targetId);
   const logById = new Map(logs.map((l) => [l.id, l]));

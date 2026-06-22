@@ -192,36 +192,46 @@ export async function fetchTeamUserStats(
   teamId: string,
   userId: string
 ): Promise<TeamUserStats> {
-  const { data } = await supabase
-    .from("event_logs")
-    .select(
-      `id, events!event_logs_event_id_fkey(home_team_id, away_team_id, home_score, away_score)`
-    )
-    .eq("user_id", userId)
-    .not("event_id", "is", null);
-
   let gamesAttended = 0;
   let wins = 0;
   let losses = 0;
 
-  for (const log of data || []) {
-    const event = log.events as unknown as {
-      home_team_id: string | null;
-      away_team_id: string | null;
-      home_score: number | null;
-      away_score: number | null;
-    } | null;
-    if (!event) continue;
-    const isHome = event.home_team_id === teamId;
-    const isAway = event.away_team_id === teamId;
-    if (!isHome && !isAway) continue;
+  // Paginate: PostgREST caps a single response at 1000 rows, so a heavy
+  // attendee's full log history would otherwise truncate and undercount.
+  for (let from = 0; ; from += 1000) {
+    const { data } = await supabase
+      .from("event_logs")
+      .select(
+        `id, events!event_logs_event_id_fkey(home_team_id, away_team_id, home_score, away_score)`
+      )
+      .eq("user_id", userId)
+      .not("event_id", "is", null)
+      .order("id", { ascending: true })
+      .range(from, from + 999);
 
-    gamesAttended += 1;
-    if (event.home_score === null || event.away_score === null) continue;
-    const teamScore = isHome ? event.home_score : event.away_score;
-    const oppScore = isHome ? event.away_score : event.home_score;
-    if (teamScore > oppScore) wins += 1;
-    else if (teamScore < oppScore) losses += 1;
+    if (!data || data.length === 0) break;
+
+    for (const log of data) {
+      const event = log.events as unknown as {
+        home_team_id: string | null;
+        away_team_id: string | null;
+        home_score: number | null;
+        away_score: number | null;
+      } | null;
+      if (!event) continue;
+      const isHome = event.home_team_id === teamId;
+      const isAway = event.away_team_id === teamId;
+      if (!isHome && !isAway) continue;
+
+      gamesAttended += 1;
+      if (event.home_score === null || event.away_score === null) continue;
+      const teamScore = isHome ? event.home_score : event.away_score;
+      const oppScore = isHome ? event.away_score : event.home_score;
+      if (teamScore > oppScore) wins += 1;
+      else if (teamScore < oppScore) losses += 1;
+    }
+
+    if (data.length < 1000) break;
   }
 
   return { gamesAttended, wins, losses };
