@@ -10,7 +10,7 @@ export type StatLine = Record<string, Record<string, string>>;
  * stat_line is a `text` column holding JSON (sports vary too much for fixed
  * columns), so reads come back as a string — parse it to a usable object.
  */
-export function parseStatLine(value: string | null | undefined): StatLine | null {
+export function parseStatLine(value: string | StatLine | null | undefined): StatLine | null {
   if (!value) return null;
   if (typeof value === "object") return value as StatLine;
   try {
@@ -255,8 +255,10 @@ export function formatStatLine(sport: string | null, sl: StatLine | null | undef
 
   if (sport === "soccer") {
     // Goalkeepers report saves; everyone else gets a line only when they did
-    // something worth noting (a goal, an assist, or a shot on target).
-    if ((num(flat.SV) ?? 0) > 0 || (num(flat.SHF) ?? 0) > 0) {
+    // something worth noting (a goal, an assist, or a shot on target). Gate the
+    // keeper branch on saves alone — gating on shots-faced too could swallow an
+    // outfielder's line in the rare case that stat appears without a save.
+    if ((num(flat.SV) ?? 0) > 0) {
       const parts: string[] = [];
       if (flat.SV != null) parts.push(`${flat.SV} SV`);
       if ((num(flat.GA) ?? 0) > 0) parts.push(`${flat.GA} GA`);

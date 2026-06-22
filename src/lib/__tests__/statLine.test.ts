@@ -48,6 +48,20 @@ describe("aggregatePlayerStats", () => {
       { label: "TD", value: "3" }, { label: "Pass yds", value: "550" },
     ]);
   });
+  it("hockey skater sums G/A/PTS, goalie shows SV/GA", () => {
+    expect(aggregatePlayerStats("hockey", [{ skaters: { G: "1", A: "2" } }, { skaters: { G: "2", A: "1" } }])).toEqual([
+      { label: "G", value: "3" }, { label: "A", value: "3" }, { label: "PTS", value: "6" },
+    ]);
+    expect(aggregatePlayerStats("hockey", [{ goalies: { SV: "30", GA: "2" } }, { goalies: { SV: "25", GA: "3" } }])).toEqual([
+      { label: "SV", value: "55" }, { label: "GA", value: "5" },
+    ]);
+  });
+  it("football sums rushing and receiving yards in one game", () => {
+    const out = aggregatePlayerStats("football", [{ rushing: { YDS: "40", TD: "1" }, receiving: { YDS: "55", TD: "1" } }]);
+    expect(out).toEqual([
+      { label: "TD", value: "2" }, { label: "Rush yds", value: "40" }, { label: "Rec yds", value: "55" },
+    ]);
+  });
   it("soccer outfield sums G/A/SOG, goalie shows SV/GA", () => {
     expect(aggregatePlayerStats("soccer", [{ stats: { G: "1", A: "1", SOG: "3" } }, { stats: { G: "2", A: "0", SOG: "2" } }])).toEqual([
       { label: "G", value: "3" }, { label: "A", value: "1" }, { label: "SOG", value: "5" },
@@ -132,6 +146,9 @@ describe("formatStatLine", () => {
     expect(formatStatLine("soccer", { stats: { SV: "4", GA: "1", SHF: "5" } })).toBe("4 SV, 1 GA");
     expect(formatStatLine("soccer", { stats: { G: "0", A: "0", SOG: "2" } })).toBe("2 SOG");
     expect(formatStatLine("soccer", { stats: { G: "0", A: "0", SOG: "0", FC: "2" } })).toBeNull();
+    // Shots-faced present without a save must not enter the keeper branch and
+    // swallow the line; an outfielder with a shot on goal still reports it.
+    expect(formatStatLine("soccer", { stats: { SHF: "1", G: "0", A: "0", SOG: "2" } })).toBe("2 SOG");
   });
   it("returns null for empty / unknown", () => {
     expect(formatStatLine("baseball", null)).toBeNull();

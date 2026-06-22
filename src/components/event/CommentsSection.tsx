@@ -29,7 +29,10 @@ export default function CommentsSection({ eventLogId, eventId, userId, logOwnerI
   const [error, setError] = useState<string | null>(null);
 
   const handlePost = async () => {
-    if (!body.trim()) return;
+    // Guard re-entry: the button is disabled while posting, but the Enter-key
+    // path isn't, so without this a fast/repeated Enter posts duplicates.
+    if (posting || !body.trim()) return;
+    const trimmed = body.trim();
     setPosting(true);
     setError(null);
 
@@ -45,13 +48,41 @@ export default function CommentsSection({ eventLogId, eventId, userId, logOwnerI
     }
 
     // Fetch updated comments to get the full data
-    const { data } = await supabase
+    const { data, error: fetchError } = await supabase
       .from("comments")
       .select("id, user_id, body, created_at, event_log_id, event_id")
       .eq(eventId ? "event_id" : "event_log_id", eventId ?? eventLogId!)
       .order("created_at", { ascending: true });
 
-    if (data) {
+    if (fetchError || !data) {
+      // The insert succeeded but the refetch failed: append the new comment
+      // optimistically so it isn't lost, reusing the author's profile from an
+      // existing comment in the thread when available.
+      const mine = comments.find((c) => c.user_id === userId);
+      setComments((prev) => {
+        const next = [
+          ...prev,
+          {
+            id: result.id,
+            user_id: userId,
+            username: mine?.username || "you",
+            display_name: mine?.display_name ?? null,
+            avatar_url: mine?.avatar_url ?? null,
+            body: trimmed,
+            created_at: new Date().toISOString(),
+            event_log_id: eventLogId ?? null,
+            event_id: eventId ?? null,
+          },
+        ];
+        onCountChange?.(next.length);
+        return next;
+      });
+      setBody("");
+      setPosting(false);
+      return;
+    }
+
+    {
       const userIds = [...new Set(data.map((d) => d.user_id))];
       const { data: profiles } = await supabase
         .from("profiles")
@@ -132,10 +163,10 @@ export default function CommentsSection({ eventLogId, eventId, userId, logOwnerI
 
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2">
-                    <span className="text-xs text-text-primary font-medium">
+                    <span className="text-xs text-text-primary font-medium truncate min-w-0">
                       {comment.display_name || comment.username}
                     </span>
-                    <span className="text-[10px] text-text-muted">
+                    <span className="text-[10px] text-text-muted shrink-0">
                       {formatRelative(comment.created_at)}
                     </span>
                     <span className="ml-auto flex items-center gap-3">
