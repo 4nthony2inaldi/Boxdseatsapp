@@ -262,6 +262,9 @@ export default function SettingsForm({ profile, userEmail, availableLists }: Pro
               setIsPrivate(!isPrivate);
               autoSave({ is_private: !isPrivate }, () => setIsPrivate(prev));
             }}
+            role="switch"
+            aria-checked={isPrivate}
+            aria-label="Private profile"
             className="relative w-11 h-6 rounded-full transition-colors"
             style={{
               background: isPrivate ? "var(--color-accent)" : "var(--color-bg-input)",
@@ -299,6 +302,9 @@ export default function SettingsForm({ profile, userEmail, availableLists }: Pro
               setCommentsEnabled(!commentsEnabled);
               autoSave({ comments_enabled: !commentsEnabled }, () => setCommentsEnabled(prev));
             }}
+            role="switch"
+            aria-checked={commentsEnabled}
+            aria-label="Allow comments"
             className="relative w-11 h-6 rounded-full transition-colors"
             style={{
               background: commentsEnabled ? "var(--color-accent)" : "var(--color-bg-input)",

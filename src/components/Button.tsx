@@ -11,8 +11,10 @@ import type { ButtonHTMLAttributes, ReactNode } from "react";
 
 export type ButtonSize = "xl" | "lg" | "md" | "sm";
 
+// Dark text on the accent gradient: white-on-accent is only ~2.9:1 (fails WCAG
+// AA); the dark foreground is ~6.6:1 and matches the hand-rolled CTAs.
 const BASE =
-  "inline-flex items-center justify-center gap-2 text-white text-center cursor-pointer transition-opacity disabled:opacity-40 active:opacity-80";
+  "inline-flex items-center justify-center gap-2 text-bg text-center cursor-pointer transition-opacity disabled:opacity-40 active:opacity-80";
 
 const SIZE: Record<ButtonSize, string> = {
   // Prominent submit/hero CTA (log it, save).
