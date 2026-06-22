@@ -2,7 +2,7 @@ import { createClient } from "@/lib/supabase/server";
 import { ButtonLink } from "@/components/Button";
 import { fetchFollowersList } from "@/lib/queries/social";
 import UserList from "@/components/social/UserList";
-import Link from "next/link";
+import { BackLink } from "@/components/PageHeader";
 
 export default async function FollowersPage() {
   const supabase = await createClient();
@@ -23,24 +23,7 @@ export default async function FollowersPage() {
   return (
     <div className="max-w-lg mx-auto pb-5">
       <div className="px-4 pt-2 mb-3 flex items-center gap-3">
-        <Link
-          href="/profile"
-          aria-label="Back"
-          className="text-text-muted hover:text-text-secondary transition-colors"
-        >
-          <svg
-            width="20"
-            height="20"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-          >
-            <polyline points="15 18 9 12 15 6" />
-          </svg>
-        </Link>
+        <BackLink href="/profile" className="p-1 -ml-1 hover:opacity-80 transition-opacity" />
         <h1 className="font-display text-[22px] text-text-primary tracking-wide">
           Followers
         </h1>
