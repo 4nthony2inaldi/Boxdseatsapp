@@ -9,6 +9,7 @@ import OutcomeBadge from "@/components/profile/OutcomeBadge";
 import StarRating from "@/components/profile/StarRating";
 import SportIcon from "@/components/SportIcon";
 import PassportMap from "@/components/passport/PassportMap";
+import { BackLink } from "@/components/PageHeader";
 import { formatStatLine, aggregatePlayerStats, type StatLine } from "@/lib/statLine";
 import { formatDate } from "@/lib/formatters";
 
@@ -103,11 +104,7 @@ export default async function UserAthletePage({ params }: Props) {
       <div className="max-w-lg mx-auto px-4 pb-12">
         {/* Header */}
         <div className="flex items-center gap-3 py-3">
-          <Link href={`/u/${username}/passport`} className="p-1 -ml-1 hover:opacity-80 transition-opacity" aria-label="Back to passport">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--color-text-secondary)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <polyline points="15 18 9 12 15 6" />
-            </svg>
-          </Link>
+          <BackLink href={`/u/${username}/passport`} label="Back to passport" className="p-1 -ml-1 hover:opacity-80 transition-opacity" />
           <span className="text-xs text-text-muted">{who === "You" ? "Your passport" : `${who}'s passport`}</span>
         </div>
 
