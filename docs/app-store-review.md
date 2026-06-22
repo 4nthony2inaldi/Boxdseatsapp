@@ -79,8 +79,16 @@ event a user attended), which is how comparable fan-logging apps operate.
 
 ## Before submitting — open items
 
-- Stand up the `support@boxdseats.com` inbox (referenced in both policies and
-  the privacy label contact). App Review and users will use it.
+- DONE: `support@boxdseats.com` inbox is stood up and receiving mail.
+- Add a Support URL page (App Store Connect requires the Support URL field to
+  resolve to a real page; a `mailto:` inside the legal pages is not enough).
 - Set the Privacy Policy URL field in App Store Connect to the link above.
+- If `NEXT_PUBLIC_SENTRY_DSN` is set in production, Sentry is live (added in the
+  error-monitoring change), so the App Privacy label must declare Diagnostics →
+  Crash Data. The "no crash SDK is bundled" note above only holds if the DSN is
+  unset in prod. Reconcile this before certifying the label.
+- Confirm `SUPABASE_SERVICE_ROLE_KEY` is set in Vercel production, or in-app
+  account deletion returns "Account deletion is not configured" (a 5.1.1(v)
+  rejection if a reviewer tests it).
 - Confirm the age rating questionnaire reflects user-generated content and
   social features (typically 12+).
