@@ -213,6 +213,11 @@ export async function fetchDiscoveryFeed(
     .neq("user_id", userId);
   if (blockedIds.size > 0) query = query.not("user_id", "in", `(${[...blockedIds].join(",")})`);
   const { data: logs } = await query
+    // Order by when the game HAPPENED, not when it was logged, to match the
+    // friends feed — so catching up on years-old games doesn't flood the feed
+    // (a batch of old logs sinks to its event-date position instead of piling
+    // up at the top). created_at is the tiebreaker within a single day.
+    .order("event_date", { ascending: false })
     .order("created_at", { ascending: false })
     .range(offset, offset + limit);
 
