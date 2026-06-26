@@ -65,7 +65,7 @@ export default async function ProfilePage() {
     <div className="max-w-lg mx-auto pb-5">
       <ProfileHeader profile={profile} stats={stats} />
       <StatsRow stats={stats} eventsHref="/timeline" venuesHref="/venues" />
-      <BigFourSection items={bigFour} />
+      <BigFourSection items={bigFour} isOwner />
       <ActivityChart months={activityData.months} total={activityData.total} timelineHref="/timeline" />
       <PinnedLists lists={pinnedLists} isOwner />
       <BadgeSection badges={badges} tracked={trackedIncomplete} userId={user.id} showTracked={pinnedLists.length === 0} isOwner />
