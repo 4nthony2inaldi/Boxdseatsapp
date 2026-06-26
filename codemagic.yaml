@@ -47,13 +47,20 @@ workflows:
           npx @capacitor/assets generate --ios \
             --splashBackgroundColor '#0D0F14' \
             --splashBackgroundColorDark '#0D0F14'
-      - name: Add photo-permission string + sync native deps
+      - name: Add photo + camera permission strings + sync native deps
         script: |
           cd ios-app
           PLIST=ios/App/App/Info.plist
           DESC="BoxdSeats reads the date and location saved in your photos to find games you've attended. Your photos aren't uploaded."
           /usr/libexec/PlistBuddy -c "Add :NSPhotoLibraryUsageDescription string $DESC" "$PLIST" 2>/dev/null \
             || /usr/libexec/PlistBuddy -c "Set :NSPhotoLibraryUsageDescription $DESC" "$PLIST"
+          # Camera: the log flow (getUserMedia) and the avatar "Take Photo" option
+          # (the OS file-picker camera) both open the camera through the WKWebView.
+          # iOS HARD-CRASHES the app on camera access if this string is absent —
+          # this was the App Review 2.1 crash (Settings > photo > Take Photo).
+          CAM="BoxdSeats uses your camera so you can take photos at the games you attend."
+          /usr/libexec/PlistBuddy -c "Add :NSCameraUsageDescription string $CAM" "$PLIST" 2>/dev/null \
+            || /usr/libexec/PlistBuddy -c "Set :NSCameraUsageDescription $CAM" "$PLIST"
           # App uses only standard HTTPS/TLS (exempt encryption) — declare it so
           # TestFlight doesn't block every build on the export-compliance prompt.
           /usr/libexec/PlistBuddy -c "Add :ITSAppUsesNonExemptEncryption bool false" "$PLIST" 2>/dev/null \
