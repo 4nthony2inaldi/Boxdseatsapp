@@ -3,6 +3,8 @@ import type { BigFourItem } from "@/lib/queries/profile";
 
 type BigFourCardProps = {
   item: BigFourItem;
+  /** Owners see empty slots as "add" prompts; visitors see a quiet placeholder. */
+  isOwner?: boolean;
 };
 
 const categoryColors: Record<string, string> = {
@@ -12,8 +14,42 @@ const categoryColors: Record<string, string> = {
   event: "#8B0000",
 };
 
-export default function BigFourCard({ item }: BigFourCardProps) {
+export default function BigFourCard({ item, isOwner = false }: BigFourCardProps) {
   const color = categoryColors[item.category] || "#D4872C";
+
+  // Empty slot. Both variants mirror the filled card's shell (110px media area
+  // + label area) so the row stays the same height. No "Not set" copy.
+  if (item.empty) {
+    if (isOwner) {
+      return (
+        <div className="flex-1 min-w-0 rounded-xl overflow-hidden bg-bg-card border border-dashed border-accent/40 hover:border-accent/80 transition-colors flex flex-col">
+          <div className="h-[110px] flex items-center justify-center">
+            <div className="w-9 h-9 rounded-full bg-accent/15 flex items-center justify-center">
+              <span className="text-accent text-xl leading-none">+</span>
+            </div>
+          </div>
+          <div className="px-1.5 pb-2.5 pt-2 text-center">
+            <div className="font-display text-[10px] text-text-muted tracking-[1.5px] uppercase mb-0.5">
+              {item.category}
+            </div>
+            <div className="text-[11px] text-accent font-semibold leading-tight">Add</div>
+          </div>
+        </div>
+      );
+    }
+    return (
+      <div className="flex-1 min-w-0 rounded-xl overflow-hidden bg-bg-card border border-border flex flex-col opacity-50">
+        <div className="h-[110px] flex items-center justify-center">
+          <span className="text-text-muted text-2xl leading-none">&mdash;</span>
+        </div>
+        <div className="px-1.5 pb-2.5 pt-2 text-center">
+          <div className="font-display text-[10px] text-text-muted tracking-[1.5px] uppercase">
+            {item.category}
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="flex-1 min-w-0 rounded-xl overflow-hidden bg-bg-card border border-border flex flex-col">

@@ -32,6 +32,8 @@ export type BigFourItem = {
   name: string;
   subtitle: string;
   image_url?: string | null;
+  /** True when the user hasn't picked this favorite yet. */
+  empty?: boolean;
 };
 
 export type ActivityMonth = {
@@ -214,21 +216,21 @@ export async function fetchBigFour(
     // Individual-sport pick ranked #1 in the team slot (e.g. a tennis player)
     items.push({ category: "team", name: teamAthlete.name, subtitle: teamAthlete.sport || "", image_url: teamAthlete.headshot_url });
   } else {
-    items.push({ category: "team", name: "Not set", subtitle: "" });
+    items.push({ category: "team", name: "Not set", subtitle: "", empty: true });
   }
 
   const venue = venueRes.data as { name: string; city: string; state: string | null; photo_url: string | null } | null;
   if (venue) {
     items.push({ category: "venue", name: venue.name, subtitle: `${venue.city}${venue.state ? `, ${venue.state}` : ""}`, image_url: venue.photo_url });
   } else {
-    items.push({ category: "venue", name: "Not set", subtitle: "" });
+    items.push({ category: "venue", name: "Not set", subtitle: "", empty: true });
   }
 
   const athlete = athleteRes.data as { name: string; sport: string | null; headshot_url: string | null } | null;
   if (athlete) {
     items.push({ category: "athlete", name: athlete.name, subtitle: athlete.sport || "", image_url: athlete.headshot_url });
   } else {
-    items.push({ category: "athlete", name: "Not set", subtitle: "" });
+    items.push({ category: "athlete", name: "Not set", subtitle: "", empty: true });
   }
 
   const data = eventRes.data as {
@@ -254,7 +256,7 @@ export async function fetchBigFour(
       image_url: ownLog?.photo_url ?? venueData?.photo_url ?? null,
     });
   } else {
-    items.push({ category: "event", name: "Not set", subtitle: "" });
+    items.push({ category: "event", name: "Not set", subtitle: "", empty: true });
   }
 
   return items;
