@@ -232,9 +232,14 @@ export async function scanPhotosForVenues(opts: ScanOptions = {}): Promise<ScanI
       await yieldToUI();
       return matchPhotosToVenues(photos, venues);
     } catch (e) {
-      // A stall (timeout) is a real failure — surface it. Any other rejection
-      // (older plugin, unexpected shape) falls through to the Media path.
-      if (e instanceof Error && e.message === "timeout") throw new PhotoReadError();
+      // Surface these immediately rather than falling through to the Media
+      // path: "timeout" is a real stall, and "denied" means the user declined
+      // photo access — the Media fallback uses the same OS permission, so it
+      // would only spin and fail too (up to ~60s) before showing the same
+      // error. Any other rejection (unexpected shape) still falls through.
+      if (e instanceof Error && (e.message === "timeout" || e.message === "denied")) {
+        throw new PhotoReadError();
+      }
     }
   }
 
