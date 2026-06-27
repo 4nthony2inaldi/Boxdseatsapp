@@ -28,9 +28,16 @@ export default function StepRootFor({
 }: Props) {
   const [tab, setTab] = useState<"team" | "athlete">("team");
 
+  // Switch tabs AND jump to the top — otherwise, after scrolling down the long
+  // Teams list, switching to Players swaps the content above your scroll position
+  // and it looks like nothing happened.
+  const selectTab = (k: "team" | "athlete") => {
+    setTab(k);
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  };
+
   const needTeam = teamCount === 0;
   const needAthlete = teamCount > 0 && athleteCount === 0;
-  const canNext = teamCount > 0 && athleteCount > 0;
 
   return (
     <div>
@@ -49,7 +56,7 @@ export default function StepRootFor({
           return (
             <button
               key={k}
-              onClick={() => setTab(k)}
+              onClick={() => selectTab(k)}
               className="relative flex-1 py-2 rounded-lg font-display text-xs tracking-[1px] uppercase transition-colors active:opacity-70"
               style={{
                 background: active ? "var(--color-accent)" : "var(--color-bg-input)",
@@ -77,7 +84,7 @@ export default function StepRootFor({
       <OnboardingActionBar>
         {needAthlete && (
           <button
-            onClick={() => setTab("athlete")}
+            onClick={() => selectTab("athlete")}
             className="w-full mb-2.5 flex items-center justify-between gap-2 px-4 py-2.5 rounded-xl border border-accent/40 bg-accent/10 text-left active:opacity-80 transition-opacity"
           >
             <span className="text-sm text-accent font-medium">
@@ -96,9 +103,9 @@ export default function StepRootFor({
             Back
           </button>
           <Button
-            onClick={onNext}
-            disabled={!canNext}
-            title={needTeam ? "Add at least one team" : needAthlete ? "Choose at least one favorite athlete" : ""}
+            onClick={needAthlete ? () => selectTab("athlete") : onNext}
+            disabled={needTeam}
+            title={needTeam ? "Add at least one team" : ""}
             className="flex-[2]"
           >
             {needAthlete ? "PICK AN ATHLETE" : "NEXT"}
