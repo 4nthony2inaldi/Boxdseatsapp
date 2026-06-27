@@ -144,6 +144,38 @@ Once set, both app error reporting and the **ingest dead-man's switch** go live
   stale. Watches job health, not event recency, so the offseason doesn't trip it.
 - Admin view at `/admin/ingest` (per-job status + per-league freshness).
 
+## Photo finder — venue geocoding accuracy
+
+The photo finder geofences each photo to a venue using `public/venues-geo.json`
+(`[venueId, lat, lng, radiusMeters?]`, generated from the DB `location` column).
+A match only happens if the venue's coordinate is within its radius of where the
+photo was taken — so **coordinate accuracy is the whole game**, and bad coords
+fail silently (the game just never gets suggested).
+
+Hard-won lessons from fixing this:
+
+- **Tournament-named venues are the weak spot.** Individual-sport venues named
+  after the event ("BNP Paribas Open", "Miami Open") don't geocode to the
+  stadium — they land on the city centroid, or on the `39.78, -100.45` US
+  geographic-center "couldn't resolve" fallback, often tens of km off. Indian
+  Wells was ~3.4 km off; Cincinnati's "Western & Southern Open" was at the
+  centroid 34 km from the Lindner Center.
+- **Golf, motorsports, and the tennis slams are fine** — they're named after the
+  real course/track/club ("Royal Birkdale GC", "Sonoma Raceway", "All England
+  Lawn Tennis Club"), which geocodes correctly. Don't waste effort there.
+- **Re-geocoding: validate the feature, not just the distance.** Nominatim *can*
+  resolve the real venue when you query its actual name (e.g. "Indian Wells
+  Tennis Garden"), but you must check the returned `class`/`type` is the named
+  stadium/sports_centre — distance alone is misleading (the big "moves" are just
+  the broken old centroid snapping to the right place). Always dry-run first.
+- **`venues-geo.json` is a subset.** Venues with no usable coords were excluded,
+  so a venue can be missing entirely — fixing the DB coord isn't enough; the
+  entry has to exist in the json (the client only reads the json). There is no
+  committed generator script; the marquee-tennis fix updated present rows and
+  appended the missing ones directly (see migration 20260627).
+- **Long tail left as-is:** ~700 obscure lower-tour tennis venues likely share
+  the issue but are events nobody photographs. Fix on report, not preemptively.
+
 ## Where secrets live
 
 - App secrets (Sentry DSN, etc.): **Vercel env vars**, never the repo or chat.
