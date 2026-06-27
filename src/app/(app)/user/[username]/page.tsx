@@ -16,6 +16,7 @@ import {
   checkBlocked,
 } from "@/lib/queries/social";
 import ProfileHeader from "@/components/profile/ProfileHeader";
+import ScrollToTop from "@/components/ScrollToTop";
 import StatsRow from "@/components/profile/StatsRow";
 import BigFourSection from "@/components/profile/BigFourSection";
 import ActivityChart from "@/components/profile/ActivityChart";
@@ -89,6 +90,7 @@ export default async function UserProfilePage({ params }: Props) {
   if (isGated) {
     return (
       <div className="max-w-lg mx-auto pb-5">
+        <ScrollToTop />
         <ProfileHeader
           profile={profile}
           stats={stats}
@@ -158,6 +160,7 @@ export default async function UserProfilePage({ params }: Props) {
 
   return (
     <div className="max-w-lg mx-auto pb-5">
+      <ScrollToTop />
       <ProfileHeader
         profile={profile}
         stats={stats}
