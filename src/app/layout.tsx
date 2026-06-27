@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { Bebas_Neue, DM_Sans } from "next/font/google";
 import "./globals.css";
+import DeepLinkHandler from "@/components/native/DeepLinkHandler";
 
 const bebasNeue = Bebas_Neue({
   weight: "400",
@@ -74,6 +75,7 @@ export default function RootLayout({
   return (
     <html lang="en" className={`${bebasNeue.variable} ${dmSans.variable}`}>
       <body className="antialiased">
+        <DeepLinkHandler />
         {children}
       </body>
     </html>

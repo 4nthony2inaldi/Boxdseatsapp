@@ -1,13 +1,20 @@
 #!/usr/bin/env ruby
 # Configures the generated iOS project during the Codemagic build (run from
 # ios-app/, after `cap sync`):
-#   1. writes the aps-environment entitlement and points the App target at it
-#   2. injects the APNs token-forwarding methods into AppDelegate (Capacitor's
-#      template omits them, so register() succeeds but the `registration`
-#      event never fires and no token is delivered).
+#   1. writes the aps-environment + associated-domains entitlements and points
+#      the App target at them
+#   2. injects the APNs token-forwarding methods AND the Universal Link
+#      continue(userActivity) handler into AppDelegate (Capacitor's template
+#      omits both, so push tokens never deliver and Universal Links never reach
+#      the appUrlOpen listener).
 #   3. pins the app to iPhone only (Capacitor defaults to iPhone+iPad, but
 #      BoxdSeats is a phone-first app with no designed iPad layout; iPhone-only
 #      avoids the iPad screenshot/UX requirements).
+#
+# NOTE: associated-domains requires the "Associated Domains" capability to be
+# enabled on the App ID (com.boxdseats.app) in the Apple Developer portal, or the
+# signing step will fail to include the entitlement. The AASA file is served at
+# https://www.boxdseats.com/.well-known/apple-app-site-association.
 require "xcodeproj"
 
 File.write("ios/App/App/App.entitlements", <<~PLIST)
@@ -17,6 +24,10 @@ File.write("ios/App/App/App.entitlements", <<~PLIST)
   <dict>
     <key>aps-environment</key>
     <string>production</string>
+    <key>com.apple.developer.associated-domains</key>
+    <array>
+      <string>applinks:www.boxdseats.com</string>
+    </array>
   </dict>
   </plist>
 PLIST
@@ -33,10 +44,10 @@ puts "CODE_SIGN_ENTITLEMENTS + iPhone-only device family set for App target"
 
 ad = "ios/App/App/AppDelegate.swift"
 src = File.read(ad)
-if src.include?("didRegisterForRemoteNotificationsWithDeviceToken")
-  puts "AppDelegate already forwards APNs callbacks"
-else
-  methods = <<~SWIFT
+changed = false
+
+unless src.include?("didRegisterForRemoteNotificationsWithDeviceToken")
+  apns = <<~SWIFT
 
       func application(_ application: UIApplication, didRegisterForRemoteNotificationsWithDeviceToken deviceToken: Data) {
           NotificationCenter.default.post(name: .capacitorDidRegisterForRemoteNotifications, object: deviceToken)
@@ -45,7 +56,23 @@ else
           NotificationCenter.default.post(name: .capacitorDidFailToRegisterForRemoteNotifications, object: error)
       }
   SWIFT
-  src = src.sub(/(class AppDelegate[^{]*\{)/) { "#{$1}#{methods}" }
-  File.write(ad, src)
+  src = src.sub(/(class AppDelegate[^{]*\{)/) { "#{$1}#{apns}" }
+  changed = true
   puts "injected APNs forwarding into AppDelegate"
 end
+
+# Universal Links: forward continue(userActivity) to Capacitor so a tapped
+# applink fires the JS appUrlOpen listener (see src/lib/native/deepLink.ts).
+unless src.include?("continue userActivity")
+  ua = <<~SWIFT
+
+      func application(_ application: UIApplication, continue userActivity: NSUserActivity, restorationHandler: @escaping ([UIUserActivityRestoring]?) -> Void) -> Bool {
+          return ApplicationDelegateProxy.shared.application(application, continue: userActivity, restorationHandler: restorationHandler)
+      }
+  SWIFT
+  src = src.sub(/(class AppDelegate[^{]*\{)/) { "#{$1}#{ua}" }
+  changed = true
+  puts "injected Universal Link continue(userActivity) into AppDelegate"
+end
+
+File.write(ad, src) if changed
