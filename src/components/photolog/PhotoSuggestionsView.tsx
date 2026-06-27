@@ -218,7 +218,7 @@ export default function PhotoSuggestionsView({ suggestions, unknownTeams, photoB
   }
 
   return (
-    <div className="max-w-lg mx-auto pb-28">
+    <div className="max-w-lg mx-auto pb-36">
       <div className="px-4 pt-5 pb-3">
         <h1 className="font-display text-[26px] text-text-primary tracking-wide leading-tight">
           We found {suggestions.length} {suggestions.length === 1 ? "game" : "games"} in your photos
@@ -411,10 +411,17 @@ export default function PhotoSuggestionsView({ suggestions, unknownTeams, photoB
         className="fixed bottom-0 inset-x-0 border-t border-border bg-bg/95 backdrop-blur px-4 pt-3"
         style={{ paddingBottom: "max(env(safe-area-inset-bottom), 0.75rem)" }}
       >
-        <div className="max-w-lg mx-auto">
+        <div className="max-w-lg mx-auto space-y-2">
           <Button onClick={commit} disabled={saving || includedCount === 0} size="lg" fullWidth>
             {saving ? (status || "Logging…") : `Log ${includedCount} ${includedCount === 1 ? "game" : "games"}`}
           </Button>
+          <button
+            onClick={() => router.push("/profile")}
+            disabled={saving}
+            className="w-full py-2.5 text-sm text-text-secondary hover:text-text-primary transition-colors disabled:opacity-50"
+          >
+            Skip for now
+          </button>
         </div>
       </div>
     </div>
