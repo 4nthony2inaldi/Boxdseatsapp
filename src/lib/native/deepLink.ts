@@ -9,6 +9,13 @@ import { isNativeApp } from "./photoScan";
  * its own. This routes the opened link into the in-app webview so the flow runs
  * inside the app. Handles both warm (already running) and cold-start (launched by
  * the link) cases. No-op on the web.
+ *
+ * Each URL is handled at most once per app session. getLaunchUrl() keeps
+ * returning the SAME launch URL on every page load, and navigating there does a
+ * full reload that re-runs this code — without the guard that re-fires
+ * /auth/confirm endlessly, and after the first run the one-time token is spent,
+ * so it fails, redirects, and loops. sessionStorage survives the in-app reloads,
+ * so we dedupe against it.
  */
 
 type AppPlugin = {
@@ -33,22 +40,46 @@ function inAppPath(url?: string | null): string | null {
   }
 }
 
+const HANDLED_KEY = "boxd:deeplink:handled";
+
+function alreadyHandled(url: string): boolean {
+  try {
+    return sessionStorage.getItem(HANDLED_KEY) === url;
+  } catch {
+    return false;
+  }
+}
+
+function markHandled(url: string): void {
+  try {
+    sessionStorage.setItem(HANDLED_KEY, url);
+  } catch {
+    // sessionStorage unavailable — proceed without dedupe.
+  }
+}
+
+/** Navigate into the app for a deep link, at most once per URL per session. */
+function handle(url?: string | null): void {
+  if (!url) return;
+  const path = inAppPath(url);
+  if (!path) return;
+  if (alreadyHandled(url)) return;
+  markHandled(url);
+  window.location.href = path;
+}
+
 export async function initDeepLinks(): Promise<void> {
   if (!isNativeApp()) return;
   const App = appPlugin();
   if (!App) return;
 
   // Warm: the app is already running when the link is tapped.
-  App.addListener?.("appUrlOpen", (data) => {
-    const path = inAppPath((data as { url?: string })?.url);
-    if (path) window.location.href = path;
-  });
+  App.addListener?.("appUrlOpen", (data) => handle((data as { url?: string })?.url));
 
   // Cold start: the link launched the app.
   try {
     const launch = await App.getLaunchUrl?.();
-    const path = inAppPath(launch?.url);
-    if (path) window.location.href = path;
+    handle(launch?.url);
   } catch {
     // No launch URL — normal launch.
   }
