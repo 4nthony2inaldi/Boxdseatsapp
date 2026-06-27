@@ -104,6 +104,28 @@ export default function NearbySection({ userId, initialCity, initialPage }: Prop
   const pickerRef = useRef<HTMLDivElement>(null);
   const { offset, dragging, handleProps } = useSwipeDismiss(() => setPickerOpen(false));
 
+  // Keep the picker above the on-screen keyboard. A position:fixed bottom-0
+  // sheet sits *behind* the keyboard on iOS, hiding the results, so we offset it
+  // by the keyboard height (visualViewport) and cap its height to what's left.
+  const [kbInset, setKbInset] = useState(0);
+  const [availH, setAvailH] = useState(0);
+  useEffect(() => {
+    if (!pickerOpen) return;
+    const vv = window.visualViewport;
+    if (!vv) return;
+    const update = () => {
+      setKbInset(Math.max(0, window.innerHeight - vv.height - vv.offsetTop));
+      setAvailH(vv.height);
+    };
+    update();
+    vv.addEventListener("resize", update);
+    vv.addEventListener("scroll", update);
+    return () => {
+      vv.removeEventListener("resize", update);
+      vv.removeEventListener("scroll", update);
+    };
+  }, [pickerOpen]);
+
   useEffect(() => {
     if (!pickerOpen) return;
     const close = (e: MouseEvent) => {
@@ -193,8 +215,10 @@ export default function NearbySection({ userId, initialCity, initialPage }: Prop
               role="dialog"
               aria-modal="true"
               aria-label="Choose city"
-              className="fixed inset-x-0 bottom-0 z-[60] max-h-[70dvh] flex flex-col rounded-t-2xl border-t border-x border-border bg-bg-elevated shadow-xl pb-[max(env(safe-area-inset-bottom),0.75rem)]"
+              className="fixed inset-x-0 z-[60] max-h-[70dvh] flex flex-col rounded-t-2xl border-t border-x border-border bg-bg-elevated shadow-xl pb-[max(env(safe-area-inset-bottom),0.75rem)]"
               style={{
+                bottom: kbInset,
+                maxHeight: kbInset > 0 && availH ? availH - 12 : undefined,
                 transform: `translateY(${offset}px)`,
                 transition: dragging ? "none" : "transform 200ms",
               }}
@@ -212,7 +236,7 @@ export default function NearbySection({ userId, initialCity, initialPage }: Prop
                   className="w-full py-2.5 px-3 rounded-lg bg-bg-input border border-border text-text-primary text-sm outline-none focus:border-accent"
                 />
               </div>
-              <div className="overflow-y-auto px-2">
+              <div className="flex-1 min-h-0 overflow-y-auto px-2">
                 {filtered.map((m) => (
                   <button
                     key={m.key}
