@@ -5,6 +5,7 @@ import { createClient } from "@/lib/supabase/client";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { LogoWithWordmark } from "@/components/Logo";
+import PasswordInput from "@/components/PasswordInput";
 
 export default function SignupPage() {
   const [email, setEmail] = useState("");
@@ -155,8 +156,7 @@ export default function SignupPage() {
 
         <div>
           <label className="block text-sm text-text-secondary mb-1.5">Password</label>
-          <input
-            type="password"
+          <PasswordInput
             value={password}
             onChange={(e) => setPassword(e.target.value)}
             required
