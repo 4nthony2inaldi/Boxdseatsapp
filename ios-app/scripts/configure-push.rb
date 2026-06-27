@@ -38,9 +38,15 @@ target.build_configurations.each do |c|
   c.build_settings["CODE_SIGN_ENTITLEMENTS"] = "App/App.entitlements"
   # 1 = iPhone only (2 = iPad, "1,2" = both). Pins UIDeviceFamily in the binary.
   c.build_settings["TARGETED_DEVICE_FAMILY"] = "1"
+  # Marketing version (CFBundleShortVersionString). Capacitor's Info.plist reads
+  # this from $(MARKETING_VERSION), and the build setting wins over any literal
+  # written into Info.plist — so it MUST be set here. App Store rejects a build
+  # whose version isn't higher than the last approved one.
+  # BUMP for each App Store release: 1.0.1 -> 1.0.2 -> 1.1 ...
+  c.build_settings["MARKETING_VERSION"] = "1.0.1"
 end
 proj.save
-puts "CODE_SIGN_ENTITLEMENTS + iPhone-only device family set for App target"
+puts "CODE_SIGN_ENTITLEMENTS + iPhone-only + MARKETING_VERSION set for App target"
 
 ad = "ios/App/App/AppDelegate.swift"
 src = File.read(ad)
