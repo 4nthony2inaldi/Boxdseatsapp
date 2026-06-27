@@ -42,11 +42,18 @@ export default function AccountSecurity() {
 
     if (error) {
       setPasswordStatus("error");
-      setPasswordError(
-        error.message.includes("different from the old")
-          ? "New password must be different from your current password."
-          : "Failed to update password. Please try again."
-      );
+      // Surface the real reason rather than a catch-all. The common cases here are
+      // reusing the current password and picking one that's turned up in a known
+      // data breach (leaked-password protection is on).
+      console.error("Password change failed:", error);
+      const msg = error.message || "";
+      if (msg.includes("different from the old")) {
+        setPasswordError("New password must be different from your current password.");
+      } else if (/weak|pwned|leaked|easy to guess/i.test(msg)) {
+        setPasswordError("That password is too easy to guess — it has appeared in known data breaches. Choose a stronger one.");
+      } else {
+        setPasswordError(msg || "Failed to update password. Please try again.");
+      }
       return;
     }
 
