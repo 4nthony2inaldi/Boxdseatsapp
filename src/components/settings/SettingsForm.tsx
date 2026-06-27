@@ -6,6 +6,7 @@ import { createClient } from "@/lib/supabase/client";
 import type { SettingsProfile, AvailableList } from "@/lib/queries/settings";
 import { updateProfile } from "@/lib/queries/settings";
 import AvatarUpload from "@/components/AvatarUpload";
+import Button from "@/components/Button";
 import AccountSecurity from "@/components/settings/AccountSecurity";
 import NotificationSettings from "@/components/settings/NotificationSettings";
 import UsernameEditor from "@/components/settings/UsernameEditor";
@@ -69,8 +70,44 @@ export default function SettingsForm({ profile, userEmail, availableLists }: Pro
   const router = useRouter();
   const supabase = createClient();
 
-  // Autosave: every control persists on change (text fields on blur).
-  // Matches the instant-save contract of the feed's city chip.
+  // The Edit Profile identity fields buffer and commit on an explicit Save
+  // (it feels more intentional than blur-saving a name/bio). Everything else
+  // still auto-saves on change. `base` is the last-saved snapshot, so we can
+  // tell when there are unsaved edits.
+  const [base, setBase] = useState({
+    displayName: profile.display_name,
+    bio: profile.bio,
+    favSport: profile.fav_sport,
+    homeCity: profile.home_city,
+  });
+  const norm = (s: string) => s.trim() || null;
+  const profileDirty =
+    norm(displayName) !== base.displayName ||
+    norm(bio) !== base.bio ||
+    favSport !== base.favSport ||
+    homeCity !== base.homeCity;
+
+  async function saveProfile() {
+    setSaving(true);
+    const updates = {
+      display_name: norm(displayName),
+      bio: norm(bio),
+      fav_sport: favSport,
+      home_city: homeCity,
+    };
+    const result = await updateProfile(supabase, profile.id, updates);
+    setSaving(false);
+    if ("error" in result) {
+      toastError("Couldn't save — check your connection.");
+    } else {
+      setBase({ displayName: updates.display_name, bio: updates.bio, favSport, homeCity });
+      setSaved(true);
+      setTimeout(() => setSaved(false), 1500);
+    }
+  }
+
+  // Autosave for the instant controls (toggles, selects). Text/profile fields
+  // use the Save button above instead.
   async function autoSave(
     updates: Parameters<typeof updateProfile>[2],
     revert?: () => void
@@ -114,7 +151,6 @@ export default function SettingsForm({ profile, userEmail, availableLists }: Pro
             type="text"
             value={displayName}
             onChange={(e) => setDisplayName(e.target.value)}
-            onBlur={() => autoSave({ display_name: displayName.trim() || null })}
             placeholder="Your display name"
             className="w-full py-2 px-3 rounded-lg bg-bg-input border border-border text-text-primary text-sm outline-none focus:border-accent transition-colors"
           />
@@ -124,7 +160,6 @@ export default function SettingsForm({ profile, userEmail, availableLists }: Pro
           <textarea
             value={bio}
             onChange={(e) => setBio(e.target.value)}
-            onBlur={() => autoSave({ bio: bio.trim() || null })}
             placeholder="Tell us about yourself..."
             rows={2}
             maxLength={160}
@@ -138,12 +173,7 @@ export default function SettingsForm({ profile, userEmail, availableLists }: Pro
           <label className="text-xs text-text-muted block mb-1">Home City</label>
           <select
             value={homeCity || ""}
-            onChange={(e) => {
-              const prev = homeCity;
-              const next = e.target.value || null;
-              setHomeCity(next);
-              autoSave({ home_city: next }, () => setHomeCity(prev));
-            }}
+            onChange={(e) => setHomeCity(e.target.value || null)}
             className="w-full py-2 px-3 rounded-lg bg-bg-input border border-border text-text-primary text-sm outline-none"
           >
             <option value="">Not set</option>
@@ -166,12 +196,7 @@ export default function SettingsForm({ profile, userEmail, availableLists }: Pro
               return (
                 <button
                   key={s.key}
-                  onClick={() => {
-                    const prev = favSport;
-                    const next = selected ? null : s.key;
-                    setFavSport(next);
-                    autoSave({ fav_sport: next }, () => setFavSport(prev));
-                  }}
+                  onClick={() => setFavSport(selected ? null : s.key)}
                   className="px-3 py-1.5 rounded-full text-xs transition-colors"
                   style={{
                     background: selected ? "rgba(212,135,44,0.15)" : "var(--color-bg-input)",
@@ -185,6 +210,16 @@ export default function SettingsForm({ profile, userEmail, availableLists }: Pro
               );
             })}
           </div>
+        </div>
+        <div className="px-4 py-3 border-t border-border">
+          <Button onClick={saveProfile} disabled={!profileDirty || saving} fullWidth>
+            {saving ? "Saving…" : saved ? "Saved ✓" : "Save changes"}
+          </Button>
+          {profileDirty && !saving && (
+            <p className="text-[11px] text-text-muted text-center mt-2">
+              You have unsaved changes
+            </p>
+          )}
         </div>
       </div>
 
