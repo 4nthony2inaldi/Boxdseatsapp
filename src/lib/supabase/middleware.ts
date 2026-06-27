@@ -53,6 +53,8 @@ export async function updateSession(request: NextRequest) {
     request.nextUrl.pathname === "/privacy" ||
     request.nextUrl.pathname === "/terms" ||
     request.nextUrl.pathname === "/support" ||
+    // Apple App Site Association — must be publicly fetchable for Universal Links.
+    request.nextUrl.pathname.startsWith("/.well-known/") ||
     // API routes authenticate themselves (session check or bearer secret);
     // redirecting them to /login breaks Vercel Cron and JSON clients.
     request.nextUrl.pathname.startsWith("/api/");
