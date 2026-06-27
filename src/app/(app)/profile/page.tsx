@@ -18,6 +18,8 @@ import BadgeSection from "@/components/profile/BadgeSection";
 import LatestEvent from "@/components/profile/LatestEvent";
 import SummaryRows from "@/components/profile/SummaryRows";
 import ShareButton from "@/components/sharing/ShareButton";
+import BackfillPhotosPrompt from "@/components/photolog/BackfillPhotosPrompt";
+import { countPhotolessLogs } from "@/lib/queries/photoBackfill";
 
 export default async function ProfilePage() {
   const supabase = await createClient();
@@ -43,7 +45,7 @@ export default async function ProfilePage() {
     );
   }
 
-  const [stats, bigFour, activityData, pinnedLists, timelinePage, summaryCounts, badges, trackedIncomplete] =
+  const [stats, bigFour, activityData, pinnedLists, timelinePage, summaryCounts, badges, trackedIncomplete, photolessCount] =
     await Promise.all([
       fetchProfileStats(supabase, user.id),
       fetchBigFour(supabase, profile),
@@ -56,6 +58,7 @@ export default async function ProfilePage() {
       fetchProfileSummaryCounts(supabase, user.id),
       fetchUserBadges(supabase, user.id),
       fetchTrackedIncomplete(supabase, user.id),
+      countPhotolessLogs(supabase, user.id),
     ]);
 
   // Latest event is the first (most recent) entry
@@ -65,6 +68,7 @@ export default async function ProfilePage() {
     <div className="max-w-lg mx-auto pb-5">
       <ProfileHeader profile={profile} stats={stats} />
       <StatsRow stats={stats} eventsHref="/timeline" venuesHref="/venues" />
+      <BackfillPhotosPrompt count={photolessCount} />
       <BigFourSection items={bigFour} isOwner />
       <ActivityChart months={activityData.months} total={activityData.total} timelineHref="/timeline" />
       <PinnedLists lists={pinnedLists} isOwner />
