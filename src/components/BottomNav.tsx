@@ -67,7 +67,12 @@ export default function BottomNav() {
   // Onboarding is a gated flow with its own step controls — the tab bar would
   // only bounce users back, and it crowds the step's sticky action bar. The
   // photo review flow has its own sticky "Log games" bar for the same reason.
-  if (pathname.startsWith("/onboarding") || pathname.startsWith("/log/photos")) return null;
+  if (
+    pathname.startsWith("/onboarding") ||
+    pathname.startsWith("/log/photos") ||
+    pathname.startsWith("/log/backfill")
+  )
+    return null;
 
   function isActive(href: string) {
     if (href === "/") return pathname === "/";
