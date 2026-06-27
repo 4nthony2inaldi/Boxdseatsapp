@@ -1,10 +1,10 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import PhotoScanIntro from "@/components/photolog/PhotoScanIntro";
 import PhotoSuggestionsView from "@/components/photolog/PhotoSuggestionsView";
-import { scanPhotosForVenues, type ScanItem, type ScanProgress } from "@/lib/native/photoScan";
+import { scanPhotosForVenues, isNativeApp, type ScanItem, type ScanProgress } from "@/lib/native/photoScan";
 import type { PhotoSuggestionsResult } from "@/lib/queries/photoSuggestions";
 
 type State = "intro" | "scanning" | "loading" | "ready" | "empty" | "error";
@@ -59,6 +59,13 @@ export default function PhotoLogPage() {
   const router = useRouter();
   const [state, setState] = useState<State>("intro");
   const [webFallback, setWebFallback] = useState(false);
+  // The scan needs the on-device library, so it's iPhone-app only. Detect web up
+  // front and show the "get the app" state instead of an iOS flow that can't run.
+  const [appRequired, setAppRequired] = useState(false);
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    if (!isNativeApp()) setAppRequired(true);
+  }, []);
   const [data, setData] = useState<PhotoSuggestionsResult | null>(null);
   const [progress, setProgress] = useState<ScanProgress | null>(null);
   const [readError, setReadError] = useState(false);
@@ -114,7 +121,7 @@ export default function PhotoLogPage() {
   }
 
   if (state === "intro") {
-    return <PhotoScanIntro onScan={handleScan} onCancel={() => router.back()} webFallback={webFallback} />;
+    return <PhotoScanIntro onScan={handleScan} onCancel={() => router.back()} webFallback={webFallback} appRequired={appRequired} />;
   }
 
   if (state === "scanning") return <ScanProgressView progress={progress} />;

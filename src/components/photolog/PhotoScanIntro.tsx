@@ -6,10 +6,14 @@ import Button from "@/components/Button";
 type Props = {
   onScan: (monthsBack?: number) => void;
   onCancel: () => void;
-  /** True when there's no native photo access (web) — show the gentle note. */
+  /** Set after a scan attempt finds no native photo access (web). */
   webFallback?: boolean;
+  /** Detected up front on the web — the scan is iPhone-app only. */
+  appRequired?: boolean;
   scanning?: boolean;
 };
+
+const APP_STORE_URL = "https://apps.apple.com/app/id6781299327";
 
 const RANGES: { label: string; months?: number }[] = [
   { label: "1 mo", months: 1 },
@@ -64,9 +68,11 @@ function Bullet({ icon, bold, rest }: { icon: React.ReactNode; bold: string; res
   );
 }
 
-export default function PhotoScanIntro({ onScan, onCancel, webFallback, scanning }: Props) {
+export default function PhotoScanIntro({ onScan, onCancel, webFallback, appRequired, scanning }: Props) {
   const [howOpen, setHowOpen] = useState(false);
   const [rangeIdx, setRangeIdx] = useState(3); // default: all time — the point is to surface your whole history
+  // On the web the scan can't run (no on-device library) — point to the app.
+  const needApp = appRequired || webFallback;
 
   return (
     <div className="max-w-lg mx-auto px-5 pt-8 pb-10">
@@ -88,75 +94,93 @@ export default function PhotoScanIntro({ onScan, onCancel, webFallback, scanning
         <Bullet icon={<CheckIcon />} bold="You're in control" rest="a photo is only saved if you choose to add it to a game" />
       </div>
 
-      <p className="text-xs text-text-muted leading-5 mt-4">
-        Next, iOS will ask to allow photo access. It needs that to look across your whole library — but
-        BoxdSeats only ever reads the date and location, never the images.
-      </p>
-
-      <button
-        onClick={() => setHowOpen((v) => !v)}
-        className="mt-3 text-xs text-accent hover:opacity-80 flex items-center gap-1"
-      >
-        How it works
-        <svg width="13" height="13" viewBox={svg} fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ transform: howOpen ? "rotate(180deg)" : "none" }}>
-          <polyline points="6 9 12 15 18 9" />
-        </svg>
-      </button>
-      {howOpen && (
-        <p className="text-xs text-text-muted leading-5 mt-2 rounded-xl bg-bg-card border border-border p-3">
-          The matching happens right on your phone. Only a game&apos;s venue and date are ever sent to look
-          it up — your photos and their exact locations never leave your device.
-        </p>
-      )}
-
-      {webFallback && (
-        <p className="text-xs text-accent leading-5 mt-4">
-          Photo scanning runs in the BoxdSeats iPhone app — it&apos;s coming there soon.
-        </p>
-      )}
-
-      <div className="mt-6">
-        <p className="text-xs text-text-muted tracking-wide uppercase font-display mb-2">How far back?</p>
-        <div className="grid grid-cols-4 gap-2">
-          {RANGES.map((r, i) => {
-            const active = i === rangeIdx;
-            return (
-              <button
-                key={r.label}
-                onClick={() => setRangeIdx(i)}
-                aria-pressed={active}
-                className="py-2 rounded-lg text-xs font-medium transition-colors"
-                style={{
-                  background: active ? "rgba(212,135,44,0.15)" : "var(--color-bg-input)",
-                  border: `1px solid ${active ? "var(--color-accent)" : "var(--color-border)"}`,
-                  color: active ? "var(--color-accent)" : "var(--color-text-secondary)",
-                }}
-              >
-                {r.label}
-              </button>
-            );
-          })}
+      {needApp && (
+        <div className="mt-6 rounded-2xl border border-accent/30 bg-accent/[0.06] p-4">
+          <p className="text-sm text-text-primary font-medium">Only in the iPhone app</p>
+          <p className="text-sm text-text-secondary leading-6 mt-1">
+            The photo finder scans your library right on your device, so it runs in the BoxdSeats
+            iPhone app, not on the web. Get the app to find your games automatically.
+          </p>
+          <a
+            href={APP_STORE_URL}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="mt-3 inline-flex w-full items-center justify-center py-3 rounded-xl bg-accent text-bg font-display tracking-wide active:opacity-70 transition-opacity"
+          >
+            GET THE APP
+          </a>
         </div>
-        <p className="text-[11px] text-text-muted leading-5 mt-2">
-          Scans your whole library by default so it catches games from years back. Pick a shorter
-          range for a faster scan.
-        </p>
-      </div>
+      )}
+
+      {!needApp && (
+        <>
+          <p className="text-xs text-text-muted leading-5 mt-4">
+            Next, iOS will ask to allow photo access. It needs that to look across your whole library — but
+            BoxdSeats only ever reads the date and location, never the images.
+          </p>
+
+          <button
+            onClick={() => setHowOpen((v) => !v)}
+            className="mt-3 text-xs text-accent hover:opacity-80 flex items-center gap-1"
+          >
+            How it works
+            <svg width="13" height="13" viewBox={svg} fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ transform: howOpen ? "rotate(180deg)" : "none" }}>
+              <polyline points="6 9 12 15 18 9" />
+            </svg>
+          </button>
+          {howOpen && (
+            <p className="text-xs text-text-muted leading-5 mt-2 rounded-xl bg-bg-card border border-border p-3">
+              The matching happens right on your phone. Only a game&apos;s venue and date are ever sent to look
+              it up — your photos and their exact locations never leave your device.
+            </p>
+          )}
+
+          <div className="mt-6">
+            <p className="text-xs text-text-muted tracking-wide uppercase font-display mb-2">How far back?</p>
+            <div className="grid grid-cols-4 gap-2">
+              {RANGES.map((r, i) => {
+                const active = i === rangeIdx;
+                return (
+                  <button
+                    key={r.label}
+                    onClick={() => setRangeIdx(i)}
+                    aria-pressed={active}
+                    className="py-2 rounded-lg text-xs font-medium transition-colors"
+                    style={{
+                      background: active ? "rgba(212,135,44,0.15)" : "var(--color-bg-input)",
+                      border: `1px solid ${active ? "var(--color-accent)" : "var(--color-border)"}`,
+                      color: active ? "var(--color-accent)" : "var(--color-text-secondary)",
+                    }}
+                  >
+                    {r.label}
+                  </button>
+                );
+              })}
+            </div>
+            <p className="text-[11px] text-text-muted leading-5 mt-2">
+              Scans your whole library by default so it catches games from years back. Pick a shorter
+              range for a faster scan.
+            </p>
+          </div>
+        </>
+      )}
 
       <div className="mt-6 space-y-2">
-        <Button
-          onClick={() => onScan(RANGES[rangeIdx].months)}
-          disabled={scanning}
-          size="lg"
-          fullWidth
-        >
-          {scanning ? "Looking…" : "Find my games"}
-        </Button>
+        {!needApp && (
+          <Button
+            onClick={() => onScan(RANGES[rangeIdx].months)}
+            disabled={scanning}
+            size="lg"
+            fullWidth
+          >
+            {scanning ? "Looking…" : "Find my games"}
+          </Button>
+        )}
         <button
           onClick={onCancel}
           className="w-full py-3 rounded-xl text-sm text-text-secondary hover:bg-bg-card transition-colors"
         >
-          Not now
+          {needApp ? "Back" : "Not now"}
         </button>
       </div>
     </div>
