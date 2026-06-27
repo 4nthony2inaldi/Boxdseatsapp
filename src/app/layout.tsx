@@ -33,6 +33,12 @@ export const metadata: Metadata = {
     title: "BoxdSeats",
     statusBarStyle: "black-translucent",
   },
+  // Smart App Banner: iOS Safari shows a native "BoxdSeats — Open / Get" bar.
+  // "Open" launches the app when installed; otherwise it links to the App Store.
+  // Ignored inside the app's own webview, so it only appears to web visitors.
+  itunes: {
+    appId: "6781299327",
+  },
   openGraph: {
     type: "website",
     siteName: "BoxdSeats",
