@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
+import PasswordInput from "@/components/PasswordInput";
 
 export default function AccountSecurity() {
   const router = useRouter();
@@ -112,8 +113,7 @@ export default function AccountSecurity() {
       {showPassword && (
         <div className="px-4 py-3 bg-bg-elevated border-b border-border">
           <div className="space-y-2.5 mb-3">
-            <input
-              type="password"
+            <PasswordInput
               value={newPassword}
               onChange={(e) => setNewPassword(e.target.value)}
               placeholder="New password (8+ characters)"
@@ -121,8 +121,7 @@ export default function AccountSecurity() {
               autoComplete="new-password"
               className={inputClass}
             />
-            <input
-              type="password"
+            <PasswordInput
               value={confirmPassword}
               onChange={(e) => setConfirmPassword(e.target.value)}
               placeholder="Confirm new password"

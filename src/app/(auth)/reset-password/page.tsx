@@ -6,6 +6,7 @@ import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
 import { LogoWithWordmark } from "@/components/Logo";
 import { MailCheckIcon } from "@/components/icons";
+import PasswordInput from "@/components/PasswordInput";
 
 /**
  * Two modes:
@@ -161,23 +162,23 @@ export default function ResetPasswordPage() {
             <p className="text-sm text-text-secondary text-center mb-6">
               Choose a new password for your account.
             </p>
-            <input
-              type="password"
+            <PasswordInput
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               placeholder="New password (8+ characters)"
               aria-label="New password"
               autoComplete="new-password"
-              className={`${inputClass} mb-3`}
+              className={inputClass}
+              wrapperClassName="mb-3"
             />
-            <input
-              type="password"
+            <PasswordInput
               value={confirm}
               onChange={(e) => setConfirm(e.target.value)}
               placeholder="Confirm new password"
               aria-label="Confirm new password"
               autoComplete="new-password"
-              className={`${inputClass} mb-4`}
+              className={inputClass}
+              wrapperClassName="mb-4"
             />
             {error && <p className="text-loss text-sm mb-4">{error}</p>}
             <button
