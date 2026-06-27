@@ -144,3 +144,12 @@ Privacy Policy and Terms live at `/privacy` and `/terms`. Per-content reporting
 and the App Privacy nutrition-label declarations are in
 `docs/app-store-review.md`. Open item before submission: stand up
 `support@boxdseats.com` (referenced in both policies).
+
+## Operations / infrastructure
+
+`docs/operations.md` is the runbook for everything that lives **outside the repo**:
+Supabase auth config (email rate limit, the token_hash recovery/signup email
+templates, HIBP), Universal Links / deep linking (Team ID, App ID, the Apple
+"Associated Domains" capability, the AASA file), the iOS release process and its
+`MARKETING_VERSION`-bump-per-release gotcha, and activating Sentry via Vercel env
+vars. Read it before touching auth emails, deep links, or cutting an iOS build.
