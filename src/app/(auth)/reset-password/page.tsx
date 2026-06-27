@@ -15,7 +15,10 @@ import PasswordInput from "@/components/PasswordInput";
  */
 export default function ResetPasswordPage() {
   const router = useRouter();
-  const supabase = createClient();
+  // One client instance for the page's lifetime — recreating it each render
+  // spawns multiple GoTrue clients and can desync the auth state the update call
+  // relies on.
+  const [supabase] = useState(() => createClient());
 
   const [mode, setMode] = useState<"loading" | "request" | "update">("loading");
   const [email, setEmail] = useState("");
@@ -65,14 +68,29 @@ export default function ResetPasswordPage() {
       return;
     }
     setBusy(true);
+    // Guard: confirm we actually have a recovery session before trying to update.
+    // If the link's session never took hold, say so precisely instead of blaming
+    // an "expired" link.
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) {
+      setBusy(false);
+      setError("Your reset session isn't active. Open the most recent reset email and tap the link again.");
+      return;
+    }
     const { error: err } = await supabase.auth.updateUser({ password });
     setBusy(false);
     if (err) {
-      setError(
-        err.message.includes("different from the old")
-          ? "New password must be different from your current password."
-          : "Failed to update password. The reset link may have expired — request a new one."
-      );
+      // Surface the real reason rather than a catch-all, so genuine failures are
+      // actionable (and so we can diagnose them).
+      console.error("Password update failed:", err);
+      const msg = err.message || "";
+      if (msg.includes("different from the old")) {
+        setError("New password must be different from your current password.");
+      } else if (/session|token|expired|jwt/i.test(msg)) {
+        setError("Your reset link expired. Request a new one and try again.");
+      } else {
+        setError(msg || "Failed to update password. Please try again.");
+      }
       return;
     }
     router.push("/");
