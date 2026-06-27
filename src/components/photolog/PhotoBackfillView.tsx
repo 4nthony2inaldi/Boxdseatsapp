@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { loadPhotoFile } from "@/lib/native/photoScan";
@@ -24,6 +24,30 @@ function fmtDate(d: string): string {
   });
 }
 
+/** Downscale a full-res photo File to a small JPEG data URL for a list preview. */
+async function makeThumb(file: File): Promise<string | null> {
+  try {
+    const bmp = await createImageBitmap(file);
+    const max = 160;
+    const scale = Math.min(1, max / Math.max(bmp.width, bmp.height));
+    const w = Math.round(bmp.width * scale);
+    const h = Math.round(bmp.height * scale);
+    const canvas = document.createElement("canvas");
+    canvas.width = w;
+    canvas.height = h;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) {
+      bmp.close();
+      return null;
+    }
+    ctx.drawImage(bmp, 0, 0, w, h);
+    bmp.close();
+    return canvas.toDataURL("image/jpeg", 0.7);
+  } catch {
+    return null;
+  }
+}
+
 export default function PhotoBackfillView({ suggestions, photoByKey }: Props) {
   const router = useRouter();
   const [included, setIncluded] = useState<Record<string, boolean>>(
@@ -32,8 +56,29 @@ export default function PhotoBackfillView({ suggestions, photoByKey }: Props) {
   const [saving, setSaving] = useState(false);
   const [status, setStatus] = useState("");
   const [done, setDone] = useState<number | null>(null);
+  const [thumbs, setThumbs] = useState<Record<string, string>>({});
 
   const includedCount = suggestions.filter((s) => included[s.logId]).length;
+
+  // Load a small preview per matched photo so the list is a real review (you see
+  // what's being attached), not a blind "trust us." Sequential + downscaled so
+  // peak memory stays at ~one full image; best-effort with a sport-icon fallback.
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      for (const s of suggestions) {
+        if (cancelled) return;
+        const photoId = photoByKey[`${s.venueId}|${s.date}`];
+        if (!photoId) continue;
+        const file = await loadPhotoFile(photoId);
+        if (cancelled || !file) continue;
+        const thumb = await makeThumb(file);
+        if (cancelled || !thumb) continue;
+        setThumbs((prev) => ({ ...prev, [s.logId]: thumb }));
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [suggestions, photoByKey]);
 
   async function commit() {
     const jobs = suggestions
@@ -116,8 +161,13 @@ export default function PhotoBackfillView({ suggestions, photoByKey }: Props) {
               onClick={() => setIncluded((prev) => ({ ...prev, [s.logId]: !prev[s.logId] }))}
               className="w-full flex items-center gap-3 px-3 py-3 rounded-xl text-left active:bg-bg-card transition-colors"
             >
-              <span className="shrink-0 text-text-muted">
-                <SportIcon sport={s.sport} size={22} />
+              <span className="shrink-0 w-12 h-12 rounded-lg overflow-hidden bg-bg-elevated flex items-center justify-center text-text-muted">
+                {thumbs[s.logId] ? (
+                  // eslint-disable-next-line @next/next/no-img-element -- on-device data URL
+                  <img src={thumbs[s.logId]} alt="" className="w-full h-full object-cover" />
+                ) : (
+                  <SportIcon sport={s.sport} size={22} />
+                )}
               </span>
               <span className="flex-1 min-w-0">
                 <span className="block text-sm text-text-primary truncate">{s.title}</span>
