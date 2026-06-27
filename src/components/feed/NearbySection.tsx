@@ -218,14 +218,19 @@ export default function NearbySection({ userId, initialCity, initialPage }: Prop
               className="fixed inset-x-0 z-[60] max-h-[70dvh] flex flex-col rounded-t-2xl border-t border-x border-border bg-bg-elevated shadow-xl pb-[max(env(safe-area-inset-bottom),0.75rem)]"
               style={{
                 bottom: kbInset,
-                maxHeight: kbInset > 0 && availH ? availH - 12 : undefined,
+                // Leave a gap at the top so the sheet never runs under the status
+                // bar / notch — keeps it reading as a sheet, not a full takeover.
+                maxHeight: kbInset > 0 && availH ? availH - 72 : undefined,
                 transform: `translateY(${offset}px)`,
                 transition: dragging ? "none" : "transform 200ms",
               }}
             >
-              {/* Grabber — swipe down to dismiss */}
-              <div className="pt-1 pb-2 -mb-1 flex justify-center" {...handleProps}>
-                <div className="w-9 h-1 rounded-full bg-border" />
+              {/* Header: grabber + title — swipe down to dismiss */}
+              <div className="shrink-0 pt-2 pb-2" {...handleProps}>
+                <div className="mx-auto mb-2 w-9 h-1 rounded-full bg-border" />
+                <div className="text-center font-display text-sm tracking-wider text-text-primary uppercase">
+                  Choose a city
+                </div>
               </div>
               <div className="px-4 py-2">
                 <input
