@@ -1,6 +1,8 @@
 import { createClient } from "@/lib/supabase/server";
 import { fetchTimeline } from "@/lib/queries/profile";
 import Timeline from "@/components/profile/Timeline";
+import BackfillPhotosPrompt from "@/components/photolog/BackfillPhotosPrompt";
+import { countPhotolessLogs } from "@/lib/queries/photoBackfill";
 import Link from "next/link";
 import { BackLinkCircle } from "@/components/PageHeader";
 
@@ -30,7 +32,10 @@ export default async function TimelinePage({
     );
   }
 
-  const { entries: timelineEntries, hasMore } = await fetchTimeline(supabase, user.id, undefined, 20, 0, monthFilter);
+  const [{ entries: timelineEntries, hasMore }, photolessCount] = await Promise.all([
+    fetchTimeline(supabase, user.id, undefined, 20, 0, monthFilter),
+    countPhotolessLogs(supabase, user.id),
+  ]);
 
   return (
     <div className="max-w-lg mx-auto pb-5">
@@ -53,6 +58,7 @@ export default async function TimelinePage({
           </Link>
         )}
       </div>
+      {!monthFilter && <BackfillPhotosPrompt count={photolessCount} />}
       <Timeline key={monthFilter ?? "all"} initialEntries={timelineEntries} initialHasMore={hasMore} userId={user.id} viewerId={user.id} canEdit monthFilter={monthFilter} />
     </div>
   );
