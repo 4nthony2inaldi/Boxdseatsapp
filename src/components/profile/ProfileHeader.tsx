@@ -3,6 +3,7 @@ import type { ReactNode } from "react";
 import type { ProfileData, ProfileStats } from "@/lib/queries/profile";
 import SportIcon from "@/components/SportIcon";
 import AvatarButton from "./AvatarButton";
+import ProfileBio from "./ProfileBio";
 
 type ProfileHeaderProps = {
   profile: ProfileData;
@@ -81,9 +82,7 @@ export default function ProfileHeader({ profile, stats, actions }: ProfileHeader
         {(profile.bio || actions) && (
           <div className="flex items-start justify-between gap-3 mt-2">
             {profile.bio ? (
-              <div className="text-xs text-text-secondary leading-relaxed flex-1 min-w-0">
-                {profile.bio}
-              </div>
+              <ProfileBio bio={profile.bio} />
             ) : (
               <div className="flex-1" />
             )}
