@@ -8,6 +8,7 @@ import { METROS, metroFromKey } from "@/lib/metros";
 import { fetchNearbyEvents, type NearbyEvent, type NearbyPage } from "@/lib/queries/nearby";
 import SportIcon from "@/components/SportIcon";
 import { toastError } from "@/components/Toaster";
+import { useSwipeDismiss } from "@/lib/useSwipeDismiss";
 
 type Props = {
   userId: string;
@@ -101,6 +102,7 @@ export default function NearbySection({ userId, initialCity, initialPage }: Prop
   const [filter, setFilter] = useState("");
   const [loading, setLoading] = useState(false);
   const pickerRef = useRef<HTMLDivElement>(null);
+  const { offset, dragging, handleProps } = useSwipeDismiss(() => setPickerOpen(false));
 
   useEffect(() => {
     if (!pickerOpen) return;
@@ -192,8 +194,15 @@ export default function NearbySection({ userId, initialCity, initialPage }: Prop
               aria-modal="true"
               aria-label="Choose city"
               className="fixed inset-x-0 bottom-0 z-[60] max-h-[70dvh] flex flex-col rounded-t-2xl border-t border-x border-border bg-bg-elevated shadow-xl pb-[max(env(safe-area-inset-bottom),0.75rem)]"
+              style={{
+                transform: `translateY(${offset}px)`,
+                transition: dragging ? "none" : "transform 200ms",
+              }}
             >
-              <div className="mx-auto mt-2 mb-1 w-9 h-1 rounded-full bg-border" />
+              {/* Grabber — swipe down to dismiss */}
+              <div className="pt-1 pb-2 -mb-1 flex justify-center" {...handleProps}>
+                <div className="w-9 h-1 rounded-full bg-border" />
+              </div>
               <div className="px-4 py-2">
                 <input
                   type="text"

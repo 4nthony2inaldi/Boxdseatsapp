@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { fetchEventComments, type EventComment } from "@/lib/queries/event";
+import { useSwipeDismiss } from "@/lib/useSwipeDismiss";
 import CommentsSection from "./CommentsSection";
 
 type Props = {
@@ -48,6 +49,9 @@ export default function CommentSheet({
     // Let the slide-down transition finish before unmounting.
     setTimeout(onClose, 200);
   };
+
+  // Swipe the handle/header down to dismiss.
+  const { offset, dragging, handleProps } = useSwipeDismiss(handleClose);
 
   // Escape to close.
   useEffect(() => {
@@ -102,12 +106,14 @@ export default function CommentSheet({
         role="dialog"
         aria-modal="true"
         aria-label="Comments"
-        className={`relative bg-bg-elevated rounded-t-2xl border-t border-border h-[80vh] flex flex-col transition-transform duration-200 pb-[env(safe-area-inset-bottom)] ${
-          visible ? "translate-y-0" : "translate-y-full"
-        }`}
+        className="relative bg-bg-elevated rounded-t-2xl border-t border-border h-[80vh] flex flex-col pb-[env(safe-area-inset-bottom)]"
+        style={{
+          transform: visible ? `translateY(${offset}px)` : "translateY(100%)",
+          transition: dragging ? "none" : "transform 200ms",
+        }}
       >
-        {/* Drag handle + header (tap to close) */}
-        <div className="shrink-0 pt-2 pb-3 px-4 border-b border-border">
+        {/* Drag handle + header — swipe down or tap to close */}
+        <div className="shrink-0 pt-2 pb-3 px-4 border-b border-border" {...handleProps}>
           <button
             onClick={handleClose}
             aria-label="Close comments"
