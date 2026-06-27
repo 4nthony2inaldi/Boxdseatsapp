@@ -12,6 +12,7 @@ import StepRootFor from "./StepRootFor";
 import StepBeenThere from "./StepBeenThere";
 import StepBestGame from "./StepBestGame";
 import StepPhotoImport from "./StepPhotoImport";
+import StepGetApp from "./StepGetApp";
 import OnboardingProgress, { type BigFourProgress } from "./OnboardingProgress";
 
 type OnboardingFlowProps = {
@@ -30,14 +31,15 @@ export default function OnboardingFlow({ userId, initialUsername }: OnboardingFl
     event: { filled: false, name: null },
   });
   const [finishing, setFinishing] = useState(false);
-  // The photo-import step only works in the native app (on-device scan), so we
-  // add it to the flow only there.
+  // Both platforms get a 5th step. Native: the photo-import scan (on-device).
+  // Web: a "get the app" finale, since the photo finder is iOS-only and web
+  // signups would otherwise never learn the signature feature exists.
   const [native, setNative] = useState(false);
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
     if (isNativeApp()) setNative(true);
   }, []);
-  const STEP_COUNT = native ? 5 : 4;
+  const STEP_COUNT = 5;
   const router = useRouter();
   const supabase = createClient();
 
@@ -111,10 +113,10 @@ export default function OnboardingFlow({ userId, initialUsername }: OnboardingFl
           userId={userId}
           best={progress.event}
           onBestChange={(b) => setProgress((p) => ({ ...p, event: b }))}
-          finishing={native ? false : finishing}
-          finishLabel={native ? "NEXT" : "SEE MY PROFILE"}
+          finishing={false}
+          finishLabel="NEXT"
           onBack={() => setStep(2)}
-          onFinish={native ? () => setStep(4) : () => handleFinish()}
+          onFinish={() => setStep(4)}
         />
       )}
 
@@ -123,6 +125,14 @@ export default function OnboardingFlow({ userId, initialUsername }: OnboardingFl
           finishing={finishing}
           onScan={() => handleFinish("/log/photos")}
           onSkip={() => handleFinish("/profile")}
+          onBack={() => setStep(3)}
+        />
+      )}
+
+      {step === 4 && !native && (
+        <StepGetApp
+          finishing={finishing}
+          onContinue={() => handleFinish("/profile")}
           onBack={() => setStep(3)}
         />
       )}
