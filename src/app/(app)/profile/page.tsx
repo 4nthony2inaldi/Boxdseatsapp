@@ -7,6 +7,7 @@ import {
   fetchPinnedLists,
   fetchTimeline,
   fetchProfileSummaryCounts,
+  fetchVisitedCityCount,
 } from "@/lib/queries/profile";
 import { fetchUserBadges, fetchTrackedIncomplete } from "@/lib/queries/badges";
 import ProfileHeader from "@/components/profile/ProfileHeader";
@@ -43,7 +44,7 @@ export default async function ProfilePage() {
     );
   }
 
-  const [stats, bigFour, activityData, pinnedLists, timelinePage, summaryCounts, badges, trackedIncomplete] =
+  const [stats, bigFour, activityData, pinnedLists, timelinePage, summaryCounts, badges, trackedIncomplete, cityCount] =
     await Promise.all([
       fetchProfileStats(supabase, user.id),
       fetchBigFour(supabase, profile),
@@ -56,7 +57,12 @@ export default async function ProfilePage() {
       fetchProfileSummaryCounts(supabase, user.id),
       fetchUserBadges(supabase, user.id),
       fetchTrackedIncomplete(supabase, user.id),
+      fetchVisitedCityCount(supabase, user.id),
     ]);
+
+  // Mirror the fan passport's share line: "X games at X venues in X cities".
+  const plural = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`;
+  const shareText = `Check out my BoxdSeats profile: ${plural(stats.totalEvents, "game", "games")} at ${plural(stats.totalVenues, "venue", "venues")} in ${plural(cityCount, "city", "cities")}`;
 
   // Latest event is the first (most recent) entry
   const latestEvent = timelinePage.entries.length > 0 ? timelinePage.entries[0] : null;
@@ -76,7 +82,7 @@ export default async function ProfilePage() {
         <ShareButton
           url={`https://boxdseats.com/@${profile.username}`}
           title={`${profile.display_name || profile.username} on BoxdSeats`}
-          text={`Check out my profile on BoxdSeats`}
+          text={shareText}
         />
       </div>
     </div>
