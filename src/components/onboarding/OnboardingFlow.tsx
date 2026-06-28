@@ -96,9 +96,11 @@ export default function OnboardingFlow({ userId, initialUsername }: OnboardingFl
         <MiniLabel className={isPhoto ? "" : "mb-4"}>
           {current === "account" ? "Build your fan card" : `Step ${stepIndex + 1} of ${stepCount}`}
         </MiniLabel>
-        {/* The Big Four assembling — the spine of the flow. Hidden on the photo
-            finder step, which has its own full-screen scan + review UI. */}
-        {!isPhoto && <OnboardingProgress progress={progress} />}
+        {/* The Big Four assembling — the spine of the WEB flow, where each step
+            fills one slot. The native scan-first flow doesn't march through the
+            four (the scan handles games/venues; venue + event are picked later
+            on the profile), so the strip would just show empty placeholders. */}
+        {!native && <OnboardingProgress progress={progress} />}
       </div>
 
       <div className={isPhoto ? "" : "px-4"}>
