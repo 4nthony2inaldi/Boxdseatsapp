@@ -181,11 +181,16 @@ function withTimeout<T>(p: Promise<T>, ms: number): Promise<T> {
   ]);
 }
 
-/** Thrown when the photo library can't be read (denied access or a stall). */
+export type PhotoReadReason = "denied" | "timeout" | "unknown";
+
+/** Thrown when the photo library can't be read. `reason` distinguishes a denied
+ *  permission (fixable in Settings) from a stall/timeout (retry or smaller scan). */
 export class PhotoReadError extends Error {
-  constructor() {
+  reason: PhotoReadReason;
+  constructor(reason: PhotoReadReason = "unknown") {
     super("photo-read-failed");
     this.name = "PhotoReadError";
+    this.reason = reason;
   }
 }
 
@@ -213,7 +218,9 @@ export async function scanPhotosForVenues(opts: ScanOptions = {}): Promise<ScanI
   if (Scanner?.scan) {
     try {
       onProgress?.({ phase: "reading" });
-      const res = await withTimeout(Scanner.scan({ monthsBack }), 60000);
+      // Generous ceiling: the native enumeration is fast even on huge libraries,
+      // but an all-time scan on a slow/large device shouldn't trip a tight timer.
+      const res = await withTimeout(Scanner.scan({ monthsBack }), 120000);
       const raw = Array.isArray(res?.photos) ? res.photos : [];
       const venues = await loadVenuesGeo();
       const photos: Photo[] = [];
@@ -238,7 +245,7 @@ export async function scanPhotosForVenues(opts: ScanOptions = {}): Promise<ScanI
       // would only spin and fail too (up to ~60s) before showing the same
       // error. Any other rejection (unexpected shape) still falls through.
       if (e instanceof Error && (e.message === "timeout" || e.message === "denied")) {
-        throw new PhotoReadError();
+        throw new PhotoReadError(e.message);
       }
     }
   }
@@ -269,9 +276,10 @@ export async function scanPhotosForVenues(opts: ScanOptions = {}): Promise<ScanI
   let assets: unknown[] = [];
   let sortedDesc = false;
   let readOk = false;
+  let timedOut = false;
   for (let ai = 0; ai < attempts.length; ai++) {
     try {
-      const res = await withTimeout(Media.getMedias(attempts[ai]), 60000);
+      const res = await withTimeout(Media.getMedias(attempts[ai]), 120000);
       readOk = true; // the plugin responded; this opts shape is supported
       const a = assetsFrom(res);
       if (a.length) {
@@ -282,12 +290,12 @@ export async function scanPhotosForVenues(opts: ScanOptions = {}): Promise<ScanI
     } catch (e) {
       // A hang (timeout) means the plugin is stalled — don't retry other shapes,
       // just surface the error. A plain rejection means a bad opts shape: try next.
-      if (e instanceof Error && e.message === "timeout") break;
+      if (e instanceof Error && e.message === "timeout") { timedOut = true; break; }
     }
   }
   // Nothing responded (denied access or a stall) — fail loudly instead of
   // returning [] (which reads as "no games found") or spinning forever.
-  if (!readOk) throw new PhotoReadError();
+  if (!readOk) throw new PhotoReadError(timedOut ? "timeout" : "unknown");
 
   const venues = await loadVenuesGeo();
   const cutoff = monthsBack ? Date.now() - monthsBack * 30.5 * 86400 * 1000 : null;

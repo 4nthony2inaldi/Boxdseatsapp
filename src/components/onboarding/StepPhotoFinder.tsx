@@ -5,7 +5,7 @@ import Button from "@/components/Button";
 import OnboardingActionBar from "./OnboardingActionBar";
 import PhotoSuggestionsView from "@/components/photolog/PhotoSuggestionsView";
 import { Spinner, ScanProgressView } from "@/components/photolog/ScanStatus";
-import { scanPhotosForVenues, type ScanItem, type ScanProgress } from "@/lib/native/photoScan";
+import { scanPhotosForVenues, PhotoReadError, type ScanItem, type ScanProgress, type PhotoReadReason } from "@/lib/native/photoScan";
 import type { PhotoSuggestionsResult } from "@/lib/queries/photoSuggestions";
 import type { FavoriteSuggestion } from "@/components/profile/BigFourDrillThrough";
 
@@ -43,7 +43,7 @@ export default function StepPhotoFinder({ onScanned, onSkip, onBack }: Props) {
   const [progress, setProgress] = useState<ScanProgress | null>(null);
   const [data, setData] = useState<PhotoSuggestionsResult | null>(null);
   const [photoByKey, setPhotoByKey] = useState<Record<string, string>>({});
-  const [readError, setReadError] = useState(false);
+  const [readReason, setReadReason] = useState<PhotoReadReason | null>(null);
 
   async function resolve(items: ScanItem[]) {
     if (!items.length) {
@@ -71,7 +71,7 @@ export default function StepPhotoFinder({ onScanned, onSkip, onBack }: Props) {
 
   async function handleScan() {
     setProgress({ phase: "reading" });
-    setReadError(false);
+    setReadReason(null);
     setState("scanning");
     try {
       // No range argument: always scan the whole library in onboarding.
@@ -83,8 +83,8 @@ export default function StepPhotoFinder({ onScanned, onSkip, onBack }: Props) {
         return;
       }
       await resolve(items);
-    } catch {
-      setReadError(true);
+    } catch (e) {
+      setReadReason(e instanceof PhotoReadError ? e.reason : "unknown");
       setState("error");
     }
   }
@@ -106,14 +106,16 @@ export default function StepPhotoFinder({ onScanned, onSkip, onBack }: Props) {
   if (state === "loading") return <Spinner message="Finding your games…" />;
 
   if (state === "empty" || state === "error") {
+    const errorMessage =
+      readReason === "denied"
+        ? "BoxdSeats can't see your photos. Open Settings, then BoxdSeats, then Photos and choose “All Photos,” then try again."
+        : readReason === "timeout"
+          ? "The scan took too long to read your library. Try again."
+          : "Something went wrong reading your photos. Try again.";
     return (
       <div className="max-w-lg mx-auto px-4 py-16 text-center">
         <p className="text-text-secondary text-sm">
-          {state === "error"
-            ? readError
-              ? "Couldn't read your photos. Open Settings, then BoxdSeats, then Photos and choose “All Photos,” then try again."
-              : "Something went wrong reading your photos."
-            : "We didn't find any games in your photos yet."}
+          {state === "error" ? errorMessage : "We didn't find any games in your photos yet."}
         </p>
         {state === "empty" && (
           <p className="text-text-muted text-xs mt-3 leading-5">
@@ -122,7 +124,7 @@ export default function StepPhotoFinder({ onScanned, onSkip, onBack }: Props) {
         )}
         <div className="mt-6 flex flex-col items-center gap-3">
           <button
-            onClick={() => { setReadError(false); setState("intro"); }}
+            onClick={() => { setReadReason(null); setState("intro"); }}
             className="px-5 py-2.5 rounded-xl text-sm font-medium text-white transition-opacity"
             style={{ background: "linear-gradient(135deg, var(--color-accent), var(--color-accent-brown))" }}
           >
