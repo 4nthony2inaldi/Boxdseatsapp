@@ -14,3 +14,34 @@ export function triggerBoxScoreIngest(eventId: string | null | undefined) {
     keepalive: true,
   }).catch(() => {});
 }
+
+/**
+ * Bulk variant for the photo finder, which logs many games at once. Fires the
+ * same per-event ingest but with bounded concurrency so we don't open ~100
+ * sockets / hammer ESPN at once. Fire-and-forget: callers don't await it, and
+ * anything that fails here is still caught by the ingest-sweep cron. Each call
+ * is idempotent + finality-gated, so already-ingested events are cheap no-ops.
+ */
+export async function triggerBoxScoreIngestMany(
+  eventIds: (string | null | undefined)[],
+  concurrency = 4
+): Promise<void> {
+  const ids = [...new Set(eventIds.filter((id): id is string => !!id))];
+  let next = 0;
+  async function worker() {
+    while (next < ids.length) {
+      const id = ids[next++];
+      try {
+        await fetch("/api/ingest-event", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ eventId: id }),
+          keepalive: true,
+        });
+      } catch {
+        /* best-effort; the sweep is the safety net */
+      }
+    }
+  }
+  await Promise.all(Array.from({ length: Math.min(concurrency, ids.length) }, worker));
+}
