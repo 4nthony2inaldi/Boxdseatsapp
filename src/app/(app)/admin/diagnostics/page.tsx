@@ -1,8 +1,26 @@
 import { createClient } from "@/lib/supabase/server";
-import { createClient as createServiceClient } from "@supabase/supabase-js";
+import { createClient as createServiceClient, type SupabaseClient } from "@supabase/supabase-js";
 import { redirect, notFound } from "next/navigation";
 import { isAdmin, fetchAdminDataHealth, fetchUserDiagnostics } from "@/lib/queries/admin";
 import PageHeader from "@/components/PageHeader";
+import UserPicker from "@/components/admin/UserPicker";
+
+/** Lightweight roster for the typeahead (username + display name). */
+async function fetchRoster(admin: SupabaseClient): Promise<{ username: string; displayName: string | null }[]> {
+  const out: { username: string; displayName: string | null }[] = [];
+  for (let from = 0; ; from += 1000) {
+    const { data } = await admin
+      .from("profiles")
+      .select("username, display_name")
+      .not("username", "is", null)
+      .order("username")
+      .range(from, from + 999);
+    if (!data || data.length === 0) break;
+    for (const r of data) out.push({ username: r.username as string, displayName: (r.display_name as string | null) ?? null });
+    if (data.length < 1000) break;
+  }
+  return out;
+}
 
 export const dynamic = "force-dynamic";
 
@@ -43,9 +61,10 @@ export default async function AdminDiagnosticsPage({
 
   const { u } = await searchParams;
   const username = u?.trim();
-  const [health, userDiag] = await Promise.all([
+  const [health, userDiag, roster] = await Promise.all([
     fetchAdminDataHealth(admin),
     username ? fetchUserDiagnostics(admin, username) : Promise.resolve(null),
+    fetchRoster(admin),
   ]);
 
   return (
@@ -76,18 +95,7 @@ export default async function AdminDiagnosticsPage({
       {/* Per-user inspector */}
       <div className="px-4 pt-7">
         <div className="text-xs font-display tracking-[1.5px] uppercase text-text-muted mb-2">Inspect a user</div>
-        <form method="GET" className="flex gap-2">
-          <input
-            type="text"
-            name="u"
-            defaultValue={username ?? ""}
-            placeholder="username (without @)"
-            className="flex-1 rounded-lg bg-bg-input border border-border px-3 py-2 text-sm text-text-primary outline-none focus:border-accent"
-          />
-          <button type="submit" className="rounded-lg bg-accent px-4 py-2 text-sm font-display tracking-wide uppercase text-bg">
-            Look up
-          </button>
-        </form>
+        <UserPicker users={roster} initial={username} />
 
         {username && !userDiag && (
           <p className="text-sm text-text-muted mt-4">No user found for &ldquo;{username}&rdquo;.</p>
