@@ -8,13 +8,25 @@ import { toastError } from "@/components/Toaster";
 import { createClient } from "@/lib/supabase/client";
 import { isNativeApp, loadPhotoFile } from "@/lib/native/photoScan";
 import { uploadEventPhoto, updateEventLogPhoto } from "@/lib/photos";
-import type { PhotoSuggestion, MatchSuggestion, SuggestionTeam } from "@/lib/queries/photoSuggestions";
+import type { PhotoSuggestion, MatchSuggestion, SuggestionTeam, VenueSuggestion } from "@/lib/queries/photoSuggestions";
+import type { FavoriteSuggestion } from "@/components/profile/BigFourDrillThrough";
 
 type Props = {
   suggestions: PhotoSuggestion[];
   unknownTeams: SuggestionTeam[];
+  /** Matched venues with no game to log — the "Also been to these?" confirms. */
+  venueSuggestions?: VenueSuggestion[];
   /** venueId|date -> representative photo identifier, for auto-attach. */
   photoByKey?: Record<string, string>;
+  /**
+   * Onboarding mode: when set, the success screen shows a "Continue" button that
+   * calls this instead of routing to the timeline, so the scan stays inside the
+   * flow. Passes the games logged plus the teams the user rooted for (to seed
+   * the favorite-team step).
+   */
+  onComplete?: (result: { created: number; venues: number; teams: FavoriteSuggestion[] }) => void;
+  /** Onboarding mode: called by "Skip for now" instead of routing to /profile. */
+  onSkip?: () => void;
 };
 
 type RowState = { included: boolean; rootingTeamId: string | null };
@@ -67,8 +79,13 @@ function resultText(s: MatchSuggestion, rooting: string | null): { label: string
   return { label: `Tied ${mine}–${opp}`, tone: "muted" };
 }
 
-export default function PhotoSuggestionsView({ suggestions, unknownTeams, photoByKey = {} }: Props) {
+export default function PhotoSuggestionsView({ suggestions, unknownTeams, venueSuggestions = [], photoByKey = {}, onComplete, onSkip }: Props) {
   const router = useRouter();
+  // "Also been to these?" — geofence-only venues, default all on.
+  const [venueOn, setVenueOn] = useState<Record<string, boolean>>(() =>
+    Object.fromEntries(venueSuggestions.map((v) => [v.id, true]))
+  );
+  const confirmedVenueIds = venueSuggestions.filter((v) => venueOn[v.id]).map((v) => v.id);
   const [rows, setRows] = useState<Record<string, RowState>>(() =>
     Object.fromEntries(
       suggestions.map((s) => [
@@ -107,6 +124,15 @@ export default function PhotoSuggestionsView({ suggestions, unknownTeams, photoB
 
   const includedCount = Object.values(rows).filter((r) => r.included).length;
   const inferredCount = suggestions.filter((s) => s.kind === "match" && s.suggestedRootingTeamId).length;
+
+  const gamesLabel = `${includedCount} ${includedCount === 1 ? "game" : "games"}`;
+  const venuesLabel = `${confirmedVenueIds.length} ${confirmedVenueIds.length === 1 ? "venue" : "venues"}`;
+  const commitLabel =
+    includedCount > 0 && confirmedVenueIds.length > 0
+      ? `Add ${gamesLabel} + ${venuesLabel}`
+      : includedCount > 0
+        ? `Log ${gamesLabel}`
+        : `Add ${venuesLabel}`;
 
   const setRooting = (eventId: string, teamId: string | null) =>
     setRows((prev) => ({ ...prev, [eventId]: { ...prev[eventId], rootingTeamId: teamId } }));
@@ -178,7 +204,7 @@ export default function PhotoSuggestionsView({ suggestions, unknownTeams, photoB
       const res = await fetch("/api/photo-logs", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ picks }),
+        body: JSON.stringify({ picks, visitedVenueIds: confirmedVenueIds }),
       });
       if (!res.ok) throw new Error();
       const result = await res.json();
@@ -192,6 +218,27 @@ export default function PhotoSuggestionsView({ suggestions, unknownTeams, photoB
     }
   };
 
+  // The teams the user rooted for across included games — fuel for the
+  // favorite-team step. Deduped by team, most-rooted first.
+  function rootedTeamSuggestions(): FavoriteSuggestion[] {
+    const byId = new Map<string, { label: string; leagueSlug: string; count: number }>();
+    for (const s of suggestions) {
+      if (s.kind !== "match") continue;
+      const st = rows[s.eventId];
+      if (!st?.included || !st.rootingTeamId || !s.leagueSlug) continue;
+      const id = st.rootingTeamId;
+      const label = teamName.get(id);
+      if (!label) continue;
+      const cur = byId.get(id);
+      if (cur) cur.count++;
+      else byId.set(id, { label, leagueSlug: s.leagueSlug, count: 1 });
+    }
+    return [...byId.entries()]
+      .sort((a, b) => b[1].count - a[1].count)
+      .slice(0, 8)
+      .map(([id, v]) => ({ id, label: v.label, leagueSlug: v.leagueSlug }));
+  }
+
   if (done) {
     return (
       <div className="max-w-lg mx-auto px-4 py-16 text-center">
@@ -200,18 +247,25 @@ export default function PhotoSuggestionsView({ suggestions, unknownTeams, photoB
           <path d="M13 5v2" /><path d="M13 11v2" /><path d="M13 17v2" />
         </svg>
         <h1 className="font-display text-2xl text-text-primary tracking-wide mb-2">
-          Logged {done.created} {done.created === 1 ? "game" : "games"}
+          {done.created > 0
+            ? `Logged ${done.created} ${done.created === 1 ? "game" : "games"}`
+            : `Added ${done.venues} ${done.venues === 1 ? "venue" : "venues"}`}
         </h1>
         <p className="text-text-secondary text-sm mb-8">
-          Your passport just grew — {done.created} {done.created === 1 ? "game" : "games"} across {done.venues}{" "}
-          {done.venues === 1 ? "venue" : "venues"}.
+          {done.created > 0
+            ? `Your passport just grew. ${done.created} ${done.created === 1 ? "game" : "games"} across ${done.venues} ${done.venues === 1 ? "venue" : "venues"}.`
+            : "Marked on your map. Log games anytime to fill them in."}
         </p>
         <button
-          onClick={() => router.push("/timeline")}
+          onClick={() =>
+            onComplete
+              ? onComplete({ created: done.created, venues: done.venues, teams: rootedTeamSuggestions() })
+              : router.push("/timeline")
+          }
           className="rounded-xl px-6 py-3 text-sm font-display tracking-wider uppercase text-white"
           style={{ background: "linear-gradient(135deg, var(--color-accent), var(--color-accent-brown))" }}
         >
-          See your timeline
+          {onComplete ? "Continue" : "See your timeline"}
         </button>
       </div>
     );
@@ -221,10 +275,14 @@ export default function PhotoSuggestionsView({ suggestions, unknownTeams, photoB
     <div className="max-w-lg mx-auto pb-36">
       <div className="px-4 pt-5 pb-3">
         <h1 className="font-display text-[26px] text-text-primary tracking-wide leading-tight">
-          We found {suggestions.length} {suggestions.length === 1 ? "game" : "games"} in your photos
+          {suggestions.length > 0
+            ? `We found ${suggestions.length} ${suggestions.length === 1 ? "game" : "games"} in your photos`
+            : "We found places you've been"}
         </h1>
         <p className="text-sm text-text-secondary mt-1">
-          Pick the ones you went to. Rooting and the final score are filled in where we could — tap to fix anything.
+          {suggestions.length > 0
+            ? "Pick the ones you went to. Rooting and the final score are filled in where we could — tap to fix anything."
+            : "We couldn't pin these to a game, but we can still add them to your venues."}
         </p>
       </div>
 
@@ -402,6 +460,50 @@ export default function PhotoSuggestionsView({ suggestions, unknownTeams, photoB
         })}
       </div>
 
+      {/* Also been to these? — geofence-only venues with no game to log. */}
+      {venueSuggestions.length > 0 && (
+        <div className="px-4 mt-5">
+          <h2 className="font-display text-lg text-text-primary tracking-wide">Also been to these?</h2>
+          <p className="text-xs text-text-muted mt-0.5 mb-2.5">
+            Your photos put you here, but we couldn&apos;t find a game to log. We&apos;ll still add them to your venues.
+          </p>
+          <div className="space-y-2">
+            {venueSuggestions.map((v) => {
+              const on = venueOn[v.id];
+              return (
+                <button
+                  key={v.id}
+                  onClick={() => setVenueOn((prev) => ({ ...prev, [v.id]: !prev[v.id] }))}
+                  className={`w-full flex items-center gap-3 rounded-xl border px-3 py-3 text-left transition-colors ${
+                    on ? "border-border bg-bg-card" : "border-border/50 bg-bg-card/40 opacity-60"
+                  }`}
+                >
+                  <span className="flex-1 min-w-0">
+                    <span className="block text-sm text-text-primary font-medium truncate">{v.name}</span>
+                    {(v.city || v.state) && (
+                      <span className="block text-xs text-text-muted truncate">
+                        {[v.city, v.state].filter(Boolean).join(", ")}
+                      </span>
+                    )}
+                  </span>
+                  <span
+                    className={`shrink-0 w-6 h-6 rounded-full border flex items-center justify-center ${
+                      on ? "bg-accent border-accent" : "border-border"
+                    }`}
+                  >
+                    {on && (
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                        <polyline points="20 6 9 17 4 12" />
+                      </svg>
+                    )}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
       <p className="px-4 mt-4 text-center text-xs text-text-muted">
         Missing some games? Make sure BoxdSeats can access all your photos in Settings → Photos.
       </p>
@@ -412,11 +514,11 @@ export default function PhotoSuggestionsView({ suggestions, unknownTeams, photoB
         style={{ paddingBottom: "max(env(safe-area-inset-bottom), 0.75rem)" }}
       >
         <div className="max-w-lg mx-auto space-y-2">
-          <Button onClick={commit} disabled={saving || includedCount === 0} size="lg" fullWidth>
-            {saving ? (status || "Logging…") : `Log ${includedCount} ${includedCount === 1 ? "game" : "games"}`}
+          <Button onClick={commit} disabled={saving || (includedCount === 0 && confirmedVenueIds.length === 0)} size="lg" fullWidth>
+            {saving ? (status || "Saving…") : commitLabel}
           </Button>
           <button
-            onClick={() => router.push("/profile")}
+            onClick={() => (onSkip ? onSkip() : router.push("/profile"))}
             disabled={saving}
             className="w-full py-2.5 text-sm text-text-secondary hover:text-text-primary transition-colors disabled:opacity-50"
           >

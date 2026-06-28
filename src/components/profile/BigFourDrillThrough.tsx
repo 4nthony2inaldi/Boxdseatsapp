@@ -38,12 +38,17 @@ const LEAGUE_PRIORITY: Record<string, number> = {
   ncaaf: 10, ncaam: 11, mls: 12,
 };
 
+/** A one-tap "add this favorite" chip (e.g. teams surfaced by the photo scan). */
+export type FavoriteSuggestion = { id: string; label: string; sublabel?: string; leagueSlug: string };
+
 type Props = {
   userId: string;
   category: "team" | "venue" | "athlete" | "event";
   initialFavorites: LeagueFavorite[];
   /** Fires whenever the pick set changes — used to drive onboarding progress. */
   onChange?: (summary: { count: number; topName: string | null }) => void;
+  /** One-tap suggested picks shown above the league list (e.g. from the scan). */
+  suggestions?: FavoriteSuggestion[];
 };
 
 type SearchResult = {
@@ -121,10 +126,14 @@ export default function BigFourDrillThrough({
   category,
   initialFavorites,
   onChange,
+  suggestions,
 }: Props) {
   const [favorites, setFavorites] = useState(
     [...initialFavorites].sort((a, b) => a.rank - b.rank)
   );
+  // Suggested chips the user has tapped (so they drop out immediately, before
+  // the favorites refresh lands).
+  const [usedSuggestions, setUsedSuggestions] = useState<Set<string>>(new Set());
   const [editingLeagueSlug, setEditingLeagueSlug] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [searchResults, setSearchResults] = useState<SearchResult[]>([]);
@@ -350,6 +359,12 @@ export default function BigFourDrillThrough({
     }
   }
 
+  async function addSuggestion(s: FavoriteSuggestion) {
+    if (savingRef.current) return;
+    setUsedSuggestions((prev) => new Set(prev).add(s.id));
+    await handleSelect(s.leagueSlug, { id: s.id, label: s.label });
+  }
+
   async function handleRemove(favoriteId: string) {
     setSaving(true);
     const result = await deleteLeagueFavorite(supabase, favoriteId, userId);
@@ -418,8 +433,32 @@ export default function BigFourDrillThrough({
     );
   };
 
+  const visibleSuggestions = (suggestions ?? []).filter(
+    (s) => !usedSuggestions.has(s.id) && !favorites.some((f) => f.pick_id === s.id)
+  );
+
   return (
     <div className="space-y-5">
+      {/* Suggested from the photo scan — one tap to favorite. */}
+      {visibleSuggestions.length > 0 && (
+        <div>
+          <MiniLabel className="mb-2">Suggested from your photos</MiniLabel>
+          <div className="flex flex-wrap gap-2">
+            {visibleSuggestions.map((s) => (
+              <button
+                key={s.id}
+                onClick={() => addSuggestion(s)}
+                disabled={saving}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm border border-accent/40 bg-accent/10 text-text-primary hover:border-accent active:opacity-70 transition-colors disabled:opacity-50"
+              >
+                <span className="text-accent text-base leading-none">+</span>
+                {s.label}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
       {/* Ranking */}
       {favorites.length > 0 && (
         <div className="space-y-2">

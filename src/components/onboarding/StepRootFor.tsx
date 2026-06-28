@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import BigFourDrillThrough from "@/components/profile/BigFourDrillThrough";
+import BigFourDrillThrough, { type FavoriteSuggestion } from "@/components/profile/BigFourDrillThrough";
 import Button from "@/components/Button";
 import OnboardingActionBar from "./OnboardingActionBar";
 
@@ -15,6 +15,13 @@ type Props = {
   onAthleteChange: (s: Summary) => void;
   onBack: () => void;
   onNext: () => void;
+  /** Label for the primary button when ready to advance (e.g. "SEE MY PROFILE"
+   *  when this is the last step on the scanned path). Defaults to "NEXT". */
+  nextLabel?: string;
+  /** When true, onNext is finishing onboarding — disable + show a building state. */
+  finishing?: boolean;
+  /** Teams the photo scan surfaced — shown as one-tap chips on the Teams tab. */
+  suggestedTeams?: FavoriteSuggestion[];
 };
 
 export default function StepRootFor({
@@ -25,6 +32,9 @@ export default function StepRootFor({
   onAthleteChange,
   onBack,
   onNext,
+  nextLabel = "NEXT",
+  finishing = false,
+  suggestedTeams,
 }: Props) {
   const [tab, setTab] = useState<"team" | "athlete">("team");
 
@@ -75,7 +85,7 @@ export default function StepRootFor({
 
       {/* Both stay mounted so picks persist across tab switches */}
       <div className={tab === "team" ? "" : "hidden"}>
-        <BigFourDrillThrough userId={userId} category="team" initialFavorites={[]} onChange={onTeamChange} />
+        <BigFourDrillThrough userId={userId} category="team" initialFavorites={[]} onChange={onTeamChange} suggestions={suggestedTeams} />
       </div>
       <div className={tab === "athlete" ? "" : "hidden"}>
         <BigFourDrillThrough userId={userId} category="athlete" initialFavorites={[]} onChange={onAthleteChange} />
@@ -104,11 +114,11 @@ export default function StepRootFor({
           </button>
           <Button
             onClick={needAthlete ? () => selectTab("athlete") : onNext}
-            disabled={needTeam}
+            disabled={needTeam || finishing}
             title={needTeam ? "Add at least one team" : ""}
             className="flex-[2]"
           >
-            {needAthlete ? "PICK AN ATHLETE" : "NEXT"}
+            {needAthlete ? "PICK AN ATHLETE" : finishing ? "BUILDING YOUR PROFILE…" : nextLabel}
           </Button>
         </div>
       </OnboardingActionBar>
