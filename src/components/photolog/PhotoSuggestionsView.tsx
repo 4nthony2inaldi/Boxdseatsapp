@@ -9,6 +9,7 @@ import { createClient } from "@/lib/supabase/client";
 import { isNativeApp, loadPhotoFile } from "@/lib/native/photoScan";
 import { uploadEventPhoto, updateEventLogPhoto } from "@/lib/photos";
 import type { PhotoSuggestion, MatchSuggestion, SuggestionTeam, VenueSuggestion } from "@/lib/queries/photoSuggestions";
+import type { FavoriteSuggestion } from "@/components/profile/BigFourDrillThrough";
 
 type Props = {
   suggestions: PhotoSuggestion[];
@@ -19,10 +20,11 @@ type Props = {
   photoByKey?: Record<string, string>;
   /**
    * Onboarding mode: when set, the success screen shows a "Continue" button that
-   * calls this (with how many games were logged) instead of routing to the
-   * timeline, so the scan stays inside the onboarding flow.
+   * calls this instead of routing to the timeline, so the scan stays inside the
+   * flow. Passes the games logged plus the teams the user rooted for (to seed
+   * the favorite-team step).
    */
-  onComplete?: (created: number) => void;
+  onComplete?: (created: number, teams: FavoriteSuggestion[]) => void;
   /** Onboarding mode: called by "Skip for now" instead of routing to /profile. */
   onSkip?: () => void;
 };
@@ -216,6 +218,27 @@ export default function PhotoSuggestionsView({ suggestions, unknownTeams, venueS
     }
   };
 
+  // The teams the user rooted for across included games — fuel for the
+  // favorite-team step. Deduped by team, most-rooted first.
+  function rootedTeamSuggestions(): FavoriteSuggestion[] {
+    const byId = new Map<string, { label: string; leagueSlug: string; count: number }>();
+    for (const s of suggestions) {
+      if (s.kind !== "match") continue;
+      const st = rows[s.eventId];
+      if (!st?.included || !st.rootingTeamId || !s.leagueSlug) continue;
+      const id = st.rootingTeamId;
+      const label = teamName.get(id);
+      if (!label) continue;
+      const cur = byId.get(id);
+      if (cur) cur.count++;
+      else byId.set(id, { label, leagueSlug: s.leagueSlug, count: 1 });
+    }
+    return [...byId.entries()]
+      .sort((a, b) => b[1].count - a[1].count)
+      .slice(0, 8)
+      .map(([id, v]) => ({ id, label: v.label, leagueSlug: v.leagueSlug }));
+  }
+
   if (done) {
     return (
       <div className="max-w-lg mx-auto px-4 py-16 text-center">
@@ -234,7 +257,7 @@ export default function PhotoSuggestionsView({ suggestions, unknownTeams, venueS
             : "Marked on your map. Log games anytime to fill them in."}
         </p>
         <button
-          onClick={() => (onComplete ? onComplete(done.created) : router.push("/timeline"))}
+          onClick={() => (onComplete ? onComplete(done.created, rootedTeamSuggestions()) : router.push("/timeline"))}
           className="rounded-xl px-6 py-3 text-sm font-display tracking-wider uppercase text-white"
           style={{ background: "linear-gradient(135deg, var(--color-accent), var(--color-accent-brown))" }}
         >

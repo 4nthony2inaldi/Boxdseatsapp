@@ -7,10 +7,12 @@ import PhotoSuggestionsView from "@/components/photolog/PhotoSuggestionsView";
 import { Spinner, ScanProgressView } from "@/components/photolog/ScanStatus";
 import { scanPhotosForVenues, type ScanItem, type ScanProgress } from "@/lib/native/photoScan";
 import type { PhotoSuggestionsResult } from "@/lib/queries/photoSuggestions";
+import type { FavoriteSuggestion } from "@/components/profile/BigFourDrillThrough";
 
 type Props = {
-  /** Called once the user has logged at least one game from the scan. */
-  onScanned: (created: number) => void;
+  /** Called once the user has saved games/venues from the scan; carries the
+   *  teams they rooted for, to seed the favorite-team step. */
+  onScanned: (created: number, teams: FavoriteSuggestion[]) => void;
   /** Called when the user skips, the scan finds nothing, or it errors. */
   onSkip: () => void;
   onBack: () => void;

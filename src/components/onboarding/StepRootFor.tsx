@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import BigFourDrillThrough from "@/components/profile/BigFourDrillThrough";
+import BigFourDrillThrough, { type FavoriteSuggestion } from "@/components/profile/BigFourDrillThrough";
 import Button from "@/components/Button";
 import OnboardingActionBar from "./OnboardingActionBar";
 
@@ -20,6 +20,8 @@ type Props = {
   nextLabel?: string;
   /** When true, onNext is finishing onboarding — disable + show a building state. */
   finishing?: boolean;
+  /** Teams the photo scan surfaced — shown as one-tap chips on the Teams tab. */
+  suggestedTeams?: FavoriteSuggestion[];
 };
 
 export default function StepRootFor({
@@ -32,6 +34,7 @@ export default function StepRootFor({
   onNext,
   nextLabel = "NEXT",
   finishing = false,
+  suggestedTeams,
 }: Props) {
   const [tab, setTab] = useState<"team" | "athlete">("team");
 
@@ -82,7 +85,7 @@ export default function StepRootFor({
 
       {/* Both stay mounted so picks persist across tab switches */}
       <div className={tab === "team" ? "" : "hidden"}>
-        <BigFourDrillThrough userId={userId} category="team" initialFavorites={[]} onChange={onTeamChange} />
+        <BigFourDrillThrough userId={userId} category="team" initialFavorites={[]} onChange={onTeamChange} suggestions={suggestedTeams} />
       </div>
       <div className={tab === "athlete" ? "" : "hidden"}>
         <BigFourDrillThrough userId={userId} category="athlete" initialFavorites={[]} onChange={onAthleteChange} />

@@ -14,6 +14,7 @@ import StepBeenThere from "./StepBeenThere";
 import StepBestGame from "./StepBestGame";
 import StepGetApp from "./StepGetApp";
 import OnboardingProgress, { type BigFourProgress } from "./OnboardingProgress";
+import type { FavoriteSuggestion } from "@/components/profile/BigFourDrillThrough";
 
 type OnboardingFlowProps = {
   userId: string;
@@ -41,6 +42,7 @@ export default function OnboardingFlow({ userId, initialUsername }: OnboardingFl
   // profile). The web / declined path keeps the original line.
   const [native, setNative] = useState(false);
   const [scanned, setScanned] = useState(false);
+  const [scanTeams, setScanTeams] = useState<FavoriteSuggestion[]>([]);
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
     if (isNativeApp()) setNative(true);
@@ -105,8 +107,9 @@ export default function OnboardingFlow({ userId, initialUsername }: OnboardingFl
 
       {current === "photo" && (
         <StepPhotoFinder
-          onScanned={() => {
+          onScanned={(_, teams) => {
             setScanned(true);
+            setScanTeams(teams);
             setCurrent("rootfor");
           }}
           onSkip={() => {
@@ -128,6 +131,7 @@ export default function OnboardingFlow({ userId, initialUsername }: OnboardingFl
           onNext={() => (native && scanned ? handleFinish("/profile") : setCurrent("venues"))}
           finishing={finishing}
           nextLabel={native && scanned ? "SEE MY PROFILE" : "NEXT"}
+          suggestedTeams={scanTeams}
         />
       )}
 
