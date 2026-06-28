@@ -61,7 +61,7 @@ export default function StepPhotoFinder({ onScanned, onSkip, onBack }: Props) {
       if (!res.ok) return setState("error");
       const json: PhotoSuggestionsResult = await res.json();
       setData(json);
-      setState(json.suggestions.length > 0 ? "ready" : "empty");
+      setState(json.suggestions.length > 0 || json.venueSuggestions.length > 0 ? "ready" : "empty");
     } catch {
       setState("error");
     }
@@ -92,6 +92,7 @@ export default function StepPhotoFinder({ onScanned, onSkip, onBack }: Props) {
       <PhotoSuggestionsView
         suggestions={data.suggestions}
         unknownTeams={data.unknownTeams}
+        venueSuggestions={data.venueSuggestions}
         photoByKey={photoByKey}
         onComplete={onScanned}
         onSkip={onSkip}

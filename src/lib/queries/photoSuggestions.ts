@@ -38,6 +38,13 @@ export type TournamentSuggestion = SuggestionBase & {
 
 export type PhotoSuggestion = MatchSuggestion | TournamentSuggestion;
 
+/**
+ * A venue the user's photos place them at, but with no game to log (no event in
+ * our data on that date, e.g. a concert or a game we don't cover). Pure
+ * geography, so we can still offer to mark it visited.
+ */
+export type VenueSuggestion = { id: string; name: string; city: string | null; state: string | null };
+
 export type PhotoSuggestionsResult = {
   suggestions: PhotoSuggestion[];
   /**
@@ -45,6 +52,11 @@ export type PhotoSuggestionsResult = {
    * for the bulk "who do you root for?" step that fills the rest in one pass.
    */
   unknownTeams: SuggestionTeam[];
+  /**
+   * Matched venues that produced no game suggestion and aren't already marked
+   * visited — the "Also been to these?" confirm list.
+   */
+  venueSuggestions: VenueSuggestion[];
 };
 
 type Item = { venueId: string; date: string };
@@ -63,7 +75,7 @@ export async function fetchPhotoSuggestions(
   userId: string,
   items: Item[]
 ): Promise<PhotoSuggestionsResult> {
-  if (!items.length) return { suggestions: [], unknownTeams: [] };
+  if (!items.length) return { suggestions: [], unknownTeams: [], venueSuggestions: [] };
 
   // One suggestion per game, never per photo. The device groups a day's photos
   // at a venue (20 shots at one game) into a single (venue, date) item before
@@ -108,7 +120,16 @@ export async function fetchPhotoSuggestions(
   // Defensive: keep only the real pairs (a chunk only requests wanted pairs,
   // but a venue can legitimately have multiple events on one date).
   const candidates = rows.filter((e) => wanted.has(`${e.venue_id}|${e.event_date}`));
-  if (!candidates.length) return { suggestions: [], unknownTeams: [] };
+  // No games at all: every matched venue is pure geography (concerts, games we
+  // don't cover). Still offer them as "Also been to these?" confirmations.
+  if (!candidates.length) {
+    const venueSuggestions = await fetchUnvisitedVenues(
+      supabase,
+      userId,
+      [...new Set(uniqueItems.map((i) => i.venueId))]
+    );
+    return { suggestions: [], unknownTeams: [], venueSuggestions };
+  }
 
   // Drop games the user already logged. Chunk the id list so a heavy attendee
   // with 1000+ candidates doesn't hit PostgREST's 1000-row cap and re-suggest
@@ -214,5 +235,55 @@ export async function fetchPhotoSuggestions(
   }
 
   suggestions.sort((a, b) => b.date.localeCompare(a.date));
-  return { suggestions, unknownTeams: [...unknown.values()] };
+
+  // Matched venues with no game to log (and not the venue of any suggestion)
+  // become "Also been to these?" confirms — pure geography we can still record.
+  const suggestedVenueIds = new Set(suggestions.map((s) => s.venueId));
+  const geofenceOnly = [...new Set(uniqueItems.map((i) => i.venueId))].filter(
+    (id) => !suggestedVenueIds.has(id)
+  );
+  const venueSuggestions = await fetchUnvisitedVenues(supabase, userId, geofenceOnly);
+
+  return { suggestions, unknownTeams: [...unknown.values()], venueSuggestions };
+}
+
+/**
+ * Given venue ids the user's photos place them at, return the ones they haven't
+ * already marked visited, with names for display. Chunks both the visited check
+ * and the name lookup so a big match set stays under PostgREST's row + URL caps.
+ */
+async function fetchUnvisitedVenues(
+  supabase: SupabaseClient,
+  userId: string,
+  venueIds: string[]
+): Promise<VenueSuggestion[]> {
+  if (!venueIds.length) return [];
+
+  const visited = new Set<string>();
+  for (let i = 0; i < venueIds.length; i += 200) {
+    const { data } = await supabase
+      .from("venue_visits")
+      .select("venue_id")
+      .eq("user_id", userId)
+      .eq("relationship", "visited")
+      .in("venue_id", venueIds.slice(i, i + 200));
+    for (const v of data || []) visited.add(v.venue_id as string);
+  }
+
+  const need = venueIds.filter((id) => !visited.has(id));
+  if (!need.length) return [];
+
+  const out: VenueSuggestion[] = [];
+  for (let i = 0; i < need.length; i += 200) {
+    const { data } = await supabase
+      .from("venues")
+      .select("id, name, city, state")
+      .eq("status", "active")
+      .in("id", need.slice(i, i + 200));
+    for (const v of data || []) {
+      out.push({ id: v.id as string, name: v.name as string, city: v.city ?? null, state: v.state ?? null });
+    }
+  }
+  out.sort((a, b) => a.name.localeCompare(b.name));
+  return out;
 }

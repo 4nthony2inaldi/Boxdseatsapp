@@ -49,7 +49,7 @@ export default function PhotoLogPage() {
       if (!res.ok) return setState("error");
       const json: PhotoSuggestionsResult = await res.json();
       setData(json);
-      setState(json.suggestions.length > 0 ? "ready" : "empty");
+      setState(json.suggestions.length > 0 || json.venueSuggestions.length > 0 ? "ready" : "empty");
     } catch {
       setState("error");
     }
@@ -76,7 +76,7 @@ export default function PhotoLogPage() {
   }
 
   if (state === "ready" && data) {
-    return <PhotoSuggestionsView suggestions={data.suggestions} unknownTeams={data.unknownTeams} photoByKey={photoByKey} />;
+    return <PhotoSuggestionsView suggestions={data.suggestions} unknownTeams={data.unknownTeams} venueSuggestions={data.venueSuggestions} photoByKey={photoByKey} />;
   }
 
   if (state === "intro") {
