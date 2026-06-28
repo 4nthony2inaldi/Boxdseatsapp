@@ -71,6 +71,15 @@ async function handle(request: Request) {
   }
 
   const candidates = ids.filter((id) => !done.has(id));
+  // Shuffle before taking the batch. Some candidates can never gain athletes
+  // (not-yet-final games, events with no ESPN id, unsupported comps, empty box
+  // scores) and would otherwise sit at the front of this stable list and get
+  // re-processed every run — starving the ingestable games behind them. A random
+  // sample each run guarantees forward progress instead of a permanent stall.
+  for (let i = candidates.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [candidates[i], candidates[j]] = [candidates[j], candidates[i]];
+  }
   const batch = candidates.slice(0, limit);
 
   if (dryRun) {
