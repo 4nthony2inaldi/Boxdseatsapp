@@ -1,7 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { createClient as createServiceClient, type SupabaseClient } from "@supabase/supabase-js";
 import { redirect, notFound } from "next/navigation";
-import { isAdmin, fetchAdminDataHealth, fetchUserDiagnostics } from "@/lib/queries/admin";
+import { isAdmin, fetchAdminDataHealth, fetchUserDiagnostics, fetchUningestedBreakdown } from "@/lib/queries/admin";
 import PageHeader from "@/components/PageHeader";
 import UserPicker from "@/components/admin/UserPicker";
 
@@ -66,6 +66,8 @@ export default async function AdminDiagnosticsPage({
     username ? fetchUserDiagnostics(admin, username) : Promise.resolve(null),
     fetchRoster(admin),
   ]);
+  // Why are the remaining games stuck? (unsupported leagues / no ESPN id)
+  const breakdown = health.ingestRemaining > 0 ? await fetchUningestedBreakdown(admin, health.remainingIds) : null;
 
   return (
     <div className="max-w-lg mx-auto pb-10">
@@ -77,8 +79,25 @@ export default async function AdminDiagnosticsPage({
         <div className="grid grid-cols-3 gap-2">
           <Stat label="logged games" value={health.loggedGames} />
           <Stat label="ingested" value={health.ingestedGames} hint={pct(health.ingestedGames, health.loggedGames) + " done"} />
-          <Stat label="remaining" value={health.ingestRemaining} hint={health.ingestRemaining === 0 ? "all done" : "sweep draining"} />
+          <Stat label="remaining" value={health.ingestRemaining} hint={health.ingestRemaining === 0 ? "all done" : "see breakdown"} />
         </div>
+
+        {breakdown && (
+          <div className="mt-3 rounded-xl border border-white/10 overflow-hidden">
+            <div className="px-4 py-2 text-[11px] text-text-muted bg-white/[0.02]">
+              Why the {breakdown.total} remaining can&apos;t ingest{breakdown.noEspnId > 0 ? ` · ${breakdown.noEspnId} have no ESPN id` : ""}
+            </div>
+            {breakdown.groups.slice(0, 12).map((g, i) => (
+              <div key={i} className="flex items-center gap-3 px-4 py-2 border-t border-white/5 text-sm">
+                <span className="flex-1 text-text-primary truncate">
+                  {g.league || "Unknown league"}
+                  {g.sport && <span className="text-text-muted"> · {g.sport}</span>}
+                </span>
+                <span className="text-text-secondary tabular-nums">{g.count}</span>
+              </div>
+            ))}
+          </div>
+        )}
 
         <div className="text-xs font-display tracking-[1.5px] uppercase text-text-muted mt-5 mb-2">Headshots</div>
         <div className="grid grid-cols-2 gap-2">
