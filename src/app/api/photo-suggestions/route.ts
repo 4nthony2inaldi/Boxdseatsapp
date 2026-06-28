@@ -41,10 +41,8 @@ export async function POST(req: Request) {
     const result = await fetchPhotoSuggestions(supabase, user.id, items);
     return NextResponse.json(result);
   } catch (e) {
-    // Temporary: echo the message so the on-device error screen can show the
-    // real cause while we debug the scan-first onboarding flow.
-    const msg = e instanceof Error ? e.message : "failed";
-    console.error("[photo-suggestions] failed:", msg);
-    return NextResponse.json({ error: msg }, { status: 500 });
+    // Log server-side; don't echo raw PostgREST/DB text to the client.
+    console.error("[photo-suggestions] failed:", e instanceof Error ? e.message : e);
+    return NextResponse.json({ error: "Couldn't find your games. Please try again." }, { status: 500 });
   }
 }
