@@ -4,11 +4,12 @@ import { useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 
 /**
- * On the owner's own profile, backfill headshots for any favorited athletes that
- * are still missing one (chosen before lazy-fetch existed). Fire-and-forget; if
- * it filled any in, refresh so the new photos appear without a manual reload.
+ * Backfill headshots for a profile's favorited athletes that are still missing
+ * one (chosen before lazy-fetch existed). Runs on your own profile (no userId)
+ * and when viewing someone else's (their userId) — headshots are global, so
+ * filling one helps everyone. Fire-and-forget; refreshes if any filled in.
  */
-export default function HeadshotBackfill() {
+export default function HeadshotBackfill({ userId }: { userId?: string }) {
   const router = useRouter();
   const ran = useRef(false);
 
@@ -16,7 +17,11 @@ export default function HeadshotBackfill() {
     if (ran.current) return; // once per mount
     ran.current = true;
     let active = true;
-    fetch("/api/headshot-backfill", { method: "POST" })
+    fetch("/api/headshot-backfill", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(userId ? { userId } : {}),
+    })
       .then((r) => (r.ok ? r.json() : null))
       .then((d) => {
         if (active && d && d.updated > 0) router.refresh();
@@ -25,7 +30,7 @@ export default function HeadshotBackfill() {
     return () => {
       active = false;
     };
-  }, [router]);
+  }, [router, userId]);
 
   return null;
 }
