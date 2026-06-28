@@ -54,7 +54,9 @@ const RACING: Record<string, string> = {
 };
 const TEAM_PATH: Record<string, string> = {
   mlb: "baseball/mlb", nba: "basketball/nba", wnba: "basketball/wnba",
-  ncaam: "basketball/mens-college-basketball", nhl: "hockey/nhl",
+  ncaam: "basketball/mens-college-basketball",
+  ncaaw: "basketball/womens-college-basketball",
+  nhl: "hockey/nhl",
   nfl: "football/nfl", ncaaf: "football/college-football",
 };
 
