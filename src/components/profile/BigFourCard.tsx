@@ -21,8 +21,15 @@ export default function BigFourCard({ item, isOwner = false }: BigFourCardProps)
   // + label area) so the row stays the same height. No "Not set" copy.
   if (item.empty) {
     if (isOwner) {
+      // The event slot is the last thing onboarding leaves open (you pick your
+      // headliner game from the ones you've logged), so glow it to invite the tap.
+      const glow = item.category === "event";
       return (
-        <div className="flex-1 min-w-0 rounded-xl overflow-hidden bg-bg-card border border-dashed border-accent/40 hover:border-accent/80 transition-colors flex flex-col">
+        <div
+          className={`flex-1 min-w-0 rounded-xl overflow-hidden bg-bg-card border border-dashed flex flex-col ${
+            glow ? "border-accent bigfour-glow" : "border-accent/40 hover:border-accent/80 transition-colors"
+          }`}
+        >
           <div className="h-[110px] flex items-center justify-center">
             <div className="w-9 h-9 rounded-full bg-accent/15 flex items-center justify-center">
               <span className="text-accent text-xl leading-none">+</span>
@@ -32,7 +39,9 @@ export default function BigFourCard({ item, isOwner = false }: BigFourCardProps)
             <div className="font-display text-[10px] text-text-muted tracking-[1.5px] uppercase mb-0.5">
               {item.category}
             </div>
-            <div className="text-[11px] text-accent font-semibold leading-tight">Add</div>
+            <div className="text-[11px] text-accent font-semibold leading-tight">
+              {glow ? "Choose" : "Add"}
+            </div>
           </div>
         </div>
       );

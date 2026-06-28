@@ -71,6 +71,30 @@ select {
   animation: slideUp 0.35s ease-out;
 }
 
+/* Glow for an empty Big Four slot waiting to be filled (e.g. the event slot
+   after onboarding). Pulses the accent border + shadow to draw the eye. */
+@keyframes bigfourGlow {
+  0%, 100% {
+    border-color: color-mix(in srgb, var(--color-accent) 45%, transparent);
+    box-shadow: 0 0 0 0 color-mix(in srgb, var(--color-accent) 0%, transparent);
+  }
+  50% {
+    border-color: var(--color-accent);
+    box-shadow: 0 0 14px 1px color-mix(in srgb, var(--color-accent) 45%, transparent);
+  }
+}
+
+.bigfour-glow {
+  animation: bigfourGlow 2.2s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .bigfour-glow {
+    animation: none;
+    border-color: var(--color-accent);
+  }
+}
+
 /* Smooth scrolling */
 html {
   scroll-behavior: smooth;
