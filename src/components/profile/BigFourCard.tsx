@@ -1,5 +1,6 @@
 import Image from "next/image";
 import type { BigFourItem } from "@/lib/queries/profile";
+import { initials } from "@/lib/formatters";
 
 type BigFourCardProps = {
   item: BigFourItem;
@@ -78,8 +79,8 @@ export default function BigFourCard({ item, isOwner = false }: BigFourCardProps)
             background: `linear-gradient(160deg, ${color}55, var(--color-bg-elevated))`,
           }}
         />
-        {item.image_url &&
-          (item.category === "team" ? (
+        {item.image_url ? (
+          item.category === "team" ? (
             // Logos sit on the gradient with padding rather than cropping
             <div className="absolute inset-0 flex items-center justify-center p-4">
               <Image
@@ -98,7 +99,14 @@ export default function BigFourCard({ item, isOwner = false }: BigFourCardProps)
               sizes="120px"
               className="object-cover"
             />
-          ))}
+          )
+        ) : (
+          // No image (e.g. an athlete with no headshot) — show initials so the
+          // card reads as filled rather than an empty gradient.
+          <div className="absolute inset-0 flex items-center justify-center">
+            <span className="font-display text-2xl tracking-wide text-text-secondary">{initials(item.name)}</span>
+          </div>
+        )}
         {/* Gradient fade to card bg */}
         <div
           className="absolute bottom-0 left-0 right-0 h-10"

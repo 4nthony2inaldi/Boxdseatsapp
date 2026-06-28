@@ -32,6 +32,17 @@ export function plural(n: number, one: string, many: string): string {
 }
 
 /**
+ * Initials for an avatar/placeholder when there's no image (e.g. an athlete with
+ * no headshot). First + last initial, or first two letters of a single name.
+ */
+export function initials(name: string): string {
+  const parts = name.trim().split(/\s+/).filter(Boolean);
+  if (parts.length === 0) return "?";
+  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
+  return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+}
+
+/**
  * The shared fan-stats phrase used on the profile + passport share surfaces:
  * "X games at X venues in X cities". Kept in one place so the owner profile,
  * public profile, and passport stay in sync.

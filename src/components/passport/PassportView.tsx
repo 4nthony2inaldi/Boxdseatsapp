@@ -5,6 +5,7 @@ import ShareButton from "@/components/sharing/ShareButton";
 import PageHeader from "@/components/PageHeader";
 import MiniLabel from "@/components/MiniLabel";
 import { getSportIconPath } from "@/lib/sportIcons";
+import { initials } from "@/lib/formatters";
 import type { PassportData, PassportRing } from "@/lib/queries/passport";
 import PassportMap from "./PassportMap";
 
@@ -12,13 +13,6 @@ const SPORT_LABEL: Record<string, string> = {
   baseball: "Baseball", football: "Football", basketball: "Basketball",
   hockey: "Hockey", soccer: "Soccer", golf: "Golf", tennis: "Tennis", motorsports: "Motorsports",
 };
-
-function initials(name: string): string {
-  const parts = name.trim().split(/\s+/).filter(Boolean);
-  if (parts.length === 0) return "?";
-  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
-  return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
-}
 
 function Ring({ ring }: { ring: PassportRing }) {
   const R = 30;
