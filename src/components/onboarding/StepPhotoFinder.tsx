@@ -44,6 +44,9 @@ export default function StepPhotoFinder({ onScanned, onSkip, onBack }: Props) {
   const [data, setData] = useState<PhotoSuggestionsResult | null>(null);
   const [photoByKey, setPhotoByKey] = useState<Record<string, string>>({});
   const [readReason, setReadReason] = useState<PhotoReadReason | null>(null);
+  // Temporary on-device diagnostic: the actual failure (scan vs lookup, message)
+  // so we can see what's wrong without a Mac + Web Inspector.
+  const [detail, setDetail] = useState<string | null>(null);
 
   async function resolve(items: ScanItem[]) {
     if (!items.length) {
@@ -60,11 +63,18 @@ export default function StepPhotoFinder({ onScanned, onSkip, onBack }: Props) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ items }),
       });
-      if (!res.ok) return setState("error");
+      if (!res.ok) {
+        let body = "";
+        try { body = (await res.text()).slice(0, 160); } catch { /* ignore */ }
+        setDetail(`found ${items.length} venues, lookup HTTP ${res.status} ${body}`);
+        setState("error");
+        return;
+      }
       const json: PhotoSuggestionsResult = await res.json();
       setData(json);
       setState(json.suggestions.length > 0 || json.venueSuggestions.length > 0 ? "ready" : "empty");
-    } catch {
+    } catch (e) {
+      setDetail(`lookup threw: ${e instanceof Error ? `${e.name}: ${e.message}` : String(e)}`);
       setState("error");
     }
   }
@@ -72,6 +82,7 @@ export default function StepPhotoFinder({ onScanned, onSkip, onBack }: Props) {
   async function handleScan() {
     setProgress({ phase: "reading" });
     setReadReason(null);
+    setDetail(null);
     setState("scanning");
     try {
       // No range argument: always scan the whole library in onboarding.
@@ -85,6 +96,7 @@ export default function StepPhotoFinder({ onScanned, onSkip, onBack }: Props) {
       await resolve(items);
     } catch (e) {
       setReadReason(e instanceof PhotoReadError ? e.reason : "unknown");
+      setDetail(`scan: ${e instanceof Error ? `${e.name}: ${e.message}` : String(e)}`);
       setState("error");
     }
   }
@@ -121,6 +133,9 @@ export default function StepPhotoFinder({ onScanned, onSkip, onBack }: Props) {
           <p className="text-text-muted text-xs mt-3 leading-5">
             If you only allowed access to some photos, allow all photos in Settings, then Photos, to find more.
           </p>
+        )}
+        {state === "error" && detail && (
+          <p className="text-faint text-[11px] mt-3 leading-5 break-words px-2">{detail}</p>
         )}
         <div className="mt-6 flex flex-col items-center gap-3">
           <button
