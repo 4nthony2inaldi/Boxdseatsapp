@@ -1,5 +1,6 @@
 import { SupabaseClient } from "@supabase/supabase-js";
 import { getSportIconPath } from "@/lib/sportIcons";
+import { fetchUserEventTags } from "@/lib/queries/eventTags";
 
 // ── Types ──
 
@@ -73,19 +74,10 @@ export async function fetchUserBadges(
   const visitedVenueIds = new Set((venueVisits || []).map((vv) => vv.venue_id));
 
   // Get user's event tags for current progress
-  const { data: userEventLogs } = await supabase
-    .from("event_logs")
-    .select("event_id, events!event_logs_event_id_fkey(event_tags)")
-    .eq("user_id", userId)
-    .not("event_id", "is", null);
-
-  const userEventTags = new Set<string>();
-  if (userEventLogs) {
-    for (const ue of userEventLogs) {
-      const tags = (ue.events as unknown as { event_tags: string[] | null })?.event_tags;
-      if (tags) for (const t of tags) userEventTags.add(t);
-    }
-  }
+  // Paginated + shared with the rest of the app (the inline version here capped
+  // at PostgREST's 1000-row default, undercounting badge progress for heavy
+  // attendees). Identical output below that cap.
+  const userEventTags = await fetchUserEventTags(supabase, userId);
 
   // Legacy badges (list changed since completion) need recomputed progress —
   // batch their list_items in one query instead of one per badge.
@@ -182,19 +174,10 @@ export async function fetchTrackedIncomplete(
 
   const visitedVenueIds = new Set((venueVisits || []).map((vv) => vv.venue_id));
 
-  const { data: userEventLogs } = await supabase
-    .from("event_logs")
-    .select("event_id, events!event_logs_event_id_fkey(event_tags)")
-    .eq("user_id", userId)
-    .not("event_id", "is", null);
-
-  const userEventTags = new Set<string>();
-  if (userEventLogs) {
-    for (const ue of userEventLogs) {
-      const tags = (ue.events as unknown as { event_tags: string[] | null })?.event_tags;
-      if (tags) for (const t of tags) userEventTags.add(t);
-    }
-  }
+  // Paginated + shared with the rest of the app (the inline version here capped
+  // at PostgREST's 1000-row default, undercounting badge progress for heavy
+  // attendees). Identical output below that cap.
+  const userEventTags = await fetchUserEventTags(supabase, userId);
 
   const itemsByList = await fetchItemsByList(supabase, lists.map((l) => l.id));
 
@@ -293,19 +276,10 @@ export async function checkAndAwardBadges(
 
   const visitedVenueIds = new Set((venueVisits || []).map((vv) => vv.venue_id));
 
-  const { data: userEventLogs } = await supabase
-    .from("event_logs")
-    .select("event_id, events!event_logs_event_id_fkey(event_tags)")
-    .eq("user_id", userId)
-    .not("event_id", "is", null);
-
-  const userEventTags = new Set<string>();
-  if (userEventLogs) {
-    for (const ue of userEventLogs) {
-      const tags = (ue.events as unknown as { event_tags: string[] | null })?.event_tags;
-      if (tags) for (const t of tags) userEventTags.add(t);
-    }
-  }
+  // Paginated + shared with the rest of the app (the inline version here capped
+  // at PostgREST's 1000-row default, undercounting badge progress for heavy
+  // attendees). Identical output below that cap.
+  const userEventTags = await fetchUserEventTags(supabase, userId);
 
   // Lists still in contention (not already badged at the current count) — batch
   // their items once rather than querying per list inside the loop (this runs

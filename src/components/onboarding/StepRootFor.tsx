@@ -94,6 +94,9 @@ export default function StepRootFor({
       </div>
 
       <OnboardingActionBar>
+        {needTeam && (
+          <p className="text-xs text-accent text-center mb-2.5">Add at least one team to continue</p>
+        )}
         {needAthlete && (
           <button
             onClick={() => selectTab("athlete")}

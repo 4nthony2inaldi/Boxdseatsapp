@@ -139,6 +139,9 @@ export default function StepBestGame({ userId, best, onBestChange, finishing, on
       )}
 
       <OnboardingActionBar>
+        {!best.filled && !finishing && (
+          <p className="text-xs text-accent text-center mb-2.5">Pick your best game to finish</p>
+        )}
         <div className="flex gap-3">
           <button
             onClick={inFlow && sub !== "venue" ? () => setSub(sub === "event" ? "date" : "venue") : onBack}

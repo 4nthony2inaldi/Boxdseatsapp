@@ -27,6 +27,9 @@ export default function StepBeenThere({ userId, canNext, onVenueChange, onBack, 
       <VenueFavoritesPicker userId={userId} initialFavorites={[]} onChange={onVenueChange} />
 
       <OnboardingActionBar>
+        {!canNext && (
+          <p className="text-xs text-accent text-center mb-2.5">Add at least one venue to continue</p>
+        )}
         <div className="flex gap-3">
           <button
             onClick={onBack}
