@@ -368,7 +368,7 @@ export async function fetchSampleVenues(
       .eq("status", "active")
       .not("photo_url", "is", null)
       .order("name")
-      .limit(limit * 4);
+      .limit(limit * 2);
     add(more);
   }
   return out.slice(0, limit);

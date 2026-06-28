@@ -20,6 +20,14 @@ const MAP_W = 768;
 const MAP_H = 380;
 const SITE = process.env.NEXT_PUBLIC_SITE_URL || "https://boxdseats.com";
 
+// The card is built from the app's heaviest aggregation (passport_venues +
+// event_logs + athlete joins), and social crawlers fetch it repeatedly. Let the
+// CDN cache it — a passport changes slowly, so an hour of edge cache with
+// stale-while-revalidate keeps previews fast without going noticeably stale.
+const CARD_CACHE = "public, max-age=0, s-maxage=3600, stale-while-revalidate=86400";
+// The placeholder (private/missing) can flip to a real card, so cache it briefly.
+const PLACEHOLDER_CACHE = "public, max-age=0, s-maxage=300, stale-while-revalidate=600";
+
 function BigRing({ ring }: { ring: PassportRing }) {
   const R = 86;
   const C = 2 * Math.PI * R;
@@ -53,7 +61,7 @@ export async function GET(_req: Request, { params }: { params: Promise<{ usernam
   if (!profile || (profile.is_private as boolean)) {
     return new ImageResponse(
       (<div style={{ width: "100%", height: "100%", display: "flex", alignItems: "center", justifyContent: "center", background: BG, color: TEXT, fontSize: 48 }}>BoxdSeats</div>),
-      { width: 1200, height: 630 }
+      { width: 1200, height: 630, headers: { "Cache-Control": PLACEHOLDER_CACHE } }
     );
   }
 
@@ -132,6 +140,6 @@ export async function GET(_req: Request, { params }: { params: Promise<{ usernam
         </div>
       </div>
     ),
-    { width: 1200, height: 630 }
+    { width: 1200, height: 630, headers: { "Cache-Control": CARD_CACHE } }
   );
 }
