@@ -21,9 +21,12 @@ type Props = {
   endpoint?: string;
   /** Optional custom empty state (the discovery feed renders its own). */
   emptyState?: React.ReactNode;
+  /** Show an inline Follow pill on each card (discovery feed — you don't follow
+   *  these people yet). */
+  showFollow?: boolean;
 };
 
-export default function FeedList({ initialEntries, initialHasMore, userId, endpoint = "/api/feed", emptyState }: Props) {
+export default function FeedList({ initialEntries, initialHasMore, userId, endpoint = "/api/feed", emptyState, showFollow = false }: Props) {
   const [entries, setEntries] = useState(initialEntries);
   const [hasMore, setHasMore] = useState(initialHasMore);
   const [loadingMore, setLoadingMore] = useState(false);
@@ -131,6 +134,8 @@ export default function FeedList({ initialEntries, initialHasMore, userId, endpo
           liked={entry.liked_by_me}
           onLike={handleLike}
           onComment={handleComment}
+          currentUserId={showFollow ? userId : undefined}
+          followingAuthor={entry.viewer_follows}
         />
       ))}
 
