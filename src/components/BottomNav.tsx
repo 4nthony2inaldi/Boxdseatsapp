@@ -70,7 +70,8 @@ export default function BottomNav() {
   if (
     pathname.startsWith("/onboarding") ||
     pathname.startsWith("/log/photos") ||
-    pathname.startsWith("/log/backfill")
+    pathname.startsWith("/log/backfill") ||
+    pathname.startsWith("/log/rooting")
   )
     return null;
 
