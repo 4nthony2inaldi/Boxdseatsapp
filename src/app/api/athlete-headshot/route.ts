@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { createClient as createServiceClient } from "@supabase/supabase-js";
 import { createClient } from "@/lib/supabase/server";
 import { searchAthletesEspn } from "@/lib/queries/athleteSearchEspn";
+import { fetchWikipediaImage } from "@/lib/images/wikipediaImage";
 
 /**
  * POST /api/athlete-headshot  { athleteId }
@@ -47,9 +48,20 @@ export async function POST(request: Request) {
   try {
     const hits = await searchAthletesEspn(name, athlete.sport as string | null, 20);
     const match = hits.find((h) => h.espnId === String(espnId) && h.headshotUrl);
-    if (!match?.headshotUrl) return NextResponse.json({ status: "none" });
-    await service.from("athletes").update({ headshot_url: match.headshotUrl }).eq("id", athleteId);
-    return NextResponse.json({ status: "updated" });
+    let url = match?.headshotUrl ?? null;
+    let source = "espn";
+
+    // Deep fallback (favorites only — this endpoint is fired on a Big Four pick,
+    // never from box-score ingest): if ESPN has no headshot, try the player's
+    // Wikipedia lead photo. Best-effort; many obscure players still have none.
+    if (!url) {
+      url = await fetchWikipediaImage(name);
+      source = "wikipedia";
+    }
+
+    if (!url) return NextResponse.json({ status: "none" });
+    await service.from("athletes").update({ headshot_url: url }).eq("id", athleteId);
+    return NextResponse.json({ status: "updated", source });
   } catch {
     return NextResponse.json({ status: "error" }, { status: 500 });
   }
