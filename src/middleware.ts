@@ -14,8 +14,10 @@ export const config = {
      * - favicon.ico (favicon file)
      * - metadata routes that must stay public for crawlers/unfurlers
      *   (robots, sitemap, manifest, default OG image)
-     * - public files (svg, png, jpg, etc.)
+     * - public files (svg, png, jpg, etc.), incl. static .json like
+     *   venues-geo.json (fetched on-device by the photo scan — gating it would
+     *   redirect the fetch to an HTML page and break JSON.parse).
      */
-    "/((?!_next/static|_next/image|favicon.ico|robots.txt|sitemap.xml|manifest.webmanifest|opengraph-image|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)",
+    "/((?!_next/static|_next/image|favicon.ico|robots.txt|sitemap.xml|manifest.webmanifest|opengraph-image|.*\\.(?:svg|png|jpg|jpeg|gif|webp|json)$).*)",
   ],
 };

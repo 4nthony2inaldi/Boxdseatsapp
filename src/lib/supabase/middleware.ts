@@ -94,8 +94,12 @@ export async function updateSession(request: NextRequest) {
     return redirectTo("/");
   }
 
-  // If logged in and NOT on onboarding, check if onboarding is needed
-  if (user && !isOnboardingRoute && !isAuthRoute) {
+  // If logged in and NOT on onboarding, check if onboarding is needed.
+  // Exempt /api/ (and other public routes): onboarding itself calls API routes
+  // — e.g. the photo scan's /api/photo-suggestions and /api/photo-logs — before
+  // it completes, and redirecting those to the /onboarding HTML page breaks the
+  // JSON fetch. Only page navigations should be pushed into onboarding.
+  if (user && !isOnboardingRoute && !isAuthRoute && !isPublicRoute) {
     const needsOnboarding = !user.user_metadata?.onboarding_completed;
     if (needsOnboarding) {
       // Check profile for fav_sport as secondary indicator
