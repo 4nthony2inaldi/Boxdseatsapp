@@ -42,6 +42,9 @@ export default function BigFourCard({ item, isOwner = false }: BigFourCardProps)
             <div className="text-[11px] text-accent font-semibold leading-tight">
               {glow ? "Choose" : "Add"}
             </div>
+            {/* Spacer matching the filled card's subtitle line so empty slots
+                stay the same height as their neighbors. */}
+            <div className="text-[10px] mt-0.5 leading-tight" aria-hidden>&nbsp;</div>
           </div>
         </div>
       );

@@ -14,7 +14,7 @@ export function Spinner({ message }: { message: string }) {
 
 /** Progress UI for an on-device photo scan (reading -> scanning -> matching). */
 export function ScanProgressView({ progress }: { progress: ScanProgress | null }) {
-  let label = "Reading your photos…";
+  let label = "Reading your library…";
   let pct: number | null = null;
   if (progress?.phase === "scanning") {
     label = `Scanning ${progress.total.toLocaleString()} photos for game locations…`;
@@ -40,7 +40,7 @@ export function ScanProgressView({ progress }: { progress: ScanProgress | null }
       )}
       <p className="text-text-secondary text-sm">{label}</p>
       {pct === null && (
-        <p className="text-text-muted text-xs mt-2">Large libraries can take a moment.</p>
+        <p className="text-text-muted text-xs mt-2">This can take a few seconds on a big camera roll.</p>
       )}
     </div>
   );

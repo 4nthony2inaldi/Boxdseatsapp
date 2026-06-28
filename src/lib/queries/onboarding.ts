@@ -323,6 +323,57 @@ export async function fetchAllVenues(
   }));
 }
 
+// ── Sample venues for the photo-finder intro montage ──
+
+export type SampleVenue = { id: string; name: string; city: string | null; state: string | null; photo_url: string };
+
+/**
+ * A few photogenic, recognizable venues to tease the photo finder before the
+ * scan runs. Prefers a curated iconic set, falls back to any venues with a
+ * photo so the montage always fills.
+ */
+export async function fetchSampleVenues(
+  supabase: SupabaseClient,
+  limit = 3
+): Promise<SampleVenue[]> {
+  const iconic = [
+    "Yankee Stadium",
+    "Madison Square Garden",
+    "Fenway Park",
+    "Wrigley Field",
+    "Dodger Stadium",
+    "Lambeau Field",
+  ];
+  const seen = new Set<string>();
+  const out: SampleVenue[] = [];
+  const add = (rows: { id: string; name: string; city: string | null; state: string | null; photo_url: string | null }[] | null) => {
+    for (const v of rows || []) {
+      if (out.length >= limit || seen.has(v.id) || !v.photo_url) continue;
+      seen.add(v.id);
+      out.push({ id: v.id, name: v.name, city: v.city, state: v.state, photo_url: v.photo_url });
+    }
+  };
+
+  const { data: curated } = await supabase
+    .from("venues")
+    .select("id, name, city, state, photo_url")
+    .in("name", iconic)
+    .not("photo_url", "is", null);
+  add(curated);
+
+  if (out.length < limit) {
+    const { data: more } = await supabase
+      .from("venues")
+      .select("id, name, city, state, photo_url")
+      .eq("status", "active")
+      .not("photo_url", "is", null)
+      .order("name")
+      .limit(limit * 4);
+    add(more);
+  }
+  return out.slice(0, limit);
+}
+
 // ── Bulk mark venues as visited (step 3) ──
 
 export async function markVenuesVisited(
