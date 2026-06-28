@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 import { LogoWithWordmark } from "@/components/Logo";
 import { createClient } from "@/lib/supabase/client";
@@ -24,6 +25,10 @@ function SettingsIcon() {
 }
 
 export default function AppHeader() {
+  const pathname = usePathname();
+  // During onboarding the notifications + settings links are dead-ends (they
+  // bounce back to onboarding), so show just the brand logo, no actions.
+  const onboarding = pathname.startsWith("/onboarding");
   const [unreadCount, setUnreadCount] = useState(0);
 
   useEffect(() => {
@@ -87,32 +92,38 @@ export default function AppHeader() {
       style={{ paddingTop: "env(safe-area-inset-top)" }}
     >
       <div className="flex items-center justify-between px-4 py-3 max-w-lg mx-auto">
-        <Link href="/">
+        {onboarding ? (
           <LogoWithWordmark size={36} />
-        </Link>
-        <div className="flex items-center gap-4">
-          <Link
-            href="/notifications"
-            className="p-2.5 -m-2.5 hover:opacity-80 transition-opacity"
-            aria-label="Notifications"
-          >
-            <span className="relative block">
-              <BellIcon />
-              {unreadCount > 0 && (
-                <span className="absolute -top-1 -right-1 min-w-[16px] h-4 rounded-full bg-accent text-[10px] font-bold text-white flex items-center justify-center px-1">
-                  {unreadCount > 99 ? "99+" : unreadCount}
-                </span>
-              )}
-            </span>
+        ) : (
+          <Link href="/">
+            <LogoWithWordmark size={36} />
           </Link>
-          <Link
-            href="/settings"
-            className="p-2.5 -m-2.5 hover:opacity-80 transition-opacity"
-            aria-label="Settings"
-          >
-            <SettingsIcon />
-          </Link>
-        </div>
+        )}
+        {!onboarding && (
+          <div className="flex items-center gap-4">
+            <Link
+              href="/notifications"
+              className="p-2.5 -m-2.5 hover:opacity-80 transition-opacity"
+              aria-label="Notifications"
+            >
+              <span className="relative block">
+                <BellIcon />
+                {unreadCount > 0 && (
+                  <span className="absolute -top-1 -right-1 min-w-[16px] h-4 rounded-full bg-accent text-[10px] font-bold text-white flex items-center justify-center px-1">
+                    {unreadCount > 99 ? "99+" : unreadCount}
+                  </span>
+                )}
+              </span>
+            </Link>
+            <Link
+              href="/settings"
+              className="p-2.5 -m-2.5 hover:opacity-80 transition-opacity"
+              aria-label="Settings"
+            >
+              <SettingsIcon />
+            </Link>
+          </div>
+        )}
       </div>
     </header>
   );

@@ -21,9 +21,10 @@ export default function BigFourCard({ item, isOwner = false }: BigFourCardProps)
   // + label area) so the row stays the same height. No "Not set" copy.
   if (item.empty) {
     if (isOwner) {
-      // The event slot is the last thing onboarding leaves open (you pick your
-      // headliner game from the ones you've logged), so glow it to invite the tap.
-      const glow = item.category === "event";
+      // Venue + event are the slots the scan-first onboarding leaves for you to
+      // pick from your own history, so glow them to invite the tap. Team +
+      // athlete are picked during onboarding, so an empty one is just "Add".
+      const glow = item.category === "event" || item.category === "venue";
       return (
         <div
           className={`flex-1 min-w-0 rounded-xl overflow-hidden bg-bg-card border border-dashed flex flex-col ${
@@ -42,6 +43,9 @@ export default function BigFourCard({ item, isOwner = false }: BigFourCardProps)
             <div className="text-[11px] text-accent font-semibold leading-tight">
               {glow ? "Choose" : "Add"}
             </div>
+            {/* Spacer matching the filled card's subtitle line so empty slots
+                stay the same height as their neighbors. */}
+            <div className="text-[10px] mt-0.5 leading-tight" aria-hidden>&nbsp;</div>
           </div>
         </div>
       );

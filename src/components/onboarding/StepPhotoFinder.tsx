@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import Image from "next/image";
 import Button from "@/components/Button";
 import OnboardingActionBar from "./OnboardingActionBar";
 import PhotoSuggestionsView from "@/components/photolog/PhotoSuggestionsView";
@@ -8,6 +9,8 @@ import { Spinner, ScanProgressView } from "@/components/photolog/ScanStatus";
 import { scanPhotosForVenues, PhotoReadError, type ScanItem, type ScanProgress, type PhotoReadReason } from "@/lib/native/photoScan";
 import type { PhotoSuggestionsResult } from "@/lib/queries/photoSuggestions";
 import type { FavoriteSuggestion } from "@/components/profile/BigFourDrillThrough";
+import { createClient } from "@/lib/supabase/client";
+import { fetchSampleVenues, type SampleVenue } from "@/lib/queries/onboarding";
 
 type Props = {
   /** Called once the user has saved games/venues from the scan; carries the
@@ -44,6 +47,18 @@ export default function StepPhotoFinder({ onScanned, onSkip, onBack }: Props) {
   const [data, setData] = useState<PhotoSuggestionsResult | null>(null);
   const [photoByKey, setPhotoByKey] = useState<Record<string, string>>({});
   const [readReason, setReadReason] = useState<PhotoReadReason | null>(null);
+  const [samples, setSamples] = useState<SampleVenue[]>([]);
+  const [samplesLoaded, setSamplesLoaded] = useState(false);
+
+  // A few recognizable stadiums to tease the finder before the scan runs.
+  useEffect(() => {
+    let cancelled = false;
+    fetchSampleVenues(createClient(), 3)
+      .then((v) => { if (!cancelled) setSamples(v); })
+      .catch(() => { /* montage is decorative — fall back to the icon */ })
+      .finally(() => { if (!cancelled) setSamplesLoaded(true); });
+    return () => { cancelled = true; };
+  }, []);
 
   async function resolve(items: ScanItem[]) {
     if (!items.length) {
@@ -142,11 +157,44 @@ export default function StepPhotoFinder({ onScanned, onSkip, onBack }: Props) {
   }
 
   // intro
+  const showMontage = !samplesLoaded || samples.length > 0;
   return (
     <div className="px-4">
-      <div className="mb-4">
-        <TicketIcon />
-      </div>
+      {showMontage ? (
+        <div className="grid grid-cols-3 gap-2 mb-5">
+          {samples.length > 0
+            ? samples.map((v) => (
+                <div key={v.id} className="relative aspect-[4/5] rounded-xl overflow-hidden bg-bg-elevated">
+                  <Image
+                    src={v.photo_url}
+                    alt=""
+                    fill
+                    sizes="(max-width: 512px) 33vw, 160px"
+                    className="object-cover"
+                  />
+                  <div
+                    className="absolute inset-0"
+                    style={{ background: "linear-gradient(to top, rgba(0,0,0,0.85), rgba(0,0,0,0.05) 55%)" }}
+                  />
+                  <div className="absolute bottom-0 left-0 right-0 p-2">
+                    <div className="text-[11px] font-semibold text-white leading-tight truncate">{v.name}</div>
+                    {(v.city || v.state) && (
+                      <div className="text-[10px] text-white/70 truncate">
+                        {[v.city, v.state].filter(Boolean).join(", ")}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              ))
+            : [0, 1, 2].map((i) => (
+                <div key={i} className="aspect-[4/5] rounded-xl bg-bg-elevated animate-pulse" />
+              ))}
+        </div>
+      ) : (
+        <div className="mb-4">
+          <TicketIcon />
+        </div>
+      )}
       <h2 className="font-display text-[28px] text-text-primary tracking-wide leading-tight mb-2">
         Your photos are your memories
       </h2>

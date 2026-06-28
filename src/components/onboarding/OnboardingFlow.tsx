@@ -115,14 +115,11 @@ export default function OnboardingFlow({ userId, initialUsername }: OnboardingFl
 
       {current === "photo" && (
         <StepPhotoFinder
-          onScanned={({ venues, teams }) => {
+          onScanned={({ teams }) => {
             setScanned(true);
             setScanTeams(teams);
-            // Reflect the scan's venues in the Big Four strip (the scanned path
-            // skips the manual venue step).
-            if (venues > 0) {
-              setProgress((p) => ({ ...p, venue: { count: venues, name: null } }));
-            }
+            // Venue + event are left as "Choose" slots to pick on the profile,
+            // so we don't pre-fill them in the Big Four strip here.
             setCurrent("rootfor");
           }}
           onSkip={() => {
