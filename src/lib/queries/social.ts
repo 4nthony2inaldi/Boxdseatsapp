@@ -40,6 +40,9 @@ export type FeedEntry = {
   };
   // Whether the current user has liked this entry
   liked_by_me: boolean;
+  // Whether the viewer already follows the author (set in the discovery feed so
+  // the inline follow pill shows the right state). Undefined in the friends feed.
+  viewer_follows?: boolean;
 };
 
 export type FollowRelationship = {
@@ -227,14 +230,21 @@ export async function fetchDiscoveryFeed(
 
   const authorIds = [...new Set(page.map((l) => l.user_id))];
   const logIds = page.map((l) => l.id);
-  const [profilesRes, likesRes] = await Promise.all([
+  const [profilesRes, likesRes, followsRes] = await Promise.all([
     supabase.from("profiles").select("id, username, display_name, avatar_url").in("id", authorIds),
     supabase.from("likes").select("event_log_id").eq("user_id", userId).in("event_log_id", logIds),
+    // Which of these authors the viewer already follows — drives the inline pill.
+    supabase.from("follows").select("following_id").eq("follower_id", userId).eq("status", "active").in("following_id", authorIds),
   ]);
   const profileMap = new Map((profilesRes.data || []).map((p) => [p.id as string, p as AuthorProfile]));
   const likedSet = new Set((likesRes.data || []).map((l) => l.event_log_id as string));
+  const followingSet = new Set((followsRes.data || []).map((f) => f.following_id as string));
 
-  const entries = page.map((l) => toFeedEntry(l, profileMap.get(l.user_id), likedSet.has(l.id)));
+  const entries = page.map((l) => {
+    const entry = toFeedEntry(l, profileMap.get(l.user_id), likedSet.has(l.id));
+    entry.viewer_follows = followingSet.has(l.user_id);
+    return entry;
+  });
   return { entries, hasMore };
 }
 

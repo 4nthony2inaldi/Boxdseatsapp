@@ -19,24 +19,28 @@ export default async function FeedPage() {
     );
   }
 
-  const [{ entries, hasMore }, profileRes] = await Promise.all([
+  const [{ entries, hasMore }, profileRes, followCountRes] = await Promise.all([
     fetchFeed(supabase, user.id),
     supabase.from("profiles").select("home_city").eq("id", user.id).single(),
+    supabase.from("follows").select("id", { count: "exact", head: true }).eq("follower_id", user.id).eq("status", "active"),
   ]);
   const homeCity = profileRes.data?.home_city ?? null;
+  const followingCount = followCountRes.count ?? 0;
   let nearby: NearbyPage = { events: [], before: null };
   if (homeCity) {
     nearby = await fetchNearbyEvents(supabase, homeCity);
   }
 
-  // Cold-start: a brand-new account follows no one and has logged nothing, so
-  // the friends feed is empty. Fall back to recent public activity so the home
-  // screen is never blank.
+  // Cold-start: keep the community discovery feed until the user has built a
+  // small network (~3 follows), so home stays alive while they get going. Their
+  // followed people's public logs still appear in discovery, and their own logs
+  // live on their profile. At 3+ follows the friends feed takes over.
+  const COLD_START_FOLLOW_THRESHOLD = 3;
   let discovery: FeedPage | null = null;
-  if (entries.length === 0) {
+  if (followingCount < COLD_START_FOLLOW_THRESHOLD) {
     discovery = await fetchDiscoveryFeed(supabase, user.id);
   }
-  const showDiscovery = entries.length === 0 && !!discovery && discovery.entries.length > 0;
+  const showDiscovery = followingCount < COLD_START_FOLLOW_THRESHOLD && !!discovery && discovery.entries.length > 0;
 
   return (
     <PullToRefresh>
@@ -60,6 +64,7 @@ export default async function FeedPage() {
           initialHasMore={discovery!.hasMore}
           userId={user.id}
           endpoint="/api/discovery"
+          showFollow
         />
       ) : (
         <FeedList initialEntries={entries} initialHasMore={hasMore} userId={user.id} />

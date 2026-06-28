@@ -10,6 +10,7 @@ import OutcomeBadge from "./profile/OutcomeBadge";
 import ShareButton from "./sharing/ShareButton";
 import VerifiedBadge from "./VerifiedBadge";
 import ImageLightbox from "./ImageLightbox";
+import FollowButton from "./social/FollowButton";
 import { formatDate } from "@/lib/formatters";
 
 export type TimelineAuthor = {
@@ -59,6 +60,11 @@ type TimelineCardProps = {
   onComment?: (entryId: string) => void;
   /** When set (own timeline), shows a pencil link to the edit flow. */
   editHref?: string | null;
+  /** When set (discovery feed), shows an inline Follow pill on the author row.
+   *  The viewer's id; the pill self-hides on the viewer's own logs. */
+  currentUserId?: string;
+  /** Whether the viewer already follows this author (initial pill state). */
+  followingAuthor?: boolean;
 };
 
 export default function TimelineCard({
@@ -69,6 +75,8 @@ export default function TimelineCard({
   onLike,
   onComment,
   editHref,
+  currentUserId,
+  followingAuthor = false,
 }: TimelineCardProps) {
   const [photoOpen, setPhotoOpen] = useState(false);
   const leagueData = leagueFromSlug(entry.league_slug);
@@ -107,43 +115,49 @@ export default function TimelineCard({
       <div className="px-4 py-3.5">
         {/* Author row (feed mode only) */}
         {showAuthor && author && (
-          <Link
-            href={`/user/${author.username}`}
-            className="flex items-center gap-2.5 mb-3 pb-3 border-b border-border"
-          >
-            {/* Avatar */}
-            <div className="w-8 h-8 rounded-full shrink-0 overflow-hidden">
-              {author.avatar_url ? (
-                <Image
-                  src={author.avatar_url}
-                  alt={author.display_name || author.username}
-                  width={32}
-                  height={32}
-                  className="w-full h-full object-cover"
-                />
-              ) : (
-                <div className="w-full h-full bg-accent/20 flex items-center justify-center text-accent text-sm font-display">
-                  {(
-                    author.display_name ||
-                    author.username ||
-                    "?"
-                  )[0].toUpperCase()}
+          <div className="flex items-center gap-2.5 mb-3 pb-3 border-b border-border">
+            <Link
+              href={`/user/${author.username}`}
+              className="flex items-center gap-2.5 flex-1 min-w-0"
+            >
+              {/* Avatar */}
+              <div className="w-8 h-8 rounded-full shrink-0 overflow-hidden">
+                {author.avatar_url ? (
+                  <Image
+                    src={author.avatar_url}
+                    alt={author.display_name || author.username}
+                    width={32}
+                    height={32}
+                    className="w-full h-full object-cover"
+                  />
+                ) : (
+                  <div className="w-full h-full bg-accent/20 flex items-center justify-center text-accent text-sm font-display">
+                    {(author.display_name || author.username || "?")[0].toUpperCase()}
+                  </div>
+                )}
+              </div>
+              {/* Name + username (+ date inline when the follow pill takes the right slot) */}
+              <div className="flex-1 min-w-0">
+                <div className="text-sm text-text-primary font-medium truncate">
+                  {author.display_name || author.username}
                 </div>
+                <div className="text-[11px] text-text-muted truncate">
+                  @{author.username}{currentUserId ? ` · ${formattedDate}` : ""}
+                </div>
+              </div>
+              {!currentUserId && (
+                <span className="text-[11px] text-text-muted shrink-0">{formattedDate}</span>
               )}
-            </div>
-            {/* Name + username + timestamp */}
-            <div className="flex-1 min-w-0">
-              <div className="text-sm text-text-primary font-medium truncate">
-                {author.display_name || author.username}
-              </div>
-              <div className="text-[11px] text-text-muted">
-                @{author.username}
-              </div>
-            </div>
-            <span className="text-[11px] text-text-muted shrink-0">
-              {formattedDate}
-            </span>
-          </Link>
+            </Link>
+            {currentUserId && (
+              <FollowButton
+                targetUserId={author.id}
+                currentUserId={currentUserId}
+                initialIsFollowing={followingAuthor}
+                initialIsPending={false}
+              />
+            )}
+          </div>
         )}
 
         {/* Header row: league + outcome + stars */}
