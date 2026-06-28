@@ -6,6 +6,7 @@ import {
   fetchActivityChart,
   fetchPinnedLists,
   fetchTimeline,
+  fetchVisitedCityCount,
 } from "@/lib/queries/profile";
 import { fetchUserBadges, fetchTrackedIncomplete } from "@/lib/queries/badges";
 import { fetchUserProfileByUsername } from "@/lib/queries/social";
@@ -32,12 +33,18 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
     return { title: "User Not Found" };
   }
 
-  const stats = await fetchProfileStats(supabase, profile.id);
+  const [stats, cityCount] = await Promise.all([
+    fetchProfileStats(supabase, profile.id),
+    fetchVisitedCityCount(supabase, profile.id),
+  ]);
   const displayName = profile.display_name || profile.username;
-  const description = `${displayName} has attended ${stats.totalEvents} events across ${stats.totalVenues} venues on BoxdSeats.`;
+  const plural = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`;
+  const description = `${displayName}: ${plural(stats.totalEvents, "game", "games")} at ${plural(stats.totalVenues, "venue", "venues")} in ${plural(cityCount, "city", "cities")} on BoxdSeats.`;
 
   const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://boxdseats.com";
-  const ogImageUrl = `${siteUrl}/u/${username}/og`;
+  // Share the richer passport-style card (map, stats, rings) for profile links
+  // too, so the preview matches the fan passport's.
+  const ogImageUrl = `${siteUrl}/u/${username}/passport/og`;
 
   return {
     title: `${displayName} (@${username})`,

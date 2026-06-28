@@ -98,6 +98,22 @@ export async function fetchProfile(
   return data;
 }
 
+/**
+ * Distinct cities among a user's visited venues. Uses the same RLS-respecting
+ * RPC the passport/share card uses, so the count matches the card exactly.
+ */
+export async function fetchVisitedCityCount(
+  supabase: SupabaseClient,
+  userId: string
+): Promise<number> {
+  const { data } = await supabase.rpc("passport_venues", { p_user: userId });
+  const cities = new Set<string>();
+  for (const v of (data as { city: string | null; state: string | null }[] | null) || []) {
+    if (v?.city) cities.add(`${v.city}|${v.state ?? ""}`);
+  }
+  return cities.size;
+}
+
 export async function fetchProfileStats(
   supabase: SupabaseClient,
   userId: string
