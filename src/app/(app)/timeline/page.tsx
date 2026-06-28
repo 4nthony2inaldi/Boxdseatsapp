@@ -1,8 +1,9 @@
 import { createClient } from "@/lib/supabase/server";
 import { fetchTimeline } from "@/lib/queries/profile";
 import Timeline from "@/components/profile/Timeline";
-import BackfillPhotosPrompt from "@/components/photolog/BackfillPhotosPrompt";
+import FinishGamesCard from "@/components/profile/FinishGamesCard";
 import { countPhotolessLogs } from "@/lib/queries/photoBackfill";
+import { countRootlessLogs } from "@/lib/queries/rooting";
 import Link from "next/link";
 import { BackLinkCircle } from "@/components/PageHeader";
 
@@ -32,9 +33,10 @@ export default async function TimelinePage({
     );
   }
 
-  const [{ entries: timelineEntries, hasMore }, photolessCount] = await Promise.all([
+  const [{ entries: timelineEntries, hasMore }, photolessCount, rootlessCount] = await Promise.all([
     fetchTimeline(supabase, user.id, undefined, 20, 0, monthFilter),
     countPhotolessLogs(supabase, user.id),
+    countRootlessLogs(supabase, user.id),
   ]);
 
   return (
@@ -58,7 +60,7 @@ export default async function TimelinePage({
           </Link>
         )}
       </div>
-      {!monthFilter && <BackfillPhotosPrompt count={photolessCount} />}
+      {!monthFilter && <FinishGamesCard photolessCount={photolessCount} rootlessCount={rootlessCount} />}
       <Timeline key={monthFilter ?? "all"} initialEntries={timelineEntries} initialHasMore={hasMore} userId={user.id} viewerId={user.id} canEdit monthFilter={monthFilter} />
     </div>
   );
