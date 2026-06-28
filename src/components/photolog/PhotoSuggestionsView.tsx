@@ -9,6 +9,7 @@ import { createClient } from "@/lib/supabase/client";
 import { isNativeApp, loadPhotoFile } from "@/lib/native/photoScan";
 import { uploadEventPhoto, updateEventLogPhoto } from "@/lib/photos";
 import { formatDate, plural } from "@/lib/formatters";
+import { triggerBoxScoreIngestMany } from "@/lib/ingest/triggerIngest";
 import type { PhotoSuggestion, MatchSuggestion, SuggestionTeam, VenueSuggestion } from "@/lib/queries/photoSuggestions";
 import type { FavoriteSuggestion } from "@/components/profile/BigFourDrillThrough";
 
@@ -205,6 +206,11 @@ export default function PhotoSuggestionsView({ suggestions, unknownTeams, venueS
       if (!res.ok) throw new Error();
       const result = await res.json();
       await attachPhotos(picked, result.logs ?? []);
+      // Pull box scores (athletes / "players you've seen") for the games we just
+      // logged, the same way manual logging does — bounded so a big scan doesn't
+      // fire 100+ requests at once. Fire-and-forget; the sweep catches stragglers.
+      const loggedEventIds = (result.logs ?? []).map((l: { eventId: string }) => l.eventId);
+      void triggerBoxScoreIngestMany(loggedEventIds);
       setDone({ created: result.created, venues: result.venues });
     } catch {
       toastError("Couldn't save those logs — try again.");
