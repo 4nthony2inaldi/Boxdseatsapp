@@ -19,6 +19,7 @@ import BadgeSection from "@/components/profile/BadgeSection";
 import LatestEvent from "@/components/profile/LatestEvent";
 import SummaryRows from "@/components/profile/SummaryRows";
 import ShareButton from "@/components/sharing/ShareButton";
+import HeadshotBackfill from "@/components/profile/HeadshotBackfill";
 import { fanStatsLine } from "@/lib/formatters";
 
 export default async function ProfilePage() {
@@ -69,6 +70,7 @@ export default async function ProfilePage() {
 
   return (
     <div className="max-w-lg mx-auto pb-5">
+      <HeadshotBackfill />
       <ProfileHeader profile={profile} stats={stats} />
       <StatsRow stats={stats} eventsHref="/timeline" venuesHref="/venues" />
       <BigFourSection items={bigFour} isOwner />

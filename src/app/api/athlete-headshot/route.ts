@@ -1,16 +1,15 @@
 import { NextResponse } from "next/server";
 import { createClient as createServiceClient } from "@supabase/supabase-js";
 import { createClient } from "@/lib/supabase/server";
-import { searchAthletesEspn } from "@/lib/queries/athleteSearchEspn";
-import { fetchWikipediaImage } from "@/lib/images/wikipediaImage";
+import { resolveAthleteHeadshot } from "@/lib/ingest/athleteHeadshot";
 
 /**
  * POST /api/athlete-headshot  { athleteId }
  *
- * Lazily backfills an athlete's headshot the first time someone favorites them,
- * the same way box scores are pulled after a log. No-op if they already have one
- * or have no ESPN id. Reuses the ESPN search (by name) to read the headshot URL,
- * so it works across sports without a per-sport CDN guess.
+ * Lazily backfills one athlete's headshot the first time someone favorites them,
+ * the same way box scores are pulled after a log. No-op if they already have
+ * one. Resolves via ESPN (by id) then a Wikipedia lead-photo fallback, so it
+ * works across sports — favorites only, never from box-score ingest.
  *
  * Authz: requires a signed-in user (so it can't be an open ESPN proxy). The
  * write uses the service-role client — athletes is public reference data.
@@ -41,27 +40,19 @@ export async function POST(request: Request) {
   if (!athlete) return NextResponse.json({ status: "skip" });
   if (athlete.headshot_url) return NextResponse.json({ status: "already" });
 
-  const espnId = (athlete.external_ids as Record<string, unknown> | null)?.espn;
   const name = athlete.name as string | null;
-  if (!espnId || !name) return NextResponse.json({ status: "skip" });
+  if (!name) return NextResponse.json({ status: "skip" });
+  const espnId = (athlete.external_ids as Record<string, unknown> | null)?.espn;
 
   try {
-    const hits = await searchAthletesEspn(name, athlete.sport as string | null, 20);
-    const match = hits.find((h) => h.espnId === String(espnId) && h.headshotUrl);
-    let url = match?.headshotUrl ?? null;
-    let source = "espn";
-
-    // Deep fallback (favorites only — this endpoint is fired on a Big Four pick,
-    // never from box-score ingest): if ESPN has no headshot, try the player's
-    // Wikipedia lead photo. Best-effort; many obscure players still have none.
-    if (!url) {
-      url = await fetchWikipediaImage(name);
-      source = "wikipedia";
-    }
-
+    const url = await resolveAthleteHeadshot({
+      name,
+      sport: (athlete.sport as string | null) ?? null,
+      espnId: espnId ? String(espnId) : null,
+    });
     if (!url) return NextResponse.json({ status: "none" });
     await service.from("athletes").update({ headshot_url: url }).eq("id", athleteId);
-    return NextResponse.json({ status: "updated", source });
+    return NextResponse.json({ status: "updated" });
   } catch {
     return NextResponse.json({ status: "error" }, { status: 500 });
   }
