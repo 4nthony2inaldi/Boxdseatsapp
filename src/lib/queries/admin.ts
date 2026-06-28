@@ -48,12 +48,51 @@ export type AdminDataHealth = {
   favoritedAthletes: number;
   favoritedNoHeadshot: number;
   photolessLogs: number;
+  /** The un-ingested logged event ids (for the "why stuck?" breakdown). */
+  remainingIds: string[];
 };
+
+export type UningestedGroup = { sport: string | null; league: string | null; count: number };
+
+/**
+ * Why the remaining games can't ingest: group the un-ingested logged events by
+ * sport+league (so unsupported leagues/comps surface), plus how many simply have
+ * no ESPN id. Turns "stuck at N" into a list of fixable vs impossible.
+ */
+export async function fetchUningestedBreakdown(
+  admin: SupabaseClient,
+  remainingIds: string[]
+): Promise<{ groups: UningestedGroup[]; noEspnId: number; total: number }> {
+  const groups = new Map<string, UningestedGroup>();
+  let noEspnId = 0;
+  for (let i = 0; i < remainingIds.length; i += 300) {
+    const { data } = await admin
+      .from("events")
+      .select("id, external_ids, leagues(slug, name, sport)")
+      .in("id", remainingIds.slice(i, i + 300));
+    for (const e of data || []) {
+      const ext = e.external_ids as Record<string, unknown> | null;
+      if (!ext?.espn) noEspnId++;
+      const lg = e.leagues as unknown as { slug: string | null; name: string | null; sport: string | null } | null;
+      const key = `${lg?.sport ?? "?"}|${lg?.slug ?? "?"}`;
+      const g = groups.get(key) || { sport: lg?.sport ?? null, league: lg?.name || lg?.slug || null, count: 0 };
+      g.count++;
+      groups.set(key, g);
+    }
+  }
+  return {
+    groups: [...groups.values()].sort((a, b) => b.count - a.count),
+    noEspnId,
+    total: remainingIds.length,
+  };
+}
 
 /** Global data-quality snapshot for the admin diagnostics page. */
 export async function fetchAdminDataHealth(admin: SupabaseClient): Promise<AdminDataHealth> {
   const logged = await loggedEventIds(admin);
-  const withAthletes = await eventIdsWithAthletes(admin, [...logged]);
+  const loggedArr = [...logged];
+  const withAthletes = await eventIdsWithAthletes(admin, loggedArr);
+  const remainingIds = loggedArr.filter((id) => !withAthletes.has(id));
 
   const [{ count: athletes }, { count: athletesNoHeadshot }, { data: favRows }, { count: photoless }] =
     await Promise.all([
@@ -83,6 +122,7 @@ export async function fetchAdminDataHealth(admin: SupabaseClient): Promise<Admin
     favoritedAthletes: favIds.length,
     favoritedNoHeadshot,
     photolessLogs: photoless ?? 0,
+    remainingIds,
   };
 }
 
