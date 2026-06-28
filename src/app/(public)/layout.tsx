@@ -20,10 +20,15 @@ export default async function PublicLayout({
   return (
     <div className="min-h-screen bg-bg flex flex-col">
       {/* Pinned together: the get-the-app bar sits above the brand header so a
-          shared link always leads with a way into the app. */}
-      <div className="sticky top-0 z-50" style={{ paddingTop: "env(safe-area-inset-top)" }}>
+          shared link always leads with a way into the app. The background +
+          safe-area padding live on the wrapper so the status-bar/notch strip is
+          opaque and scrolled content can't bleed through it. */}
+      <div
+        className="sticky top-0 z-50 bg-bg/95 backdrop-blur-sm"
+        style={{ paddingTop: "env(safe-area-inset-top)" }}
+      >
         <GetAppBar />
-        <header className="border-b border-border bg-bg/95 backdrop-blur-sm">
+        <header className="border-b border-border">
           <div className="max-w-lg mx-auto flex items-center justify-between px-4 py-3">
             <Link href="/" aria-label="BoxdSeats home" className="flex items-center">
               <LogoWithWordmark size={36} />
