@@ -303,26 +303,6 @@ export async function searchEvents(
   });
 }
 
-// ── Fetch all venues for step 3 (mark venues) ──
-
-export async function fetchAllVenues(
-  supabase: SupabaseClient
-): Promise<{ id: string; name: string; city: string; state: string | null; sport: string | null }[]> {
-  const { data } = await supabase
-    .from("venues")
-    .select("id, name, city, state, primary_sport")
-    .eq("status", "active")
-    .order("name");
-
-  return (data || []).map((v) => ({
-    id: v.id,
-    name: v.name,
-    city: v.city,
-    state: v.state,
-    sport: v.primary_sport,
-  }));
-}
-
 // ── Sample venues for the photo-finder intro montage ──
 
 export type SampleVenue = { id: string; name: string; city: string | null; state: string | null; photo_url: string };

@@ -8,6 +8,7 @@ import {
   fetchTimeline,
   fetchVisitedCityCount,
 } from "@/lib/queries/profile";
+import { fanStatsLine } from "@/lib/formatters";
 import { fetchUserBadges, fetchTrackedIncomplete } from "@/lib/queries/badges";
 import { fetchUserProfileByUsername } from "@/lib/queries/social";
 import ProfileHeader from "@/components/profile/ProfileHeader";
@@ -38,8 +39,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
     fetchVisitedCityCount(supabase, profile.id),
   ]);
   const displayName = profile.display_name || profile.username;
-  const plural = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`;
-  const description = `${displayName}: ${plural(stats.totalEvents, "game", "games")} at ${plural(stats.totalVenues, "venue", "venues")} in ${plural(cityCount, "city", "cities")} on BoxdSeats.`;
+  const description = `${displayName}: ${fanStatsLine(stats.totalEvents, stats.totalVenues, cityCount)} on BoxdSeats.`;
 
   const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://boxdseats.com";
   // Share the richer passport-style card (map, stats, rings) for profile links

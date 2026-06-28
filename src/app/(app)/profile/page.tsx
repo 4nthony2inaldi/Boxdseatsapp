@@ -19,6 +19,7 @@ import BadgeSection from "@/components/profile/BadgeSection";
 import LatestEvent from "@/components/profile/LatestEvent";
 import SummaryRows from "@/components/profile/SummaryRows";
 import ShareButton from "@/components/sharing/ShareButton";
+import { fanStatsLine } from "@/lib/formatters";
 
 export default async function ProfilePage() {
   const supabase = await createClient();
@@ -61,8 +62,7 @@ export default async function ProfilePage() {
     ]);
 
   // Mirror the fan passport's share line: "X games at X venues in X cities".
-  const plural = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`;
-  const shareText = `Check out my BoxdSeats profile: ${plural(stats.totalEvents, "game", "games")} at ${plural(stats.totalVenues, "venue", "venues")} in ${plural(cityCount, "city", "cities")}`;
+  const shareText = `Check out my BoxdSeats profile: ${fanStatsLine(stats.totalEvents, stats.totalVenues, cityCount)}`;
 
   // Latest event is the first (most recent) entry
   const latestEvent = timelinePage.entries.length > 0 ? timelinePage.entries[0] : null;

@@ -25,6 +25,22 @@ export function formatDate(
 }
 
 /**
+ * "1 game" / "3 games" — a count with its singular/plural noun.
+ */
+export function plural(n: number, one: string, many: string): string {
+  return `${n} ${n === 1 ? one : many}`;
+}
+
+/**
+ * The shared fan-stats phrase used on the profile + passport share surfaces:
+ * "X games at X venues in X cities". Kept in one place so the owner profile,
+ * public profile, and passport stay in sync.
+ */
+export function fanStatsLine(games: number, venues: number, cities: number): string {
+  return `${plural(games, "game", "games")} at ${plural(venues, "venue", "venues")} in ${plural(cities, "city", "cities")}`;
+}
+
+/**
  * Formats a date-only string as the compact `M/D/YY` style (no leading zeros,
  * 2-digit year), matching the CompareView inline format.
  */

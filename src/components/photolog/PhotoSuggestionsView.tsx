@@ -8,6 +8,7 @@ import { toastError } from "@/components/Toaster";
 import { createClient } from "@/lib/supabase/client";
 import { isNativeApp, loadPhotoFile } from "@/lib/native/photoScan";
 import { uploadEventPhoto, updateEventLogPhoto } from "@/lib/photos";
+import { formatDate, plural } from "@/lib/formatters";
 import type { PhotoSuggestion, MatchSuggestion, SuggestionTeam, VenueSuggestion } from "@/lib/queries/photoSuggestions";
 import type { FavoriteSuggestion } from "@/components/profile/BigFourDrillThrough";
 
@@ -35,11 +36,6 @@ type RowState = { included: boolean; rootingTeamId: string | null };
 // upload a photo unless the user opts in, since not every photo is one they
 // want public.
 type PhotoMode = "skip" | "all" | "review";
-
-function fmtDate(d: string) {
-  const dt = new Date(d + "T00:00:00");
-  return dt.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
-}
 
 /** Lazily loads + previews a matched photo (full-res, scaled down by the img)
  *  so the user can review it before it's attached. Best-effort: shows nothing
@@ -125,8 +121,8 @@ export default function PhotoSuggestionsView({ suggestions, unknownTeams, venueS
   const includedCount = Object.values(rows).filter((r) => r.included).length;
   const inferredCount = suggestions.filter((s) => s.kind === "match" && s.suggestedRootingTeamId).length;
 
-  const gamesLabel = `${includedCount} ${includedCount === 1 ? "game" : "games"}`;
-  const venuesLabel = `${confirmedVenueIds.length} ${confirmedVenueIds.length === 1 ? "venue" : "venues"}`;
+  const gamesLabel = plural(includedCount, "game", "games");
+  const venuesLabel = plural(confirmedVenueIds.length, "venue", "venues");
   const commitLabel =
     includedCount > 0 && confirmedVenueIds.length > 0
       ? `Add ${gamesLabel} + ${venuesLabel}`
@@ -248,12 +244,12 @@ export default function PhotoSuggestionsView({ suggestions, unknownTeams, venueS
         </svg>
         <h1 className="font-display text-2xl text-text-primary tracking-wide mb-2">
           {done.created > 0
-            ? `Logged ${done.created} ${done.created === 1 ? "game" : "games"}`
-            : `Added ${done.venues} ${done.venues === 1 ? "venue" : "venues"}`}
+            ? `Logged ${plural(done.created, "game", "games")}`
+            : `Added ${plural(done.venues, "venue", "venues")}`}
         </h1>
         <p className="text-text-secondary text-sm mb-8">
           {done.created > 0
-            ? `Your passport just grew. ${done.created} ${done.created === 1 ? "game" : "games"} across ${done.venues} ${done.venues === 1 ? "venue" : "venues"}.`
+            ? `Your passport just grew. ${plural(done.created, "game", "games")} across ${plural(done.venues, "venue", "venues")}.`
             : "Marked on your map. Log games anytime to fill them in."}
         </p>
         <button
@@ -276,7 +272,7 @@ export default function PhotoSuggestionsView({ suggestions, unknownTeams, venueS
       <div className="px-4 pt-5 pb-3">
         <h1 className="font-display text-[26px] text-text-primary tracking-wide leading-tight">
           {suggestions.length > 0
-            ? `We found ${suggestions.length} ${suggestions.length === 1 ? "game" : "games"} in your photos`
+            ? `We found ${plural(suggestions.length, "game", "games")} in your photos`
             : "We found places you've been"}
         </h1>
         <p className="text-sm text-text-secondary mt-1">
@@ -378,7 +374,7 @@ export default function PhotoSuggestionsView({ suggestions, unknownTeams, venueS
                     {s.kind === "match" ? `${s.away.name} @ ${s.home.name}` : s.title}
                   </div>
                   <div className="text-xs text-text-muted truncate">
-                    {fmtDate(s.date)} · {s.venueName}
+                    {formatDate(s.date)} · {s.venueName}
                   </div>
                 </div>
                 <button

@@ -1,5 +1,20 @@
 import { describe, it, expect } from "vitest";
-import { formatDate, formatShortDate, formatRelative } from "@/lib/formatters";
+import { formatDate, formatShortDate, formatRelative, plural, fanStatsLine } from "@/lib/formatters";
+
+describe("plural", () => {
+  it("uses the singular noun only for exactly one", () => {
+    expect(plural(1, "game", "games")).toBe("1 game");
+    expect(plural(0, "game", "games")).toBe("0 games");
+    expect(plural(23, "venue", "venues")).toBe("23 venues");
+  });
+});
+
+describe("fanStatsLine", () => {
+  it("builds the shared profile/passport stats phrase with correct pluralization", () => {
+    expect(fanStatsLine(23, 14, 9)).toBe("23 games at 14 venues in 9 cities");
+    expect(fanStatsLine(1, 1, 1)).toBe("1 game at 1 venue in 1 city");
+  });
+});
 
 describe("formatDate", () => {
   it("uses the short default format and is timezone-stable (anchored to local midnight)", () => {
