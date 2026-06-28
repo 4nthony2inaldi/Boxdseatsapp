@@ -79,11 +79,12 @@ export default async function ProfilePage() {
       <BadgeSection badges={badges} tracked={trackedIncomplete} userId={user.id} showTracked={pinnedLists.length === 0} isOwner />
       <LatestEvent entry={latestEvent} canEdit viewerId={user.id} />
       <SummaryRows counts={summaryCounts} passportHref={`/@${profile.username}/passport`} />
-      {/* Share Profile */}
+      {/* Share — lands on the fan passport, a more fun destination than the
+          plain profile, with the same share card. */}
       <div className="px-4 mt-4">
         <ShareButton
-          url={`https://boxdseats.com/@${profile.username}`}
-          title={`${profile.display_name || profile.username} on BoxdSeats`}
+          url={`https://boxdseats.com/@${profile.username}/passport`}
+          title={`${profile.display_name || profile.username}'s Fan Passport on BoxdSeats`}
           text={shareText}
         />
       </div>

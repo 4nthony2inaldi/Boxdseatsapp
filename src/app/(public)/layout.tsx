@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { LogoWithWordmark } from "@/components/Logo";
+import GetAppBar from "@/components/GetAppBar";
 import { createClient } from "@/lib/supabase/server";
 
 export default async function PublicLayout({
@@ -18,32 +19,34 @@ export default async function PublicLayout({
 
   return (
     <div className="min-h-screen bg-bg flex flex-col">
-      <header
-        className="sticky top-0 z-50 border-b border-border bg-bg/95 backdrop-blur-sm"
-        style={{ paddingTop: "env(safe-area-inset-top)" }}
-      >
-        <div className="max-w-lg mx-auto flex items-center justify-between px-4 py-3">
-          <Link href="/" aria-label="BoxdSeats home" className="flex items-center">
-            <LogoWithWordmark size={36} />
-          </Link>
-          {!user && (
-            <nav className="flex items-center gap-2 text-sm">
-              <Link
-                href="/login"
-                className="px-3 py-1.5 rounded-lg text-text-secondary hover:text-text-primary transition-colors"
-              >
-                Log in
-              </Link>
-              <Link
-                href="/signup"
-                className="px-3 py-1.5 rounded-lg bg-accent text-bg font-display tracking-wider uppercase text-xs hover:opacity-90 transition-opacity"
-              >
-                Sign up
-              </Link>
-            </nav>
-          )}
-        </div>
-      </header>
+      {/* Pinned together: the get-the-app bar sits above the brand header so a
+          shared link always leads with a way into the app. */}
+      <div className="sticky top-0 z-50" style={{ paddingTop: "env(safe-area-inset-top)" }}>
+        <GetAppBar />
+        <header className="border-b border-border bg-bg/95 backdrop-blur-sm">
+          <div className="max-w-lg mx-auto flex items-center justify-between px-4 py-3">
+            <Link href="/" aria-label="BoxdSeats home" className="flex items-center">
+              <LogoWithWordmark size={36} />
+            </Link>
+            {!user && (
+              <nav className="flex items-center gap-2 text-sm">
+                <Link
+                  href="/login"
+                  className="px-3 py-1.5 rounded-lg text-text-secondary hover:text-text-primary transition-colors"
+                >
+                  Log in
+                </Link>
+                <Link
+                  href="/signup"
+                  className="px-3 py-1.5 rounded-lg bg-accent text-bg font-display tracking-wider uppercase text-xs hover:opacity-90 transition-opacity"
+                >
+                  Sign up
+                </Link>
+              </nav>
+            )}
+          </div>
+        </header>
+      </div>
       <div className="flex-1">{children}</div>
     </div>
   );

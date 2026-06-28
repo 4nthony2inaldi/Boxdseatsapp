@@ -200,12 +200,12 @@ export default async function UserProfilePage({ params }: Props) {
         basePath={`/user/${username}`}
         passportHref={`/@${username}/passport`}
       />
-      {/* Share profile */}
+      {/* Share — lands on the fan passport (same card, more fun destination). */}
       <div className="px-4 mt-4">
         <ShareButton
-          url={`https://boxdseats.com/@${username}`}
-          title={`${profile.display_name || profile.username} on BoxdSeats`}
-          text={`Check out ${profile.display_name || profile.username}'s profile on BoxdSeats`}
+          url={`https://boxdseats.com/@${username}/passport`}
+          title={`${profile.display_name || profile.username}'s Fan Passport on BoxdSeats`}
+          text={`Check out ${profile.display_name || profile.username}'s fan passport on BoxdSeats`}
         />
       </div>
     </div>
