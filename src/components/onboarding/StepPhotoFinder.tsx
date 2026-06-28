@@ -25,7 +25,7 @@ type State = "intro" | "scanning" | "loading" | "ready" | "empty" | "error";
 
 function TicketIcon() {
   return (
-    <svg width="44" height="44" viewBox="0 0 24 24" fill="none" stroke="var(--color-accent)" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+    <svg aria-hidden="true" width="44" height="44" viewBox="0 0 24 24" fill="none" stroke="var(--color-accent)" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
       <path d="M2 9a3 3 0 0 1 0 6v2a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-2a3 3 0 0 1 0-6V7a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2z" />
       <path d="M13 5v2" /><path d="M13 11v2" /><path d="M13 17v2" />
     </svg>
@@ -123,10 +123,10 @@ export default function StepPhotoFinder({ onScanned, onSkip, onBack }: Props) {
   if (state === "empty" || state === "error") {
     const errorMessage =
       readReason === "denied"
-        ? "BoxdSeats can't see your photos. Open Settings, then BoxdSeats, then Photos and choose “All Photos,” then try again."
+        ? "BoxdSeats can't see your photos. Open Settings, find BoxdSeats, tap Photos, and choose All Photos. Then try again."
         : readReason === "timeout"
           ? "The scan took too long to read your library. Try again."
-          : "Something went wrong reading your photos. Try again.";
+          : "Something went wrong. Please try again.";
     return (
       <div className="max-w-lg mx-auto px-4 py-16 text-center">
         <p className="text-text-secondary text-sm">
@@ -134,22 +134,18 @@ export default function StepPhotoFinder({ onScanned, onSkip, onBack }: Props) {
         </p>
         {state === "empty" && (
           <p className="text-text-muted text-xs mt-3 leading-5">
-            If you only allowed access to some photos, allow all photos in Settings, then Photos, to find more.
+            If you allowed only some photos, switch to All Photos in Settings, then scan again.
           </p>
         )}
         <div className="mt-6 flex flex-col items-center gap-3">
-          <button
-            onClick={() => { setReadReason(null); setState("intro"); }}
-            className="px-5 py-2.5 rounded-xl text-sm font-medium text-white transition-opacity"
-            style={{ background: "linear-gradient(135deg, var(--color-accent), var(--color-accent-brown))" }}
-          >
+          <Button onClick={() => { setReadReason(null); setState("intro"); }}>
             Try again
-          </button>
+          </Button>
           <button
             onClick={onSkip}
             className="text-sm text-text-muted hover:text-text-secondary transition-colors"
           >
-            Continue setting up
+            Skip for now
           </button>
         </div>
       </div>
@@ -223,20 +219,21 @@ export default function StepPhotoFinder({ onScanned, onSkip, onBack }: Props) {
         <Button onClick={handleScan} size="lg" fullWidth>
           FIND MY GAMES
         </Button>
-        <button
-          onClick={onSkip}
-          className="w-full mt-2 py-2.5 text-sm text-text-secondary hover:text-text-primary transition-colors"
-        >
-          Skip for now
-        </button>
+        <div className="flex items-center justify-between mt-2">
+          <button
+            onClick={onBack}
+            className="py-2.5 text-sm text-text-muted hover:text-text-secondary transition-colors"
+          >
+            Back
+          </button>
+          <button
+            onClick={onSkip}
+            className="py-2.5 text-sm text-text-secondary hover:text-text-primary transition-colors"
+          >
+            Skip for now
+          </button>
+        </div>
       </OnboardingActionBar>
-
-      <button
-        onClick={onBack}
-        className="mt-3 text-xs text-text-muted hover:text-text-secondary"
-      >
-        ← Back
-      </button>
     </div>
   );
 }

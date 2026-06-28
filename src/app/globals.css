@@ -93,6 +93,17 @@ select {
     animation: none;
     border-color: var(--color-accent);
   }
+  /* Neutralize the repeating/utility animations and smooth scroll for users
+     with vestibular sensitivity. Tailwind's animate-* aren't auto-disabled. */
+  .animate-pulse,
+  .animate-spin,
+  .animate-fade-in,
+  .animate-slide-up {
+    animation: none;
+  }
+  html {
+    scroll-behavior: auto;
+  }
 }
 
 /* Smooth scrolling */

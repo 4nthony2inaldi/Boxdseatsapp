@@ -58,7 +58,7 @@ export default function StepRootFor({
         Add a favorite team and a favorite player for the leagues you follow. Your first pick in each headlines your profile; the rest stack behind it.
       </p>
 
-      <div className="flex gap-1.5 mb-4">
+      <div role="tablist" aria-label="Teams or players" className="flex gap-1.5 mb-4">
         {(["team", "athlete"] as const).map((k) => {
           const active = tab === k;
           // Draw the eye to Players once a team is in but no athlete yet.
@@ -66,6 +66,8 @@ export default function StepRootFor({
           return (
             <button
               key={k}
+              role="tab"
+              aria-selected={active}
               onClick={() => selectTab(k)}
               className="relative flex-1 py-2 rounded-lg font-display text-xs tracking-[1px] uppercase transition-colors active:opacity-70"
               style={{

@@ -59,6 +59,10 @@ export default function BigFourCard({ item, isOwner = false }: BigFourCardProps)
           <div className="font-display text-[10px] text-text-muted tracking-[1.5px] uppercase">
             {item.category}
           </div>
+          {/* Spacers matching a filled card's name + subtitle rows, so a visitor's
+              empty slot stays the same height as filled neighbors in the row. */}
+          <div className="text-[11px] leading-tight" aria-hidden>&nbsp;</div>
+          <div className="text-[10px] mt-0.5 leading-tight" aria-hidden>&nbsp;</div>
         </div>
       </div>
     );

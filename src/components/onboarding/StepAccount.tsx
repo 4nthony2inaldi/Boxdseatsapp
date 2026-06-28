@@ -115,7 +115,7 @@ export default function StepAccount({
   return (
     <div>
       <h2 className="font-display text-[28px] text-text-primary tracking-wide leading-tight mb-1">
-        Set Up Your Profile
+        Set up your profile
       </h2>
       <p className="text-sm text-text-secondary mb-6">
         Choose your username and personalize your account.
