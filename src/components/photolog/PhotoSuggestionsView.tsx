@@ -24,7 +24,7 @@ type Props = {
    * flow. Passes the games logged plus the teams the user rooted for (to seed
    * the favorite-team step).
    */
-  onComplete?: (created: number, teams: FavoriteSuggestion[]) => void;
+  onComplete?: (result: { created: number; venues: number; teams: FavoriteSuggestion[] }) => void;
   /** Onboarding mode: called by "Skip for now" instead of routing to /profile. */
   onSkip?: () => void;
 };
@@ -257,7 +257,11 @@ export default function PhotoSuggestionsView({ suggestions, unknownTeams, venueS
             : "Marked on your map. Log games anytime to fill them in."}
         </p>
         <button
-          onClick={() => (onComplete ? onComplete(done.created, rootedTeamSuggestions()) : router.push("/timeline"))}
+          onClick={() =>
+            onComplete
+              ? onComplete({ created: done.created, venues: done.venues, teams: rootedTeamSuggestions() })
+              : router.push("/timeline")
+          }
           className="rounded-xl px-6 py-3 text-sm font-display tracking-wider uppercase text-white"
           style={{ background: "linear-gradient(135deg, var(--color-accent), var(--color-accent-brown))" }}
         >

@@ -11,8 +11,8 @@ import type { FavoriteSuggestion } from "@/components/profile/BigFourDrillThroug
 
 type Props = {
   /** Called once the user has saved games/venues from the scan; carries the
-   *  teams they rooted for, to seed the favorite-team step. */
-  onScanned: (created: number, teams: FavoriteSuggestion[]) => void;
+   *  venue count + the teams they rooted for, to seed later steps. */
+  onScanned: (result: { created: number; venues: number; teams: FavoriteSuggestion[] }) => void;
   /** Called when the user skips, the scan finds nothing, or it errors. */
   onSkip: () => void;
   onBack: () => void;
@@ -141,7 +141,7 @@ export default function StepPhotoFinder({ onScanned, onSkip, onBack }: Props) {
 
   // intro
   return (
-    <div>
+    <div className="px-4">
       <div className="mb-4">
         <TicketIcon />
       </div>

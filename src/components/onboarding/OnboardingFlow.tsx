@@ -76,24 +76,32 @@ export default function OnboardingFlow({ userId, initialUsername }: OnboardingFl
 
   const canLeaveVenues = progress.venue.count > 0;
 
+  // The photo step renders its own full-width scan + review UI, so it skips the
+  // shared horizontal padding (which would otherwise double-inset the cards).
+  const isPhoto = current === "photo";
+
   return (
-    <div className="px-4 pt-6 pb-40">
-      {/* Step indicator */}
-      <div className="flex gap-1.5 mb-3">
-        {Array.from({ length: stepCount }).map((_, i) => (
-          <div
-            key={i}
-            className="flex-1 h-1 rounded-full transition-colors duration-300"
-            style={{ background: i <= stepIndex ? "var(--color-accent)" : "var(--color-bg-input)" }}
-          />
-        ))}
+    <div className="pt-6 pb-40">
+      {/* Chrome: step dots, label, and the Big Four strip */}
+      <div className="px-4">
+        <div className="flex gap-1.5 mb-3">
+          {Array.from({ length: stepCount }).map((_, i) => (
+            <div
+              key={i}
+              className="flex-1 h-1 rounded-full transition-colors duration-300"
+              style={{ background: i <= stepIndex ? "var(--color-accent)" : "var(--color-bg-input)" }}
+            />
+          ))}
+        </div>
+        <MiniLabel className={isPhoto ? "" : "mb-4"}>
+          {current === "account" ? "Build your fan card" : `Step ${stepIndex + 1} of ${stepCount}`}
+        </MiniLabel>
+        {/* The Big Four assembling — the spine of the flow. Hidden on the photo
+            finder step, which has its own full-screen scan + review UI. */}
+        {!isPhoto && <OnboardingProgress progress={progress} />}
       </div>
-      <MiniLabel className="mb-4">{current === "account" ? "Build your fan card" : `Step ${stepIndex + 1} of ${stepCount}`}</MiniLabel>
 
-      {/* The Big Four assembling — the spine of the flow. Hidden on the photo
-          finder step, which has its own full-screen scan + review UI. */}
-      {current !== "photo" && <OnboardingProgress progress={progress} />}
-
+      <div className={isPhoto ? "" : "px-4"}>
       {current === "account" && (
         <StepAccount
           userId={userId}
@@ -107,9 +115,14 @@ export default function OnboardingFlow({ userId, initialUsername }: OnboardingFl
 
       {current === "photo" && (
         <StepPhotoFinder
-          onScanned={(_, teams) => {
+          onScanned={({ venues, teams }) => {
             setScanned(true);
             setScanTeams(teams);
+            // Reflect the scan's venues in the Big Four strip (the scanned path
+            // skips the manual venue step).
+            if (venues > 0) {
+              setProgress((p) => ({ ...p, venue: { count: venues, name: null } }));
+            }
             setCurrent("rootfor");
           }}
           onSkip={() => {
@@ -164,6 +177,7 @@ export default function OnboardingFlow({ userId, initialUsername }: OnboardingFl
           onBack={() => setCurrent("bestgame")}
         />
       )}
+      </div>
     </div>
   );
 }
