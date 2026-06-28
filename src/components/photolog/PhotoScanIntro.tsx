@@ -84,7 +84,7 @@ export default function PhotoScanIntro({ onScan, onCancel, webFallback, appRequi
       </h1>
       <p className="text-sm text-text-secondary leading-6 mt-2">
         Your photos quietly remember <em>when</em> and <em>where</em> they were taken. BoxdSeats reads
-        just that — the date and location — to spot games you&apos;ve been to, so you don&apos;t have to dig
+        just the date and location to spot games you&apos;ve been to, so you don&apos;t have to dig
         to remember them.
       </p>
 

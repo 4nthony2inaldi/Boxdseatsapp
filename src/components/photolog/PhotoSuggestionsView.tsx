@@ -287,6 +287,7 @@ export default function PhotoSuggestionsView({ suggestions, unknownTeams, venueS
         <div className="px-4 mb-3">
           <button
             onClick={() => setBulkOpen((v) => !v)}
+            aria-expanded={bulkOpen}
             className="w-full flex items-center justify-between rounded-xl border border-border bg-bg-card px-4 py-3 text-left"
           >
             <span className="text-sm text-text-secondary">
@@ -325,7 +326,7 @@ export default function PhotoSuggestionsView({ suggestions, unknownTeams, venueS
       {anyPhotos && (
         <div className="px-4 mb-3">
           <div className="text-xs text-text-muted mb-1.5">Your matched photos</div>
-          <div className="flex rounded-xl border border-border bg-bg-card p-1 gap-1">
+          <div role="radiogroup" aria-label="What to do with matched photos" className="flex rounded-xl border border-border bg-bg-card p-1 gap-1">
             {([
               { key: "skip", label: "Don't add" },
               { key: "review", label: "Review" },
@@ -333,6 +334,8 @@ export default function PhotoSuggestionsView({ suggestions, unknownTeams, venueS
             ] as const).map((opt) => (
               <button
                 key={opt.key}
+                role="radio"
+                aria-checked={photoMode === opt.key}
                 onClick={() => setPhotoMode(opt.key)}
                 className={`flex-1 py-2 rounded-lg text-xs font-medium transition-colors ${
                   photoMode === opt.key ? "bg-accent/15 text-accent" : "text-text-secondary"
@@ -470,6 +473,8 @@ export default function PhotoSuggestionsView({ suggestions, unknownTeams, venueS
                 <button
                   key={v.id}
                   onClick={() => setVenueOn((prev) => ({ ...prev, [v.id]: !prev[v.id] }))}
+                  aria-pressed={on}
+                  aria-label={`Mark ${v.name} as visited`}
                   className={`w-full flex items-center gap-3 rounded-xl border px-3 py-3 text-left transition-colors ${
                     on ? "border-border bg-bg-card" : "border-border/50 bg-bg-card/40 opacity-60"
                   }`}
