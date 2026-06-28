@@ -8,6 +8,7 @@ import { uploadEventPhoto, updateEventLogPhoto } from "@/lib/photos";
 import Button from "@/components/Button";
 import SportIcon from "@/components/SportIcon";
 import { toastError } from "@/components/Toaster";
+import { formatDate } from "@/lib/formatters";
 import type { BackfillSuggestion } from "@/lib/queries/photoBackfill";
 
 type Props = {
@@ -15,14 +16,6 @@ type Props = {
   /** `${venueId}|${date}` -> photo identifier to attach. */
   photoByKey: Record<string, string>;
 };
-
-function fmtDate(d: string): string {
-  return new Date(d + "T00:00:00").toLocaleDateString("en-US", {
-    month: "short",
-    day: "numeric",
-    year: "numeric",
-  });
-}
 
 /** Downscale a full-res photo File to a small JPEG data URL for a list preview. */
 async function makeThumb(file: File): Promise<string | null> {
@@ -172,7 +165,7 @@ export default function PhotoBackfillView({ suggestions, photoByKey }: Props) {
               <span className="flex-1 min-w-0">
                 <span className="block text-sm text-text-primary truncate">{s.title}</span>
                 <span className="block text-xs text-text-muted truncate">
-                  {s.venueName} · {fmtDate(s.date)}
+                  {s.venueName} · {formatDate(s.date)}
                 </span>
               </span>
               <span
