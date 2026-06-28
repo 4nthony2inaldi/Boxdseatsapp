@@ -63,11 +63,16 @@ export async function fetchPublicEventLog(
   // Fetch author profile
   const { data: profile } = await supabase
     .from("profiles")
-    .select("id, username, display_name, avatar_url")
+    .select("id, username, display_name, avatar_url, is_private")
     .eq("id", data.user_id)
     .single();
 
   if (!profile) return null;
+
+  // Defense-in-depth: a private user's logs must not render on the public share
+  // route or its OG card, even if the individual log isn't hide_all. The profile
+  // and passport pages already gate on is_private; this path now matches them.
+  if (profile.is_private) return null;
 
   const venue = data.venues as unknown as { name: string } | null;
   const league = data.leagues as unknown as {
