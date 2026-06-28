@@ -15,7 +15,7 @@ type Props = {
  * Final onboarding step on the WEB only. The photo finder (the signature
  * feature) is iOS-app exclusive, so web signups would otherwise finish without
  * ever hearing about it. Sell it and push to the App Store, while still letting
- * them continue on the web. (Native users get StepPhotoImport instead.)
+ * them continue on the web. (Native users get the photo finder up front instead.)
  */
 export default function StepGetApp({ finishing, onContinue, onBack }: Props) {
   function handleGetApp() {

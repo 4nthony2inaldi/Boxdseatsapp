@@ -15,6 +15,11 @@ type Props = {
   onAthleteChange: (s: Summary) => void;
   onBack: () => void;
   onNext: () => void;
+  /** Label for the primary button when ready to advance (e.g. "SEE MY PROFILE"
+   *  when this is the last step on the scanned path). Defaults to "NEXT". */
+  nextLabel?: string;
+  /** When true, onNext is finishing onboarding — disable + show a building state. */
+  finishing?: boolean;
 };
 
 export default function StepRootFor({
@@ -25,6 +30,8 @@ export default function StepRootFor({
   onAthleteChange,
   onBack,
   onNext,
+  nextLabel = "NEXT",
+  finishing = false,
 }: Props) {
   const [tab, setTab] = useState<"team" | "athlete">("team");
 
@@ -104,11 +111,11 @@ export default function StepRootFor({
           </button>
           <Button
             onClick={needAthlete ? () => selectTab("athlete") : onNext}
-            disabled={needTeam}
+            disabled={needTeam || finishing}
             title={needTeam ? "Add at least one team" : ""}
             className="flex-[2]"
           >
-            {needAthlete ? "PICK AN ATHLETE" : "NEXT"}
+            {needAthlete ? "PICK AN ATHLETE" : finishing ? "BUILDING YOUR PROFILE…" : nextLabel}
           </Button>
         </div>
       </OnboardingActionBar>

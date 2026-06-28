@@ -15,6 +15,14 @@ type Props = {
   unknownTeams: SuggestionTeam[];
   /** venueId|date -> representative photo identifier, for auto-attach. */
   photoByKey?: Record<string, string>;
+  /**
+   * Onboarding mode: when set, the success screen shows a "Continue" button that
+   * calls this (with how many games were logged) instead of routing to the
+   * timeline, so the scan stays inside the onboarding flow.
+   */
+  onComplete?: (created: number) => void;
+  /** Onboarding mode: called by "Skip for now" instead of routing to /profile. */
+  onSkip?: () => void;
 };
 
 type RowState = { included: boolean; rootingTeamId: string | null };
@@ -67,7 +75,7 @@ function resultText(s: MatchSuggestion, rooting: string | null): { label: string
   return { label: `Tied ${mine}–${opp}`, tone: "muted" };
 }
 
-export default function PhotoSuggestionsView({ suggestions, unknownTeams, photoByKey = {} }: Props) {
+export default function PhotoSuggestionsView({ suggestions, unknownTeams, photoByKey = {}, onComplete, onSkip }: Props) {
   const router = useRouter();
   const [rows, setRows] = useState<Record<string, RowState>>(() =>
     Object.fromEntries(
@@ -203,15 +211,15 @@ export default function PhotoSuggestionsView({ suggestions, unknownTeams, photoB
           Logged {done.created} {done.created === 1 ? "game" : "games"}
         </h1>
         <p className="text-text-secondary text-sm mb-8">
-          Your passport just grew — {done.created} {done.created === 1 ? "game" : "games"} across {done.venues}{" "}
+          Your passport just grew. {done.created} {done.created === 1 ? "game" : "games"} across {done.venues}{" "}
           {done.venues === 1 ? "venue" : "venues"}.
         </p>
         <button
-          onClick={() => router.push("/timeline")}
+          onClick={() => (onComplete ? onComplete(done.created) : router.push("/timeline"))}
           className="rounded-xl px-6 py-3 text-sm font-display tracking-wider uppercase text-white"
           style={{ background: "linear-gradient(135deg, var(--color-accent), var(--color-accent-brown))" }}
         >
-          See your timeline
+          {onComplete ? "Continue" : "See your timeline"}
         </button>
       </div>
     );
@@ -416,7 +424,7 @@ export default function PhotoSuggestionsView({ suggestions, unknownTeams, photoB
             {saving ? (status || "Logging…") : `Log ${includedCount} ${includedCount === 1 ? "game" : "games"}`}
           </Button>
           <button
-            onClick={() => router.push("/profile")}
+            onClick={() => (onSkip ? onSkip() : router.push("/profile"))}
             disabled={saving}
             className="w-full py-2.5 text-sm text-text-secondary hover:text-text-primary transition-colors disabled:opacity-50"
           >
