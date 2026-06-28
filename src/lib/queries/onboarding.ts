@@ -400,9 +400,12 @@ export async function markVenuesVisited(
 /**
  * Finishing touches when onboarding completes:
  *  - derive the avatar's sport badge from the #1 team's league,
- *  - mark every favorited venue as visited so the venue total reflects it,
- *  - auto-feature a home venue when none was chosen (the scan-first path skips
- *    the manual venue step), so the Big Four venue slot isn't left empty.
+ *  - mark every favorited venue as visited so the venue total reflects it.
+ *
+ * Note: we intentionally do NOT auto-pick a favorite venue. On the scan-first
+ * path the venue slot is left as a "Choose" slot on the profile (like the event
+ * slot), so the user picks their headliner venue themselves rather than having
+ * one silently assigned.
  */
 export async function finalizeOnboardingExtras(
   supabase: SupabaseClient,
@@ -429,58 +432,6 @@ export async function finalizeOnboardingExtras(
     .not("venue_id", "is", null);
   const ids = (venues || []).map((v) => v.venue_id as string).filter(Boolean);
   if (ids.length > 0) await markVenuesVisited(supabase, userId, ids);
-
-  await autoFeatureVenue(supabase, userId, ids.length > 0);
-}
-
-/**
- * Set a featured venue from the user's activity when they haven't picked one.
- * The scan-first path never reaches the manual venue step, so without this the
- * Big Four venue slot would sit empty alongside the (intentionally empty) event
- * slot. Prefer the venue with the most logged games, else any visited venue.
- */
-async function autoFeatureVenue(
-  supabase: SupabaseClient,
-  userId: string,
-  hasRankedVenue: boolean
-): Promise<void> {
-  // A ranked venue favorite already feeds the slot — don't override it.
-  if (hasRankedVenue) return;
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("fav_venue_id")
-    .eq("id", userId)
-    .maybeSingle();
-  if (profile?.fav_venue_id) return;
-
-  let chosen: string | null = null;
-  const { data: logs } = await supabase
-    .from("event_logs")
-    .select("venue_id")
-    .eq("user_id", userId)
-    .not("venue_id", "is", null)
-    .limit(1000);
-  if (logs?.length) {
-    const counts = new Map<string, number>();
-    for (const l of logs) {
-      const v = l.venue_id as string;
-      counts.set(v, (counts.get(v) ?? 0) + 1);
-    }
-    chosen = [...counts.entries()].sort((a, b) => b[1] - a[1])[0][0];
-  }
-  if (!chosen) {
-    const { data: visited } = await supabase
-      .from("venue_visits")
-      .select("venue_id")
-      .eq("user_id", userId)
-      .eq("relationship", "visited")
-      .limit(1)
-      .maybeSingle();
-    chosen = (visited?.venue_id as string) ?? null;
-  }
-  if (chosen) {
-    await supabase.from("profiles").update({ fav_venue_id: chosen }).eq("id", userId);
-  }
 }
 
 // ── Mark onboarding complete ──
