@@ -37,6 +37,14 @@ export async function POST(req: Request) {
     )
     .slice(0, 1000);
 
-  const result = await fetchPhotoSuggestions(supabase, user.id, items);
-  return NextResponse.json(result);
+  try {
+    const result = await fetchPhotoSuggestions(supabase, user.id, items);
+    return NextResponse.json(result);
+  } catch (e) {
+    // Temporary: echo the message so the on-device error screen can show the
+    // real cause while we debug the scan-first onboarding flow.
+    const msg = e instanceof Error ? e.message : "failed";
+    console.error("[photo-suggestions] failed:", msg);
+    return NextResponse.json({ error: msg }, { status: 500 });
+  }
 }
