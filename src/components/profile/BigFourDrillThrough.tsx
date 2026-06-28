@@ -18,6 +18,7 @@ import {
   fetchLoggedEventChoices,
 } from "@/lib/queries/bigfour";
 import { fetchSelectableLeagues, type SelectableLeague } from "@/lib/queries/leagues";
+import { triggerAthleteHeadshot } from "@/lib/ingest/triggerIngest";
 import { toastError } from "@/components/Toaster";
 import SportIcon from "@/components/SportIcon";
 
@@ -351,7 +352,11 @@ export default function BigFourDrillThrough({
         pickKind
       );
       if ("error" in result) toastError(result.error);
-      else await refresh();
+      else {
+        await refresh();
+        // Lazily pull a headshot for newly-favorited athletes that lack one.
+        if (pickKind === "athlete") triggerAthleteHeadshot(pickId);
+      }
       closeEditor();
     } finally {
       savingRef.current = false;

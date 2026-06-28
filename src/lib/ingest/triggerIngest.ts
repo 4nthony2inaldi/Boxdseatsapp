@@ -16,6 +16,21 @@ export function triggerBoxScoreIngest(eventId: string | null | undefined) {
 }
 
 /**
+ * Fire-and-forget headshot backfill, called when an athlete is favorited. The
+ * endpoint is a no-op if they already have a headshot or no ESPN id, so it's
+ * cheap to call on every athlete pick.
+ */
+export function triggerAthleteHeadshot(athleteId: string | null | undefined) {
+  if (!athleteId) return;
+  void fetch("/api/athlete-headshot", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ athleteId }),
+    keepalive: true,
+  }).catch(() => {});
+}
+
+/**
  * Bulk variant for the photo finder, which logs many games at once. Fires the
  * same per-event ingest but with bounded concurrency so we don't open ~100
  * sockets / hammer ESPN at once. Fire-and-forget: callers don't await it, and

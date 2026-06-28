@@ -32,7 +32,14 @@ type Participant = {
   finish: number | null;
   winner: boolean | null;
   statLine: StatLine | null;
+  headshot: string | null;
 };
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const headshotOf = (ath: any): string | null =>
+  (typeof ath?.headshot?.href === "string" && ath.headshot.href) ||
+  (typeof ath?.headshot === "string" && ath.headshot) ||
+  null;
 
 export type IngestResult = {
   status: "ingested" | "already" | "pending" | "skip" | "empty";
@@ -84,7 +91,7 @@ export function parseTeam(d: any): Participant[] {
         const id = String(ath.id);
         let p = byId.get(id);
         if (!p) {
-          p = { espnId: id, name: ath.displayName ?? null, espnTeamId: tid, finish: null, winner: null, statLine: {} };
+          p = { espnId: id, name: ath.displayName ?? null, espnTeamId: tid, finish: null, winner: null, statLine: {}, headshot: headshotOf(ath) };
           byId.set(id, p);
         }
         const vals = arr(a?.stats);
@@ -123,7 +130,7 @@ export function parseSoccer(d: any): Participant[] {
         if (k && v !== undefined && v !== null && v !== "") row[k] = String(v);
       }
       const statLine = Object.keys(row).length ? { stats: row } : null;
-      out.push({ espnId: String(ath.id), name: ath.displayName ?? null, espnTeamId: tid ? String(tid) : null, finish: null, winner: null, statLine });
+      out.push({ espnId: String(ath.id), name: ath.displayName ?? null, espnTeamId: tid ? String(tid) : null, finish: null, winner: null, statLine, headshot: headshotOf(ath) });
     }
   }
   return out;
@@ -138,7 +145,7 @@ export function parseField(d: any): Participant[] {
     for (const comp of arr(e?.competitions)) {
       for (const c of arr(comp?.competitors)) {
         const aid = c?.id || c?.athlete?.id;
-        if (aid) out.push({ espnId: String(aid), name: c?.athlete?.displayName ?? null, espnTeamId: null, finish: c?.order ?? null, winner: !!c?.winner, statLine: null });
+        if (aid) out.push({ espnId: String(aid), name: c?.athlete?.displayName ?? null, espnTeamId: null, finish: c?.order ?? null, winner: !!c?.winner, statLine: null, headshot: headshotOf(c?.athlete) });
       }
     }
   }
@@ -235,22 +242,32 @@ export async function ingestEventBoxScore(
 
   // Resolve existing athletes by (sport, espn id); insert the genuinely new ones.
   const espnToUuid = new Map<string, string>();
+  // Existing athletes that have no headshot yet -> their uuid, so we can backfill
+  // one when this box score carries it (fills the players-seen grid over time).
+  const needHeadshot = new Map<string, string>();
   const espnIds = participants.map((p) => p.espnId);
   for (const c of chunk(espnIds, 80)) {
     const { data } = await supabase
       .from("athletes")
-      .select("id, external_ids")
+      .select("id, external_ids, headshot_url")
       .eq("sport", sport)
       .in("external_ids->>espn", c);
     for (const a of data || []) {
       const e = (a.external_ids as Record<string, unknown> | null)?.espn;
-      if (e) espnToUuid.set(String(e), a.id as string);
+      if (!e) continue;
+      espnToUuid.set(String(e), a.id as string);
+      if (!a.headshot_url) needHeadshot.set(String(e), a.id as string);
     }
+  }
+  // Backfill headshots for already-known athletes that were missing one.
+  for (const p of participants) {
+    const uuid = p.headshot ? needHeadshot.get(p.espnId) : undefined;
+    if (uuid) await supabase.from("athletes").update({ headshot_url: p.headshot }).eq("id", uuid);
   }
   const missing = participants.filter((p) => !espnToUuid.has(p.espnId));
   let added = 0;
   for (const c of chunk(missing, 100)) {
-    const rows = c.map((p) => ({ name: p.name || "Unknown", sport, is_active: true, external_ids: { espn: p.espnId } }));
+    const rows = c.map((p) => ({ name: p.name || "Unknown", sport, is_active: true, headshot_url: p.headshot ?? null, external_ids: { espn: p.espnId } }));
     const { data } = await supabase.from("athletes").insert(rows).select("id, external_ids");
     for (const a of data || []) {
       const e = (a.external_ids as Record<string, unknown> | null)?.espn;
