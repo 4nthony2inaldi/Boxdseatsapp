@@ -39,6 +39,12 @@ export default async function AdminPage() {
         >
           Ingest health <span className="text-text-muted">· sync jobs and per-league freshness</span>
         </Link>
+        <Link
+          href="/admin/diagnostics"
+          className="mt-2 block rounded-xl border border-white/10 px-4 py-3 text-sm text-text-primary hover:bg-white/5"
+        >
+          Data diagnostics <span className="text-text-muted">· box-score backfill, headshots, per-user inspector</span>
+        </Link>
       </div>
       <div className="px-4 pt-3 pb-2 text-xs text-text-muted">
         {users.length} accounts · deleting cascades all of a user&apos;s data and removes their login.

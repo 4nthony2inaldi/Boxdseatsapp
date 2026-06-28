@@ -1,5 +1,179 @@
 import { SupabaseClient } from "@supabase/supabase-js";
 import { INGEST_JOBS } from "@/lib/ingest/jobs";
+import { countRootlessLogs } from "@/lib/queries/rooting";
+import { countPhotolessLogs } from "@/lib/queries/photoBackfill";
+
+// ── Data diagnostics (admin) ──────────────────────────────────────────────
+
+/** Distinct logged event ids (paginated). */
+async function loggedEventIds(admin: SupabaseClient, userId?: string): Promise<Set<string>> {
+  const ids = new Set<string>();
+  for (let from = 0; ; from += 1000) {
+    let q = admin.from("event_logs").select("event_id").not("event_id", "is", null);
+    if (userId) q = q.eq("user_id", userId);
+    const { data } = await q.range(from, from + 999);
+    if (!data || data.length === 0) break;
+    for (const r of data) if (r.event_id) ids.add(r.event_id as string);
+    if (data.length < 1000) break;
+  }
+  return ids;
+}
+
+/** Of the given event ids, which already have box-score athletes (chunked). */
+async function eventIdsWithAthletes(admin: SupabaseClient, ids: string[]): Promise<Set<string>> {
+  const done = new Set<string>();
+  for (let i = 0; i < ids.length; i += 300) {
+    const chunk = ids.slice(i, i + 300);
+    for (let from = 0; ; from += 1000) {
+      const { data } = await admin
+        .from("event_athletes")
+        .select("event_id")
+        .in("event_id", chunk)
+        .order("event_id", { ascending: true })
+        .range(from, from + 999);
+      if (!data || data.length === 0) break;
+      for (const r of data) if (r.event_id) done.add(r.event_id as string);
+      if (data.length < 1000) break;
+    }
+  }
+  return done;
+}
+
+export type AdminDataHealth = {
+  loggedGames: number;
+  ingestedGames: number;
+  ingestRemaining: number;
+  athletes: number;
+  athletesNoHeadshot: number;
+  favoritedAthletes: number;
+  favoritedNoHeadshot: number;
+  photolessLogs: number;
+};
+
+/** Global data-quality snapshot for the admin diagnostics page. */
+export async function fetchAdminDataHealth(admin: SupabaseClient): Promise<AdminDataHealth> {
+  const logged = await loggedEventIds(admin);
+  const withAthletes = await eventIdsWithAthletes(admin, [...logged]);
+
+  const [{ count: athletes }, { count: athletesNoHeadshot }, { data: favRows }, { count: photoless }] =
+    await Promise.all([
+      admin.from("athletes").select("id", { count: "exact", head: true }),
+      admin.from("athletes").select("id", { count: "exact", head: true }).is("headshot_url", null),
+      admin.from("user_league_favorites").select("athlete_id").not("athlete_id", "is", null),
+      admin.from("event_logs").select("id", { count: "exact", head: true }).is("photo_url", null).not("event_id", "is", null),
+    ]);
+
+  const favIds = [...new Set((favRows || []).map((f) => f.athlete_id as string).filter(Boolean))];
+  let favoritedNoHeadshot = 0;
+  for (let i = 0; i < favIds.length; i += 300) {
+    const { data } = await admin
+      .from("athletes")
+      .select("id")
+      .in("id", favIds.slice(i, i + 300))
+      .is("headshot_url", null);
+    favoritedNoHeadshot += data?.length || 0;
+  }
+
+  return {
+    loggedGames: logged.size,
+    ingestedGames: withAthletes.size,
+    ingestRemaining: Math.max(0, logged.size - withAthletes.size),
+    athletes: athletes ?? 0,
+    athletesNoHeadshot: athletesNoHeadshot ?? 0,
+    favoritedAthletes: favIds.length,
+    favoritedNoHeadshot,
+    photolessLogs: photoless ?? 0,
+  };
+}
+
+export type AdminUserDiagnostics = {
+  username: string;
+  displayName: string | null;
+  totalLogs: number;
+  loggedGames: number;
+  ingestedGames: number;
+  ingestRemaining: number;
+  rootlessGames: number;
+  photolessLogs: number;
+  topAthletes: { name: string; count: number; hasHeadshot: boolean }[];
+};
+
+/** Per-user diagnostics — answers "is this user's data fully backfilled, and
+ *  why is a player capped at N?" by showing ingested-vs-total and top players. */
+export async function fetchUserDiagnostics(
+  admin: SupabaseClient,
+  username: string
+): Promise<AdminUserDiagnostics | null> {
+  const { data: profile } = await admin
+    .from("profiles")
+    .select("id, username, display_name")
+    .eq("username", username.toLowerCase().trim())
+    .maybeSingle();
+  if (!profile) return null;
+  const userId = profile.id as string;
+
+  const { count: totalLogs } = await admin
+    .from("event_logs")
+    .select("id", { count: "exact", head: true })
+    .eq("user_id", userId);
+
+  const logged = await loggedEventIds(admin, userId);
+  const loggedArr = [...logged];
+  const withAthletes = await eventIdsWithAthletes(admin, loggedArr);
+
+  const [rootlessGames, photolessLogs] = await Promise.all([
+    countRootlessLogs(admin, userId),
+    countPhotolessLogs(admin, userId),
+  ]);
+
+  // Top athletes seen across this user's logged games.
+  const counts = new Map<string, number>();
+  for (let i = 0; i < loggedArr.length; i += 300) {
+    const chunk = loggedArr.slice(i, i + 300);
+    for (let from = 0; ; from += 1000) {
+      const { data } = await admin
+        .from("event_athletes")
+        .select("athlete_id")
+        .in("event_id", chunk)
+        .order("athlete_id", { ascending: true })
+        .range(from, from + 999);
+      if (!data || data.length === 0) break;
+      for (const r of data) {
+        const a = r.athlete_id as string | null;
+        if (a) counts.set(a, (counts.get(a) || 0) + 1);
+      }
+      if (data.length < 1000) break;
+    }
+  }
+  const top = [...counts.entries()].sort((a, b) => b[1] - a[1]).slice(0, 12);
+  const topIds = top.map(([id]) => id);
+  const nameById = new Map<string, { name: string; hasHeadshot: boolean }>();
+  for (let i = 0; i < topIds.length; i += 100) {
+    const { data } = await admin
+      .from("athletes")
+      .select("id, name, headshot_url")
+      .in("id", topIds.slice(i, i + 100));
+    for (const a of data || []) {
+      nameById.set(a.id as string, { name: (a.name as string) || "Unknown", hasHeadshot: !!a.headshot_url });
+    }
+  }
+
+  return {
+    username: profile.username as string,
+    displayName: (profile.display_name as string | null) ?? null,
+    totalLogs: totalLogs ?? 0,
+    loggedGames: logged.size,
+    ingestedGames: withAthletes.size,
+    ingestRemaining: Math.max(0, logged.size - withAthletes.size),
+    rootlessGames,
+    photolessLogs,
+    topAthletes: top.map(([id, count]) => ({
+      name: nameById.get(id)?.name ?? "Unknown",
+      count,
+      hasHeadshot: nameById.get(id)?.hasHeadshot ?? false,
+    })),
+  };
+}
 
 /**
  * Whether a user is an admin. Checks the admin_users table, which has no
