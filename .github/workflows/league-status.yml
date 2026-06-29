@@ -1,0 +1,50 @@
+name: League status (read-only)
+
+# Prints a per-league snapshot — event count, first event date, most recent
+# event date — for monitoring a backfill's progress and parity across leagues.
+# Read-only: a single SELECT, no writes. Run manually (Actions -> this workflow
+# -> Run workflow); read the result in the "Report" step's log.
+#
+# Requires the DATABASE_URL repository secret.
+
+on:
+  workflow_dispatch:
+    inputs:
+      sport:
+        description: "Filter to one sport (blank = all leagues)"
+        type: string
+        default: "soccer"
+
+concurrency:
+  group: league-status
+  cancel-in-progress: true
+
+jobs:
+  status:
+    runs-on: ubuntu-latest
+    env:
+      DATABASE_URL: ${{ secrets.DATABASE_URL }}
+      SPORT: ${{ github.event.inputs.sport }}
+    steps:
+      - name: Report
+        if: ${{ env.DATABASE_URL != '' }}
+        run: |
+          psql "$DATABASE_URL" -P pager=off -v ON_ERROR_STOP=1 -v sport="$SPORT" <<'SQL'
+          \echo '=== Per-league event status ==='
+          select
+            l.display_order as ord,
+            l.slug,
+            l.name,
+            count(e.id)              as events,
+            min(e.event_date)::date  as first_event,
+            max(e.event_date)::date  as last_event
+          from leagues l
+          left join events e on e.league_id = l.id
+          where (:'sport' = '' or l.sport = :'sport')
+          group by l.display_order, l.slug, l.name
+          order by l.display_order, l.name;
+          SQL
+
+      - name: Notice when nothing ran
+        if: ${{ env.DATABASE_URL == '' }}
+        run: echo "::warning::league-status skipped — set the DATABASE_URL repository secret to enable."
