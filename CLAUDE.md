@@ -137,6 +137,21 @@ the record. Always dry-run destructive scripts first.
 - Keep user-facing copy plain: no "leverage/utilize/ensure/synergy", minimal em
   dashes (spaces around them), no emoji, no AI-tell phrasing.
 
+## Working agreement (prod-data discipline)
+
+There is no staging environment and changes merge straight to `main` (= prod),
+often inside autonomous loops (scheduled wakeups, the sync/ingest crons). Two
+rules carry their weight even when nothing is going wrong:
+
+- **Pause for the user on schema and prod-data changes.** Migrations and data
+  backfills that touch prod wait for an explicit go (use `AskUserQuestion` when
+  scope or blast radius is non-trivial). Irreversible changes to real user data
+  get a human checkpoint by design.
+- **Prefer a deterministic guard over agent judgment.** When an invariant can be
+  enforced in code or the schema (a unique index, `ON CONFLICT`, an idempotent
+  migration), do that rather than relying on the model getting it right every
+  run. Push rule-bound work out of the probabilistic path.
+
 ## App Store status
 
 Privacy Policy and Terms live at `/privacy` and `/terms`. Per-content reporting
