@@ -16,7 +16,14 @@
  * default for dense arenas (basketball/hockey — emitted as no radius), wider for
  * stadiums and sprawling field venues.
  *
- * Usage:  DATABASE_URL=... node scripts/data/sync-venues-geo.mjs [--dry-run]
+ * Usage:  DATABASE_URL=... node scripts/data/sync-venues-geo.mjs [--dry-run] [--leagues=mex.1,uefa.euro]
+ *
+ * --leagues restricts the venues considered to those that host events in the
+ * given leagues. Use it after adding a league so the sync adds only that
+ * league's venues, instead of every venue that happens to have coordinates —
+ * many of which were intentionally kept out of this file (coarse city-level
+ * geocodes that would cause false photo matches). With no --leagues it
+ * considers all venues with coordinates (a full reconcile).
  */
 import pg from "pg";
 import { readFileSync, writeFileSync } from "node:fs";
@@ -24,6 +31,10 @@ import { readFileSync, writeFileSync } from "node:fs";
 const { Client } = pg;
 const FILE = "public/venues-geo.json";
 const dryRun = process.argv.includes("--dry-run");
+const leaguesArg = process.argv.find((a) => a.startsWith("--leagues="));
+const leagues = leaguesArg
+  ? leaguesArg.slice(10).split(",").map((s) => s.trim().toLowerCase()).filter(Boolean)
+  : [];
 
 // primary_sport -> match radius (meters). Omitted sports fall back to the
 // client's 175m default (kept tight for dense-city arenas).
@@ -49,14 +60,23 @@ const byId = new Map(existing.map((e) => [e[0], e]));
 
 const db = new Client({ connectionString: process.env.DATABASE_URL });
 await db.connect();
+const leagueFilter = leagues.length
+  ? `and id in (
+        select distinct e.venue_id from events e
+          join leagues l on l.id = e.league_id
+         where l.slug = any($1::text[]) and e.venue_id is not null
+     )`
+  : "";
 const { rows } = await db.query(
   `select id, primary_sport,
           extensions.ST_Y(location::extensions.geometry) as lat,
           extensions.ST_X(location::extensions.geometry) as lng
      from venues
-    where status = 'active' and location is not null`
+    where status = 'active' and location is not null ${leagueFilter}`,
+  leagues.length ? [leagues] : []
 );
 await db.end();
+if (leagues.length) console.log(`scoped to leagues: ${leagues.join(", ")}`);
 
 let added = 0;
 for (const r of rows) {
