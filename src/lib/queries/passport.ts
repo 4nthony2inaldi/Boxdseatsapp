@@ -74,10 +74,10 @@ export type PassportData = {
   hidden: string[];
   /** Top 4 most-complete list sets, for the share card. */
   topComplete: PassportRing[];
-  /** Favorite teams (by stack rank). The page shows all; the share card uses the first 4.
-   *  `sport` drives the per-logo badge that distinguishes same-school picks
-   *  (e.g. Pitt football vs Pitt basketball, which share one logo). */
-  teams: { id: string; name: string; logo_url: string | null; sport: string | null }[];
+  /** "Rooting For": team favorites + field-sport player favorites in one row.
+   *  Default order is teams then field-sport players; a saved custom order
+   *  (passport_config.rootingOrder) overrides it. The share card uses the first 4. */
+  rooting: RootingEntry[];
 };
 
 export type PassportListOption = {
@@ -89,7 +89,82 @@ export type PassportListOption = {
   total: number;
 };
 
-type PassportConfig = { lists?: string[]; hidden?: string[] } | null;
+type PassportConfig = { lists?: string[]; hidden?: string[]; rootingOrder?: string[] } | null;
+
+/** No-team sports: the rooting interest is a person (driver/golfer/etc.), not a
+ *  team. Their favorite athletes surface in the Rooting For row alongside teams. */
+const FIELD_SPORTS = new Set(["tennis", "golf", "motorsports", "mma", "horse_racing"]);
+
+/** One entry in the "Rooting For" row: a team (team sports) or an athlete
+ *  (field sports). `key` is the stable id used by the saved custom order. */
+export type RootingEntry = {
+  kind: "team" | "athlete";
+  /** team_id or athlete_id. */
+  id: string;
+  key: string; // `${kind}:${id}`
+  name: string;
+  imageUrl: string | null; // team logo or athlete headshot
+  sport: string | null;
+};
+
+/**
+ * "Rooting For" entries: team favorites + field-sport player favorites, in one
+ * ordered list. Default order is teams (by rank) then field-sport players (by
+ * rank); a saved `rootingOrder` (array of `${kind}:${id}` keys) overrides it,
+ * with any newly-added picks not yet in that order falling to the end.
+ */
+export async function fetchRooting(
+  supabase: SupabaseClient,
+  userId: string,
+  rootingOrder: string[] = []
+): Promise<RootingEntry[]> {
+  const [{ data: teamFavs }, { data: athFavs }] = await Promise.all([
+    supabase
+      .from("user_league_favorites")
+      .select("rank, team_id, teams(name, short_name, logo_url, leagues(sport))")
+      .eq("user_id", userId)
+      .eq("category", "team")
+      .not("team_id", "is", null)
+      .order("rank", { ascending: true })
+      .limit(30),
+    supabase
+      .from("user_league_favorites")
+      .select("rank, athlete_id, athletes(name, headshot_url, sport)")
+      .eq("user_id", userId)
+      .eq("category", "athlete")
+      .not("athlete_id", "is", null)
+      .order("rank", { ascending: true })
+      .limit(30),
+  ]);
+
+  const teamEntries: RootingEntry[] = (teamFavs || []).map((t) => {
+    const tm = t.teams as unknown as {
+      name: string; short_name: string | null; logo_url: string | null; leagues: { sport: string | null } | null;
+    } | null;
+    const id = t.team_id as string;
+    return { kind: "team", id, key: `team:${id}`, name: tm?.short_name || tm?.name || "", imageUrl: tm?.logo_url || null, sport: tm?.leagues?.sport ?? null };
+  });
+  const fieldAthleteEntries: RootingEntry[] = (athFavs || [])
+    .map((a) => {
+      const am = a.athletes as unknown as { name: string; headshot_url: string | null; sport: string | null } | null;
+      const id = a.athlete_id as string;
+      return { kind: "athlete" as const, id, key: `athlete:${id}`, name: am?.name || "", imageUrl: am?.headshot_url || null, sport: am?.sport ?? null };
+    })
+    .filter((e) => e.sport && FIELD_SPORTS.has(e.sport));
+
+  // Default: teams, then field-sport players. A saved custom order reshuffles
+  // the ones it names; anything new (not yet placed) keeps the default tail.
+  const defaultOrder = [...teamEntries, ...fieldAthleteEntries];
+  const byKey = new Map(defaultOrder.map((e) => [e.key, e]));
+  const ordered: RootingEntry[] = [];
+  const placed = new Set<string>();
+  for (const key of rootingOrder) {
+    const e = byKey.get(key);
+    if (e && !placed.has(key)) { ordered.push(e); placed.add(key); }
+  }
+  for (const e of defaultOrder) if (!placed.has(e.key)) ordered.push(e);
+  return ordered;
+}
 
 export async function fetchPassport(
   supabase: SupabaseClient,
@@ -198,31 +273,7 @@ export async function fetchPassport(
     .sort((a, b) => b.visited / b.total - a.visited / a.total || b.visited - a.visited)
     .slice(0, 4);
 
-  // Favorite teams from the stack rank (team-backed picks only). The passport
-  // page shows all of them (horizontally scrollable); the share card slices to
-  // the first 4 (which is what fits the card layout).
-  const { data: teamFavs } = await supabase
-    .from("user_league_favorites")
-    .select("rank, team_id, teams(name, short_name, logo_url, leagues(sport))")
-    .eq("user_id", userId)
-    .eq("category", "team")
-    .not("team_id", "is", null)
-    .order("rank", { ascending: true })
-    .limit(20);
-  const teams = (teamFavs || []).map((t) => {
-    const tm = t.teams as unknown as {
-      name: string;
-      short_name: string | null;
-      logo_url: string | null;
-      leagues: { sport: string | null } | null;
-    } | null;
-    return {
-      id: t.team_id as string,
-      name: tm?.short_name || tm?.name || "",
-      logo_url: tm?.logo_url || null,
-      sport: tm?.leagues?.sport ?? null,
-    };
-  });
+  const rooting = await fetchRooting(supabase, userId, Array.isArray(config?.rootingOrder) ? config!.rootingOrder! : []);
 
   // Players you've seen: every athlete who appeared in a game this user logged.
   // event_athletes is public reference data, so the privacy boundary is the set
@@ -336,7 +387,7 @@ export async function fetchPassport(
     leaderboards,
     hidden: Array.isArray(config?.hidden) ? config!.hidden : [],
     topComplete,
-    teams,
+    rooting,
   };
 }
 

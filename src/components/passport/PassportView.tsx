@@ -67,7 +67,7 @@ type Props = {
 };
 
 export default function PassportView({ username, displayName, avatarUrl, data, editHref, backHref }: Props) {
-  const { stats, venues, topVenues, rings, sports, players, playersTotal, leaderboards, hidden, teams } = data;
+  const { stats, venues, topVenues, rings, sports, players, playersTotal, leaderboards, hidden, rooting } = data;
   const show = (k: string) => !hidden.includes(k);
   const maxSportGames = Math.max(1, ...sports.map((s) => s.games));
   const name = displayName || `@${username}`;
@@ -105,34 +105,38 @@ export default function PassportView({ username, displayName, avatarUrl, data, e
         </div>
       </div>
 
-      {/* Teams — show all the user roots for; scroll horizontally past what fits */}
-      {teams.length > 0 && (
+      {/* Rooting For — teams + field-sport players, in one row. Centered when it
+          doesn't fill the width, scrollable when it overflows. */}
+      {rooting.length > 0 && (
         <div className="mt-5">
-          <MiniLabel className="mb-2 px-4">Teams</MiniLabel>
-          {/* Center the avatars when they don't fill the row; scroll when they
-              overflow. w-max + mx-auto centers a narrow row but collapses its
-              auto margins once the content is wider than the viewport. */}
+          <MiniLabel className="mb-2 px-4">Rooting For</MiniLabel>
           <div className="overflow-x-auto px-4 scroll-fade-x" style={{ scrollbarWidth: "none" }}>
           <div className="flex gap-3 w-max mx-auto">
-            {teams.map((t) => (
+            {rooting.map((r) => (
               <Link
-                key={t.id}
-                href={`/team/${t.id}`}
+                key={r.key}
+                href={r.kind === "team" ? `/team/${r.id}` : `/u/${username}/athlete/${r.id}`}
                 className="relative flex-shrink-0 hover:opacity-80 transition-opacity"
-                title={t.name}
+                title={r.name}
               >
                 <div className="w-14 h-14 rounded-full bg-bg-elevated flex items-center justify-center overflow-hidden">
-                  {t.logo_url ? (
-                    <Image src={t.logo_url} alt={t.name} width={44} height={44} className="object-contain" />
+                  {r.imageUrl ? (
+                    <Image
+                      src={r.imageUrl}
+                      alt={r.name}
+                      width={r.kind === "athlete" ? 56 : 44}
+                      height={r.kind === "athlete" ? 56 : 44}
+                      className={r.kind === "athlete" ? "w-full h-full object-cover" : "object-contain"}
+                    />
                   ) : (
-                    <span className="text-text-secondary text-xs font-semibold">{t.name.slice(0, 3).toUpperCase()}</span>
+                    <span className="text-text-secondary text-xs font-semibold">{r.name.slice(0, 3).toUpperCase()}</span>
                   )}
                 </div>
-                {/* Sport badge — tells apart same-school picks that share a logo
-                    (e.g. Pitt football vs Pitt basketball). */}
-                {t.sport && (
+                {/* Sport badge — distinguishes same-logo picks (e.g. Pitt football
+                    vs basketball) and marks which sport a field-sport player is. */}
+                {r.sport && (
                   <span className="absolute -bottom-0.5 -right-0.5 w-5 h-5 rounded-full bg-bg flex items-center justify-center ring-2 ring-bg">
-                    <SportIcon sport={t.sport} size={12} />
+                    <SportIcon sport={r.sport} size={12} />
                   </span>
                 )}
               </Link>
