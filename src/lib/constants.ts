@@ -50,6 +50,31 @@ export const LEAGUES = {
   LIGAMX: { slug: "mex.1", color: "#00853F", icon: "/soccer.svg", sport: "soccer" },
   WORLDCUP: { slug: "fifa.world", color: "#3A206B", icon: "/soccer.svg", sport: "soccer" },
   EUROS: { slug: "uefa.euro", color: "#0E1E5B", icon: "/soccer.svg", sport: "soccer" },
+  // UEFA club + nations competitions (same clubs/venues as the domestic leagues).
+  UCL: { slug: "uefa.champions", color: "#1B1F71", icon: "/soccer.svg", sport: "soccer" },
+  UEL: { slug: "uefa.europa", color: "#FF6900", icon: "/soccer.svg", sport: "soccer" },
+  UECL: { slug: "uefa.europa.conf", color: "#00B16A", icon: "/soccer.svg", sport: "soccer" },
+  NATIONSLEAGUE: { slug: "uefa.nations", color: "#0B1F66", icon: "/soccer.svg", sport: "soccer" },
+  // Domestic cups.
+  FACUP: { slug: "eng.fa", color: "#C8102E", icon: "/soccer.svg", sport: "soccer" },
+  EFLCUP: { slug: "eng.league_cup", color: "#1D1D1B", icon: "/soccer.svg", sport: "soccer" },
+  COPADELREY: { slug: "esp.copa_del_rey", color: "#C60B1E", icon: "/soccer.svg", sport: "soccer" },
+  COPPAITALIA: { slug: "ita.coppa_italia", color: "#0066A0", icon: "/soccer.svg", sport: "soccer" },
+  DFBPOKAL: { slug: "ger.dfb_pokal", color: "#D20515", icon: "/soccer.svg", sport: "soccer" },
+  COUPEDEFRANCE: { slug: "fra.coupe_de_france", color: "#002395", icon: "/soccer.svg", sport: "soccer" },
+  // More domestic leagues with stable home grounds.
+  CHAMPIONSHIP: { slug: "eng.2", color: "#1B458F", icon: "/soccer.svg", sport: "soccer" },
+  PRIMEIRALIGA: { slug: "por.1", color: "#006847", icon: "/soccer.svg", sport: "soccer" },
+  EREDIVISIE: { slug: "ned.1", color: "#FF6600", icon: "/soccer.svg", sport: "soccer" },
+  SCOTTISH: { slug: "sco.1", color: "#18457B", icon: "/soccer.svg", sport: "soccer" },
+  // North America (alongside MLS + Liga MX).
+  LEAGUESCUP: { slug: "concacaf.leagues.cup", color: "#6CACE4", icon: "/soccer.svg", sport: "soccer" },
+  CONCACAFCL: { slug: "concacaf.champions", color: "#C8102E", icon: "/soccer.svg", sport: "soccer" },
+  // International + South American tournaments.
+  COPAAMERICA: { slug: "conmebol.america", color: "#2E9DF7", icon: "/soccer.svg", sport: "soccer" },
+  GOLDCUP: { slug: "concacaf.gold", color: "#C5A572", icon: "/soccer.svg", sport: "soccer" },
+  LIBERTADORES: { slug: "conmebol.libertadores", color: "#00843D", icon: "/soccer.svg", sport: "soccer" },
+  CLUBWORLDCUP: { slug: "fifa.cwc", color: "#1B1F71", icon: "/soccer.svg", sport: "soccer" },
   NCAAF: { slug: "ncaaf", color: "#0C2340", icon: "/football.svg", sport: "football" },
   NCAAM: { slug: "ncaam", color: "#0C2340", icon: "/basketball.svg", sport: "basketball" },
   NCAAW: { slug: "ncaaw", color: "#0C2340", icon: "/basketball.svg", sport: "basketball" },

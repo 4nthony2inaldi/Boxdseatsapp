@@ -64,6 +64,31 @@ const LEAGUES = {
   // data (same approach as college). Tournament rounds classify as postseason
   // with a humanized round_or_stage.
   'uefa.euro': { sport: 'soccer', espn: 'uefa.euro', soccer: true, lazyTeams: true },
+  // Additional soccer competitions. sharedTeams: index every soccer team (not
+  // just this competition's) so a Champions League / cup / Leagues Cup fixture
+  // resolves to the existing club row (Arsenal lives under eng.1) instead of
+  // creating a duplicate; genuinely new entrants (a club from a league we don't
+  // carry, or a national team) are still created lazily from match data.
+  'uefa.champions':        { sport: 'soccer', espn: 'uefa.champions',        soccer: true, sharedTeams: true },
+  'uefa.europa':           { sport: 'soccer', espn: 'uefa.europa',           soccer: true, sharedTeams: true },
+  'uefa.europa.conf':      { sport: 'soccer', espn: 'uefa.europa.conf',      soccer: true, sharedTeams: true },
+  'uefa.nations':          { sport: 'soccer', espn: 'uefa.nations',          soccer: true, sharedTeams: true },
+  'eng.fa':                { sport: 'soccer', espn: 'eng.fa',                soccer: true, sharedTeams: true },
+  'eng.league_cup':        { sport: 'soccer', espn: 'eng.league_cup',        soccer: true, sharedTeams: true },
+  'esp.copa_del_rey':      { sport: 'soccer', espn: 'esp.copa_del_rey',      soccer: true, sharedTeams: true },
+  'ita.coppa_italia':      { sport: 'soccer', espn: 'ita.coppa_italia',      soccer: true, sharedTeams: true },
+  'ger.dfb_pokal':         { sport: 'soccer', espn: 'ger.dfb_pokal',         soccer: true, sharedTeams: true },
+  'fra.coupe_de_france':   { sport: 'soccer', espn: 'fra.coupe_de_france',   soccer: true, sharedTeams: true },
+  'eng.2':                 { sport: 'soccer', espn: 'eng.2',                 soccer: true, sharedTeams: true },
+  'por.1':                 { sport: 'soccer', espn: 'por.1',                 soccer: true, sharedTeams: true },
+  'ned.1':                 { sport: 'soccer', espn: 'ned.1',                 soccer: true, sharedTeams: true },
+  'sco.1':                 { sport: 'soccer', espn: 'sco.1',                 soccer: true, sharedTeams: true },
+  'concacaf.leagues.cup':  { sport: 'soccer', espn: 'concacaf.leagues.cup',  soccer: true, sharedTeams: true },
+  'concacaf.champions':    { sport: 'soccer', espn: 'concacaf.champions',    soccer: true, sharedTeams: true },
+  'conmebol.america':      { sport: 'soccer', espn: 'conmebol.america',      soccer: true, sharedTeams: true },
+  'concacaf.gold':         { sport: 'soccer', espn: 'concacaf.gold',         soccer: true, sharedTeams: true },
+  'conmebol.libertadores': { sport: 'soccer', espn: 'conmebol.libertadores', soccer: true, sharedTeams: true },
+  'fifa.cwc':              { sport: 'soccer', espn: 'fifa.cwc',              soccer: true, sharedTeams: true },
   // College basketball: full schedule (regular season + postseason). The ESPN
   // college scoreboard rejects date RANGES and defaults to only a featured
   // handful of games per day, so we fetch one day at a time with groups=50
@@ -576,6 +601,21 @@ async function ensureVenueTeam(venueId, teamId) {
 // --- team phase --------------------------------------------------------------
 
 async function syncTeams(leagueSlug, leagueId, cfg, stats) {
+  if (cfg.sharedTeams) {
+    // Cup / continental / international competitions reuse the clubs and
+    // national teams that already exist from the domestic leagues and prior
+    // tournaments. Index EVERY soccer team (not just this competition's) so a
+    // fixture resolves to the existing club row by ESPN id (Arsenal stays under
+    // eng.1) instead of creating a duplicate under this competition. Genuinely
+    // new entrants — a club from a league we don't carry — are still created
+    // lazily from match data by resolveCompetitorTeam.
+    const { rows } = await db.query(
+      `select t.id, t.name, t.short_name, t.abbreviation, t.city, t.logo_url, t.external_ids
+         from teams t join leagues l on l.id = t.league_id
+        where l.sport = 'soccer'`,
+    );
+    return new TeamIndex(rows);
+  }
   if (cfg.lazyTeams) {
     // Don't bulk-import the full team universe; resolveCompetitorTeam will
     // create only the teams that actually appear in the ingested events.

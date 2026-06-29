@@ -1,4 +1,4 @@
-name: Backfill new leagues (Liga MX + UEFA Euros)
+name: Backfill new leagues
 
 # One-time historical backfill for leagues newly added to the app. Run manually
 # (Actions -> this workflow -> Run workflow) once the leagues migration is on
@@ -9,30 +9,36 @@ name: Backfill new leagues (Liga MX + UEFA Euros)
 #      other soccer leagues,
 #   3. geocodes the newly created venues so they show up in "happening around
 #      you" and can match photos (still needs venues-geo.json regenerated and
-#      committed afterward, which is a separate local step).
+#      committed afterward, which is a separate local step),
+#   4. rebuilds the soccer "Grounds" system lists.
 #
-# mex.1 and uefa.euro are kept FRESH going forward by the Vercel /api/sync-events
+# The seeded leagues are kept FRESH going forward by the Vercel /api/sync-events
 # cron, so they are intentionally NOT added to the recurring event-sync.yml.
 #
 # Requires repository secret DATABASE_URL (direct Postgres). Geocoding also needs
 # SUPABASE_PAT + SUPABASE_PROJECT. Default is a dry run; flip the input off to
-# write. Safe to re-run: events dedupe by ESPN id, league rows ON CONFLICT.
+# write. Safe to re-run: events dedupe by ESPN id, league rows ON CONFLICT, and
+# clubs/national teams are reused across competitions (sharedTeams in the seeder).
 
 on:
   workflow_dispatch:
     inputs:
+      migration:
+        description: "League-rows migration file to apply first"
+        type: string
+        default: "supabase/migrations/20260630_add_soccer_competitions.sql"
       from:
         description: "Backfill start date (YYYY-MM-DD)"
         type: string
-        # Deep history for parity with MLS / the US leagues. ESPN has Liga MX
-        # back to the early 2000s and every Euros edition from 2004 on; pre-2004
-        # years just sweep empty (harmless). The seeder only inserts completed
-        # events it actually finds.
+        # Deep history for parity with the existing leagues. ESPN has the UEFA
+        # club competitions and most domestic cups back to the early 2000s;
+        # pre-coverage years just sweep empty (harmless). The seeder only inserts
+        # completed events it actually finds.
         default: "2002-01-01"
       leagues:
         description: "Leagues to seed (comma-separated)"
         type: string
-        default: "mex.1,uefa.euro"
+        default: "uefa.champions,uefa.europa,uefa.europa.conf,uefa.nations,eng.fa,eng.league_cup,esp.copa_del_rey,ita.coppa_italia,ger.dfb_pokal,fra.coupe_de_france,eng.2,por.1,ned.1,sco.1,concacaf.leagues.cup,concacaf.champions,conmebol.america,concacaf.gold,conmebol.libertadores,fifa.cwc"
       dry_run:
         description: "Roll back all DB changes (validate only)"
         type: boolean
@@ -62,7 +68,7 @@ jobs:
       # Skipped on a dry run so a validate-only pass touches nothing.
       - name: Insert league rows
         if: ${{ env.DATABASE_URL != '' && github.event.inputs.dry_run != 'true' }}
-        run: psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f supabase/migrations/20260629_add_liga_mx_uefa_euro_leagues.sql
+        run: psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f "${{ github.event.inputs.migration }}"
 
       - name: Seed teams / venues / events
         if: ${{ env.DATABASE_URL != '' }}
@@ -73,12 +79,12 @@ jobs:
       # and committed locally afterward.
       - name: Geocode new venues
         if: ${{ env.DATABASE_URL != '' && env.SUPABASE_PAT != '' && github.event.inputs.dry_run != 'true' }}
-        run: node scripts/data/geocode-venues.mjs --limit=200
+        run: node scripts/data/geocode-venues.mjs --limit=500
 
       # Rebuild the per-league "Grounds" system lists from each domestic soccer
       # league's latest season (idempotent: drops + recreates the soccer Grounds
-      # lists). Picks up a newly seeded league like Liga MX. Harmless for
-      # non-soccer backfills — it just refreshes the existing soccer lists.
+      # lists). Picks up newly seeded domestic leagues. Harmless for non-domestic
+      # backfills — it just refreshes the existing soccer lists.
       - name: Build soccer Grounds lists
         if: ${{ env.DATABASE_URL != '' && github.event.inputs.dry_run != 'true' }}
         run: psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f scripts/data/010-soccer-grounds-lists.sql
