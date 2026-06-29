@@ -20,7 +20,7 @@ const db = new Client({ connectionString: process.env.DATABASE_URL });
 await db.connect();
 const q = async (sql) => (await db.query(sql)).rows;
 
-const [[totals], [cities], bySport, topVenues, topAthletes, [range], mapPoints] = await Promise.all([
+const [[totals], [cities], bySport, topVenues, topAthletes, perSport, intl, [range], mapPoints] = await Promise.all([
   q(`select
        count(*)::int as logs,
        count(distinct user_id)::int as fans,
@@ -30,14 +30,29 @@ const [[totals], [cities], bySport, topVenues, topAthletes, [range], mapPoints] 
   q(`select count(distinct v.city)::int as cities
        from event_logs el join venues v on v.id = el.venue_id where v.city is not null`),
   q(`select sport, count(*)::int as c from event_logs where sport is not null group by sport order by c desc`),
-  q(`select v.name, v.city, count(*)::int as c
+  q(`select v.name, v.city, v.photo_url, count(*)::int as c
        from event_logs el join venues v on v.id = el.venue_id
-      group by v.id, v.name, v.city order by c desc limit 12`),
-  q(`select a.name, a.sport::text as sport, count(*)::int as c
+      group by v.id, v.name, v.city, v.photo_url order by c desc limit 12`),
+  q(`select a.name, a.sport::text as sport, a.headshot_url, count(*)::int as c
        from event_logs el
        join event_athletes ea on ea.event_id = el.event_id
        join athletes a on a.id = ea.athlete_id
-      group by a.id, a.name, a.sport order by c desc limit 12`),
+      group by a.id, a.name, a.sport, a.headshot_url order by c desc limit 12`),
+  // Most-seen athlete per sport (one each), to show range beyond baseball.
+  q(`select sport, name, headshot_url, c from (
+       select a.sport::text as sport, a.name, a.headshot_url, count(*)::int as c,
+              row_number() over (partition by a.sport order by count(*) desc) as rn
+         from event_logs el
+         join event_athletes ea on ea.event_id = el.event_id
+         join athletes a on a.id = ea.athlete_id
+        where a.sport is not null
+        group by a.id, a.sport, a.name, a.headshot_url
+     ) t where rn = 1 order by c desc`),
+  // Venues logged outside the US.
+  q(`select v.name, v.city, v.country, count(*)::int as c
+       from event_logs el join venues v on v.id = el.venue_id
+      where v.country is not null and v.country <> 'US'
+      group by v.id, v.name, v.city, v.country order by c desc`),
   q(`select min(created_at)::date as first_log, max(created_at)::date as last_log from event_logs`),
   q(`select count(*)::int as c,
             round(extensions.ST_Y(v.location::extensions.geometry)::numeric, 4) as lat,
@@ -54,6 +69,8 @@ const out = {
   bySport,
   topVenues,
   topAthletes,
+  perSport,
+  intl,
   mapPoints: mapPoints.map((p) => ({ c: p.c, lat: Number(p.lat), lng: Number(p.lng) })),
 };
 
