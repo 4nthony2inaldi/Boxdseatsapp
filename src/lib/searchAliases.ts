@@ -89,11 +89,39 @@ function aliasKey(raw: string): string {
 
 /**
  * The search term plus any nickname expansion. Returns `[raw]` for an ordinary
- * query, or `[raw, canonical]` when the whole query is a known nickname — so the
- * real name is searched too without ever dropping the original match.
+ * query; adds the canonical name(s) when the query is — or is the start of — a
+ * known nickname, so live typing works ("sixer" still finds the 76ers) without
+ * ever dropping the original match.
+ *
+ * Prefix matches are capped so a stopword-ish prefix ("the") that hits many
+ * nicknames doesn't dump a pile of unrelated names into the query.
  */
 export function expandSearchTerms(raw: string): string[] {
   const key = aliasKey(raw);
-  const extra = SEARCH_ALIASES[key];
-  return extra ? [raw, extra] : [raw];
+  if (!key) return [raw];
+
+  const exact = SEARCH_ALIASES[key];
+  if (exact) return [raw, exact];
+
+  if (key.length >= 3) {
+    const vals = [
+      ...new Set(
+        Object.entries(SEARCH_ALIASES)
+          .filter(([k]) => k.startsWith(key))
+          .map(([, v]) => v)
+      ),
+    ];
+    if (vals.length > 0 && vals.length <= 3) return [raw, ...vals];
+  }
+  return [raw];
+}
+
+/**
+ * Build a PostgREST `.or(...)` filter string that ilike-matches every term
+ * against every column, e.g. `name.ilike.%a%,name.ilike.%b%`. Terms must
+ * already be sanitized (they are: the user term via sanitizeSearchTerm, the
+ * alias values are hand-curated and free of PostgREST-structural characters).
+ */
+export function orIlike(terms: string[], columns: string[]): string {
+  return terms.flatMap((t) => columns.map((c) => `${c}.ilike.%${t}%`)).join(",");
 }
