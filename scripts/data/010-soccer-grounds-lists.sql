@@ -7,9 +7,11 @@ BEGIN
   DELETE FROM lists WHERE source='system' AND name LIKE '% Grounds' AND sport='soccer';
 
   -- Domestic leagues with stable home grounds get a "Grounds" challenge list.
-  -- (Tournaments like the World Cup / UEFA Euros are excluded: venues change
-  -- every edition, so "visit them all" isn't a meaningful list.)
-  FOR lg IN SELECT id, slug, name FROM leagues WHERE slug IN ('eng.1','esp.1','ger.1','ita.1','fra.1','mex.1') LOOP
+  -- (Tournaments and knockout cups -- World Cup, Euros, Champions/Europa League,
+  -- the FA Cup, etc. -- are excluded: their venues change every edition and
+  -- finals are at neutral sites, so "visit them all" isn't a meaningful list.)
+  FOR lg IN SELECT id, slug, name FROM leagues WHERE slug IN
+    ('eng.1','esp.1','ger.1','ita.1','fra.1','mex.1','eng.2','por.1','ned.1','sco.1') LOOP
     SELECT max(season) INTO maxseason FROM events WHERE league_id = lg.id;
     INSERT INTO lists (name, description, list_type, source, sport, league_id, is_featured, item_count)
     VALUES (lg.name || ' Grounds', 'Visit every ' || lg.name || ' ground from the latest season.', 'venue', 'system', 'soccer', lg.id, false, 0)

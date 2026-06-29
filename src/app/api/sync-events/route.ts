@@ -32,6 +32,31 @@ const LEAGUE_PATHS: Record<string, string> = {
   "mex.1": "soccer/mex.1",
   "fifa.world": "soccer/fifa.world",
   "uefa.euro": "soccer/uefa.euro",
+  // UEFA club + nations competitions
+  "uefa.champions": "soccer/uefa.champions",
+  "uefa.europa": "soccer/uefa.europa",
+  "uefa.europa.conf": "soccer/uefa.europa.conf",
+  "uefa.nations": "soccer/uefa.nations",
+  // Domestic cups
+  "eng.fa": "soccer/eng.fa",
+  "eng.league_cup": "soccer/eng.league_cup",
+  "esp.copa_del_rey": "soccer/esp.copa_del_rey",
+  "ita.coppa_italia": "soccer/ita.coppa_italia",
+  "ger.dfb_pokal": "soccer/ger.dfb_pokal",
+  "fra.coupe_de_france": "soccer/fra.coupe_de_france",
+  // More domestic leagues
+  "eng.2": "soccer/eng.2",
+  "por.1": "soccer/por.1",
+  "ned.1": "soccer/ned.1",
+  "sco.1": "soccer/sco.1",
+  // North America
+  "concacaf.leagues.cup": "soccer/concacaf.leagues.cup",
+  "concacaf.champions": "soccer/concacaf.champions",
+  // International + South America
+  "conmebol.america": "soccer/conmebol.america",
+  "concacaf.gold": "soccer/concacaf.gold",
+  "conmebol.libertadores": "soccer/conmebol.libertadores",
+  "fifa.cwc": "soccer/fifa.cwc",
 };
 
 const LEAGUE_SPORTS: Record<string, string> = {
@@ -50,6 +75,26 @@ const LEAGUE_SPORTS: Record<string, string> = {
   "mex.1": "soccer",
   "fifa.world": "soccer",
   "uefa.euro": "soccer",
+  "uefa.champions": "soccer",
+  "uefa.europa": "soccer",
+  "uefa.europa.conf": "soccer",
+  "uefa.nations": "soccer",
+  "eng.fa": "soccer",
+  "eng.league_cup": "soccer",
+  "esp.copa_del_rey": "soccer",
+  "ita.coppa_italia": "soccer",
+  "ger.dfb_pokal": "soccer",
+  "fra.coupe_de_france": "soccer",
+  "eng.2": "soccer",
+  "por.1": "soccer",
+  "ned.1": "soccer",
+  "sco.1": "soccer",
+  "concacaf.leagues.cup": "soccer",
+  "concacaf.champions": "soccer",
+  "conmebol.america": "soccer",
+  "concacaf.gold": "soccer",
+  "conmebol.libertadores": "soccer",
+  "fifa.cwc": "soccer",
 };
 
 type EspnEvent = {
@@ -141,6 +186,36 @@ async function handleSync(request: Request) {
     venueByName.set(normName(v.name), v.id);
   }
 
+  // Shared soccer team lookup, by ESPN id, across every soccer league we carry.
+  // A club plays the same fixtures-worth of competitions from one home base:
+  // Arsenal is in eng.1, the Champions League, and the FA Cup. Teams are stored
+  // once (under their domestic league) and reused, so resolving a cup or
+  // continental fixture must look across all soccer leagues — a per-league map
+  // would miss Arsenal when syncing the Champions League and skip the game.
+  // Built once and shared by every soccer league in the loop. ESPN club ids are
+  // unique within soccer, so there's no cross-sport collision; non-soccer
+  // leagues keep their own per-league map below.
+  const soccerLeagueIds: string[] = [];
+  for (const [slug, id] of leagueIds) {
+    if (LEAGUE_SPORTS[slug] === "soccer") soccerLeagueIds.push(id);
+  }
+  const soccerTeamByEspn = new Map<string, string>();
+  if (soccerLeagueIds.length > 0) {
+    for (let from = 0; ; from += 1000) {
+      const { data: page } = await supabase
+        .from("teams")
+        .select("id, external_ids")
+        .in("league_id", soccerLeagueIds)
+        .range(from, from + 999);
+      if (!page || page.length === 0) break;
+      for (const t of page) {
+        const espn = (t.external_ids as Record<string, string>)?.espn;
+        if (espn) soccerTeamByEspn.set(String(espn), t.id);
+      }
+      if (page.length < 1000) break;
+    }
+  }
+
   const report: Record<string, Record<string, number>> = {};
 
   for (const [slug, path] of Object.entries(LEAGUE_PATHS)) {
@@ -156,15 +231,22 @@ async function handleSync(request: Request) {
     };
     report[slug] = stats;
 
-    // Teams in this league, by ESPN id
-    const { data: teams } = await supabase
-      .from("teams")
-      .select("id, external_ids")
-      .eq("league_id", leagueId);
-    const teamByEspn = new Map<string, string>();
-    for (const t of teams || []) {
-      const espn = (t.external_ids as Record<string, string>)?.espn;
-      if (espn) teamByEspn.set(String(espn), t.id);
+    // Teams, by ESPN id. Soccer leagues share one cross-league map (so cup and
+    // continental fixtures resolve clubs that live under their domestic league);
+    // every other sport keeps a per-league map.
+    let teamByEspn: Map<string, string>;
+    if (LEAGUE_SPORTS[slug] === "soccer") {
+      teamByEspn = soccerTeamByEspn;
+    } else {
+      const { data: teams } = await supabase
+        .from("teams")
+        .select("id, external_ids")
+        .eq("league_id", leagueId);
+      teamByEspn = new Map<string, string>();
+      for (const t of teams || []) {
+        const espn = (t.external_ids as Record<string, string>)?.espn;
+        if (espn) teamByEspn.set(String(espn), t.id);
+      }
     }
 
     // Existing events in the window, by ESPN id
