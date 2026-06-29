@@ -1,5 +1,6 @@
 import { SupabaseClient } from "@supabase/supabase-js";
 import { sanitizeSearchTerm } from "./searchSanitize";
+import { expandSearchTerms } from "@/lib/searchAliases";
 
 // ── Username validation ──
 
@@ -74,31 +75,44 @@ export async function searchTeams(
 ): Promise<{ id: string; name: string; short_name: string; league_name: string | null }[]> {
   const raw = sanitizeSearchTerm(query);
   if (!raw) return [];
-  const pattern = `%${raw}%`;
+  // Expand well-known nicknames ("sixers" -> "76ers") and also match the
+  // abbreviation column ("UNC" -> North Carolina) so search is more forgiving.
+  const terms = expandSearchTerms(raw);
+  const ors = terms.flatMap((t) => [
+    `name.ilike.%${t}%`,
+    `short_name.ilike.%${t}%`,
+    `abbreviation.ilike.%${t}%`,
+  ]);
   // Pull a wider pool than we return, then rank — with full D1 membership a
   // league can have hundreds of teams and an unranked LIMIT can drop the
   // obvious match (e.g. shared mascots like "Bulldogs").
   let q = supabase
     .from("teams")
-    .select("id, name, short_name, leagues!inner(name, slug)")
-    .or(`name.ilike.${pattern},short_name.ilike.${pattern}`)
+    .select("id, name, short_name, abbreviation, leagues!inner(name, slug)")
+    .or(ors.join(","))
     .limit(Math.max(limit * 6, 60));
   if (leagueSlug) q = q.eq("leagues.slug", leagueSlug);
   const { data } = await q;
   if (!data) return [];
 
   const norm = (s: string) => s.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase().trim();
-  const nq = norm(raw);
-  const score = (name: string, short: string): number => {
-    const n = norm(name), s = norm(short);
-    if (n === nq || s === nq) return 0;
-    if (n.startsWith(nq) || s.startsWith(nq)) return 1;
-    if (n.split(/\s+/).some((w) => w.startsWith(nq)) || s.split(/\s+/).some((w) => w.startsWith(nq))) return 2;
-    return 3;
+  const nterms = terms.map(norm);
+  // Best (lowest) match rank across the original query and any nickname it
+  // expands to: exact = 0, prefix = 1, word-prefix = 2, substring = 3.
+  const score = (name: string, short: string, abbr: string): number => {
+    const n = norm(name), s = norm(short), a = norm(abbr || "");
+    let best = 4;
+    for (const t of nterms) {
+      if (n === t || s === t || a === t) best = Math.min(best, 0);
+      else if (n.startsWith(t) || s.startsWith(t) || a.startsWith(t)) best = Math.min(best, 1);
+      else if (n.split(/\s+/).some((w) => w.startsWith(t)) || s.split(/\s+/).some((w) => w.startsWith(t))) best = Math.min(best, 2);
+      else if (n.includes(t) || s.includes(t) || a.includes(t)) best = Math.min(best, 3);
+    }
+    return best;
   };
 
   return [...data]
-    .sort((a, b) => score(a.name, a.short_name) - score(b.name, b.short_name) || a.name.length - b.name.length || a.name.localeCompare(b.name))
+    .sort((a, b) => score(a.name, a.short_name, a.abbreviation) - score(b.name, b.short_name, b.abbreviation) || a.name.length - b.name.length || a.name.localeCompare(b.name))
     .slice(0, limit)
     .map((t) => {
       const league = t.leagues as unknown as { name: string } | null;
@@ -116,6 +130,9 @@ export async function searchVenuesForOnboarding(
   // Nothing to show until the user types or picks a sport to browse.
   if (!trimmed && !sport) return [];
 
+  // Expand well-known acronyms/nicknames ("msg" -> "madison square garden").
+  const terms = trimmed ? expandSearchTerms(trimmed) : [];
+
   // Match former/alternate names too (e.g. "Staples Center" -> Crypto.com
   // Arena), so a venue logged under an outdated name is still findable.
   let aliasIds: string[] = [];
@@ -123,7 +140,7 @@ export async function searchVenuesForOnboarding(
     const { data: aliasRows } = await supabase
       .from("venue_aliases")
       .select("venue_id")
-      .ilike("alias_name", `%${trimmed}%`)
+      .or(terms.map((t) => `alias_name.ilike.%${t}%`).join(","))
       .limit(limit);
     aliasIds = [...new Set((aliasRows || []).map((a) => a.venue_id as string))];
   }
@@ -134,7 +151,7 @@ export async function searchVenuesForOnboarding(
     .eq("status", "active");
   if (sport) q = q.eq("primary_sport", sport);
   if (trimmed) {
-    const ors = [`name.ilike.%${trimmed}%`, `city.ilike.%${trimmed}%`];
+    const ors = terms.flatMap((t) => [`name.ilike.%${t}%`, `city.ilike.%${t}%`]);
     if (aliasIds.length) ors.push(`id.in.(${aliasIds.join(",")})`);
     q = q.or(ors.join(","));
   }
