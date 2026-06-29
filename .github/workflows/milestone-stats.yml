@@ -1,0 +1,33 @@
+name: Milestone stats (read-only)
+
+# Prints aggregate stats (totals, by-sport, top venues, most-seen athletes, map
+# points) for marketing/milestone content. Read-only — no writes. Requires the
+# DATABASE_URL repository secret.
+
+on:
+  workflow_dispatch:
+
+concurrency:
+  group: milestone-stats
+  cancel-in-progress: false
+
+jobs:
+  stats:
+    runs-on: ubuntu-latest
+    env:
+      DATABASE_URL: ${{ secrets.DATABASE_URL }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Notice when DATABASE_URL is missing
+        if: ${{ env.DATABASE_URL == '' }}
+        run: |
+          echo "::warning::milestone-stats skipped — set the DATABASE_URL repository secret to enable."
+          exit 0
+      - name: Compute stats
+        if: ${{ env.DATABASE_URL != '' }}
+        run: node scripts/data/milestone-stats.mjs
