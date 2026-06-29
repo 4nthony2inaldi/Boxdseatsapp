@@ -57,6 +57,13 @@ const LEAGUES = {
   'ger.1': { sport: 'soccer', espn: 'ger.1', soccer: true },
   'ita.1': { sport: 'soccer', espn: 'ita.1', soccer: true },
   'fra.1': { sport: 'soccer', espn: 'fra.1', soccer: true },
+  'mex.1': { sport: 'soccer', espn: 'mex.1', soccer: true },
+  // UEFA European Championship: an international tournament, not a domestic
+  // league. National teams aren't reliably listed by the /teams endpoint and
+  // only a handful appear per tournament, so create them lazily from match
+  // data (same approach as college). Tournament rounds classify as postseason
+  // with a humanized round_or_stage.
+  'uefa.euro': { sport: 'soccer', espn: 'uefa.euro', soccer: true, lazyTeams: true },
   // College basketball: full schedule (regular season + postseason). The ESPN
   // college scoreboard rejects date RANGES and defaults to only a featured
   // handful of games per day, so we fetch one day at a time with groups=50
