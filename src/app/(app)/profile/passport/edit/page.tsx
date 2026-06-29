@@ -1,6 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
-import { fetchPassportListOptions } from "@/lib/queries/passport";
+import { fetchPassportListOptions, fetchRooting } from "@/lib/queries/passport";
 import PassportEditor from "@/components/passport/PassportEditor";
 
 export const dynamic = "force-dynamic";
@@ -17,9 +17,12 @@ export default async function PassportEditPage() {
     .single();
   if (!profile) redirect("/login");
 
-  const options = await fetchPassportListOptions(supabase, user.id);
+  const config = (profile.passport_config as { lists?: string[]; hidden?: string[]; rootingOrder?: string[] } | null) ?? null;
 
-  const config = (profile.passport_config as { lists?: string[]; hidden?: string[] } | null) ?? null;
+  const [options, rooting] = await Promise.all([
+    fetchPassportListOptions(supabase, user.id),
+    fetchRooting(supabase, user.id, config?.rootingOrder ?? []),
+  ]);
   // Default selection mirrors the passport's default: top-6 most-progressed.
   const initialSelected =
     config?.lists && config.lists.length > 0
@@ -34,6 +37,7 @@ export default async function PassportEditPage() {
       options={options}
       initialSelected={initialSelected}
       initialHidden={initialHidden}
+      initialRooting={rooting}
     />
   );
 }

@@ -75,7 +75,7 @@ export async function GET(_req: Request, { params }: { params: Promise<{ usernam
     [data.stats.winPct !== null ? `${data.stats.winPct}%` : "—", "FAN WIN%", true],
   ];
   const heroRing = data.topComplete[0] ?? null;
-  const teams = data.teams.slice(0, 4); // share card fits 4 teams
+  const rooting = data.rooting.slice(0, 4); // share card fits 4
   const { landPath, bubbles } = buildPassportMap(data.venues, MAP_W, MAP_H, 20);
 
   return new ImageResponse(
@@ -114,14 +114,20 @@ export async function GET(_req: Request, { params }: { params: Promise<{ usernam
         {/* Body: teams + hero ring | map */}
         <div style={{ display: "flex", flex: 1 }}>
           <div style={{ display: "flex", width: 300, flexDirection: "column", alignItems: "center", justifyContent: "center" }}>
-            {teams.length > 0 && (
+            {rooting.length > 0 && (
               <div style={{ display: "flex", marginBottom: 26 }}>
-                {teams.map((t, i) => (
-                  <div key={t.id} style={{ display: "flex", marginLeft: i === 0 ? 0 : 12, width: 52, height: 52, borderRadius: 999, background: "#1C2530", alignItems: "center", justifyContent: "center", overflow: "hidden" }}>
-                    {t.logo_url ? (
-                      <img src={t.logo_url} width={42} height={42} style={{ objectFit: "contain" }} alt="" />
+                {rooting.map((r, i) => (
+                  <div key={r.key} style={{ display: "flex", marginLeft: i === 0 ? 0 : 12, width: 52, height: 52, borderRadius: 999, background: "#1C2530", alignItems: "center", justifyContent: "center", overflow: "hidden" }}>
+                    {r.imageUrl ? (
+                      <img
+                        src={r.imageUrl}
+                        width={r.kind === "athlete" ? 52 : 42}
+                        height={r.kind === "athlete" ? 52 : 42}
+                        style={{ objectFit: r.kind === "athlete" ? "cover" : "contain" }}
+                        alt=""
+                      />
                     ) : (
-                      <div style={{ display: "flex", fontSize: 14, fontWeight: 700, color: SUB }}>{t.name.slice(0, 3).toUpperCase()}</div>
+                      <div style={{ display: "flex", fontSize: 14, fontWeight: 700, color: SUB }}>{r.name.slice(0, 3).toUpperCase()}</div>
                     )}
                   </div>
                 ))}

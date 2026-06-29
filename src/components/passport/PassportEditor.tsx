@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef, useEffect } from "react";
+import Image from "next/image";
 import MiniLabel from "@/components/MiniLabel";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
@@ -8,7 +9,7 @@ import SportIcon from "@/components/SportIcon";
 import Button from "@/components/Button";
 import PageHeader from "@/components/PageHeader";
 import { toastError } from "@/components/Toaster";
-import type { PassportListOption } from "@/lib/queries/passport";
+import type { PassportListOption, RootingEntry } from "@/lib/queries/passport";
 
 const SECTIONS = [
   { key: "map", label: "Map" },
@@ -25,18 +26,62 @@ export default function PassportEditor({
   options,
   initialSelected,
   initialHidden,
+  initialRooting,
 }: {
   userId: string;
   username: string;
   options: PassportListOption[];
   initialSelected: string[];
   initialHidden: string[];
+  initialRooting: RootingEntry[];
 }) {
   const router = useRouter();
   const [selected, setSelected] = useState<string[]>(initialSelected);
   const [hidden, setHidden] = useState<Set<string>>(new Set(initialHidden));
+  const [rooting, setRooting] = useState<RootingEntry[]>(initialRooting);
+  const [dragIndex, setDragIndex] = useState<number | null>(null);
   const [saving, setSaving] = useState(false);
   const supabase = createClient();
+
+  // ── Drag-to-reorder the Rooting For row (pointer based, touch + mouse) ──
+  const rowRefs = useRef<(HTMLDivElement | null)[]>([]);
+  const rootingRef = useRef(rooting);
+  const dragIndexRef = useRef(dragIndex);
+  useEffect(() => { rootingRef.current = rooting; }, [rooting]);
+  useEffect(() => { dragIndexRef.current = dragIndex; }, [dragIndex]);
+  useEffect(() => {
+    if (dragIndex === null) return;
+    function onMove(e: PointerEvent) {
+      const from = dragIndexRef.current;
+      if (from === null) return;
+      const y = e.clientY;
+      const list = rootingRef.current;
+      let target = from;
+      for (let i = 0; i < list.length; i++) {
+        const el = rowRefs.current[i];
+        if (!el) continue;
+        const r = el.getBoundingClientRect();
+        if (y < r.top + r.height / 2) { target = i; break; }
+        target = i;
+      }
+      if (target !== from) {
+        setRooting((prev) => {
+          const next = [...prev];
+          const [moved] = next.splice(from, 1);
+          next.splice(target, 0, moved);
+          return next;
+        });
+        setDragIndex(target);
+      }
+    }
+    function onUp() { setDragIndex(null); }
+    window.addEventListener("pointermove", onMove);
+    window.addEventListener("pointerup", onUp);
+    return () => {
+      window.removeEventListener("pointermove", onMove);
+      window.removeEventListener("pointerup", onUp);
+    };
+  }, [dragIndex]);
 
   const selectedSet = new Set(selected);
 
@@ -56,9 +101,10 @@ export default function PassportEditor({
     setSaving(true);
     // Keep rings in the editor's display order (most-progressed first).
     const lists = options.filter((o) => selectedSet.has(o.id)).map((o) => o.id);
+    const rootingOrder = rooting.map((r) => r.key);
     const { error } = await supabase
       .from("profiles")
-      .update({ passport_config: { lists, hidden: [...hidden] } })
+      .update({ passport_config: { lists, hidden: [...hidden], rootingOrder } })
       .eq("id", userId);
     setSaving(false);
     if (error) { toastError("Couldn't save. Please try again."); return; }
@@ -94,6 +140,54 @@ export default function PassportEditor({
           })}
         </div>
       </div>
+
+      {/* Rooting For order — drag to rank teams + field-sport players together */}
+      {rooting.length > 1 && (
+        <div className="px-4 pt-5">
+          <MiniLabel className="mb-2">Rooting For order</MiniLabel>
+          <p className="text-xs text-text-muted mb-2">Drag to rank. Your #1 leads the row — a favorite golfer or driver can sit above any team.</p>
+          <div className="rounded-xl border border-border bg-bg-card overflow-hidden">
+            {rooting.map((r, i) => {
+              const dragging = dragIndex === i;
+              return (
+                <div
+                  key={r.key}
+                  ref={(el) => { rowRefs.current[i] = el; }}
+                  className={`flex items-center gap-2.5 px-3 py-2.5 border-b border-border last:border-b-0 ${dragging ? "bg-bg-elevated opacity-90" : ""}`}
+                >
+                  <button
+                    aria-label="Drag to reorder"
+                    onPointerDown={(e) => { e.preventDefault(); (e.currentTarget as HTMLElement).setPointerCapture?.(e.pointerId); setDragIndex(i); }}
+                    className="touch-none cursor-grab active:cursor-grabbing text-text-muted hover:text-text-secondary p-1 -ml-1"
+                  >
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                      <circle cx="9" cy="6" r="1.6" /><circle cx="15" cy="6" r="1.6" />
+                      <circle cx="9" cy="12" r="1.6" /><circle cx="15" cy="12" r="1.6" />
+                      <circle cx="9" cy="18" r="1.6" /><circle cx="15" cy="18" r="1.6" />
+                    </svg>
+                  </button>
+                  <div className="flex-shrink-0 w-6 h-6 rounded-full bg-bg-elevated flex items-center justify-center text-xs font-semibold text-text-secondary">{i + 1}</div>
+                  <div className="relative w-9 h-9 rounded-full bg-bg-elevated flex items-center justify-center overflow-hidden flex-shrink-0">
+                    {r.imageUrl ? (
+                      <Image
+                        src={r.imageUrl}
+                        alt={r.name}
+                        width={r.kind === "athlete" ? 36 : 28}
+                        height={r.kind === "athlete" ? 36 : 28}
+                        className={r.kind === "athlete" ? "w-full h-full object-cover" : "object-contain"}
+                      />
+                    ) : (
+                      <span className="text-text-secondary text-[10px] font-semibold">{r.name.slice(0, 3).toUpperCase()}</span>
+                    )}
+                  </div>
+                  <span className="flex-1 min-w-0 text-sm text-text-primary truncate">{r.name}</span>
+                  {r.sport && <SportIcon sport={r.sport} size={16} className="flex-shrink-0 opacity-80" />}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
 
       {/* Ring picker */}
       <div className="px-4 pt-5">
