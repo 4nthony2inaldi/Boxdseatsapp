@@ -384,3 +384,110 @@ export async function fetchIngestStatus(admin: SupabaseClient): Promise<{
 
   return { jobs, leagues };
 }
+
+// ── User activity (admin) ─────────────────────────────────────────────────
+
+export type ActivityDay = {
+  /** Calendar day (UTC-5), YYYY-MM-DD. */
+  date: string;
+  newUsers: number;
+  /** Cumulative total users through the end of this day. */
+  totalUsers: number;
+  newLogs: number;
+  /** Cumulative total logs through the end of this day. */
+  totalLogs: number;
+};
+
+export type ActivityTimeseries = {
+  days: ActivityDay[]; // ascending by date
+  totalUsers: number;
+  totalLogs: number;
+  windowDays: number;
+};
+
+/** ESPN-style fixed UTC-5 day bucket — matches the offset the rest of the app
+ *  uses for event dates, so "yesterday" lines up with the owner's day. */
+function localDayUTC5(iso: string): string {
+  return new Date(new Date(iso).getTime() - 5 * 3600 * 1000)
+    .toISOString()
+    .slice(0, 10);
+}
+
+/** All created_at values in `table` at or after `since` (paginated past the
+ *  1000-row cap). Only the timestamp column is fetched. */
+async function createdAtSince(
+  admin: SupabaseClient,
+  table: "profiles" | "event_logs",
+  since: string,
+): Promise<string[]> {
+  const out: string[] = [];
+  for (let from = 0; ; from += 1000) {
+    const { data } = await admin
+      .from(table)
+      .select("created_at")
+      .gte("created_at", since)
+      .order("created_at", { ascending: true })
+      .range(from, from + 999);
+    if (!data || data.length === 0) break;
+    for (const r of data) if (r.created_at) out.push(r.created_at as string);
+    if (data.length < 1000) break;
+  }
+  return out;
+}
+
+/**
+ * Daily new-users and new-logs with running cumulative totals, for the last
+ * `windowDays` days. Cumulative is anchored to the live total counts: the
+ * baseline (everything before the window) is total minus what landed in the
+ * window, so the last day's cumulative equals the true total.
+ */
+export async function fetchActivityTimeseries(
+  admin: SupabaseClient,
+  windowDays = 60,
+): Promise<ActivityTimeseries> {
+  const msDay = 86_400_000;
+  const now = Date.now();
+  // Fetch a day extra (windowDays, not windowDays-1) so rows near the boundary
+  // that shift into an earlier local day still land in the baseline, not lost.
+  const sinceIso = new Date(now - windowDays * msDay).toISOString();
+
+  const [{ count: totalUsers }, { count: totalLogs }, userTs, logTs] =
+    await Promise.all([
+      admin.from("profiles").select("created_at", { count: "exact", head: true }),
+      admin.from("event_logs").select("id", { count: "exact", head: true }),
+      createdAtSince(admin, "profiles", sinceIso),
+      createdAtSince(admin, "event_logs", sinceIso),
+    ]);
+
+  const newUsersByDay = new Map<string, number>();
+  for (const ts of userTs) {
+    const d = localDayUTC5(ts);
+    newUsersByDay.set(d, (newUsersByDay.get(d) ?? 0) + 1);
+  }
+  const newLogsByDay = new Map<string, number>();
+  for (const ts of logTs) {
+    const d = localDayUTC5(ts);
+    newLogsByDay.set(d, (newLogsByDay.get(d) ?? 0) + 1);
+  }
+
+  // The exact calendar days we render (oldest → newest), in UTC-5.
+  const dayKeys: string[] = [];
+  for (let i = windowDays - 1; i >= 0; i--) {
+    dayKeys.push(localDayUTC5(new Date(now - i * msDay).toISOString()));
+  }
+
+  const windowUsers = dayKeys.reduce((s, d) => s + (newUsersByDay.get(d) ?? 0), 0);
+  const windowLogs = dayKeys.reduce((s, d) => s + (newLogsByDay.get(d) ?? 0), 0);
+  let cumUsers = Math.max(0, (totalUsers ?? 0) - windowUsers);
+  let cumLogs = Math.max(0, (totalLogs ?? 0) - windowLogs);
+
+  const days: ActivityDay[] = dayKeys.map((date) => {
+    const nu = newUsersByDay.get(date) ?? 0;
+    const nl = newLogsByDay.get(date) ?? 0;
+    cumUsers += nu;
+    cumLogs += nl;
+    return { date, newUsers: nu, totalUsers: cumUsers, newLogs: nl, totalLogs: cumLogs };
+  });
+
+  return { days, totalUsers: totalUsers ?? 0, totalLogs: totalLogs ?? 0, windowDays };
+}
