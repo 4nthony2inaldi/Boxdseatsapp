@@ -29,7 +29,9 @@ const LEAGUE_PATHS: Record<string, string> = {
   "ger.1": "soccer/ger.1",
   "ita.1": "soccer/ita.1",
   "fra.1": "soccer/fra.1",
+  "mex.1": "soccer/mex.1",
   "fifa.world": "soccer/fifa.world",
+  "uefa.euro": "soccer/uefa.euro",
 };
 
 const LEAGUE_SPORTS: Record<string, string> = {
@@ -45,7 +47,9 @@ const LEAGUE_SPORTS: Record<string, string> = {
   "ger.1": "soccer",
   "ita.1": "soccer",
   "fra.1": "soccer",
+  "mex.1": "soccer",
   "fifa.world": "soccer",
+  "uefa.euro": "soccer",
 };
 
 type EspnEvent = {

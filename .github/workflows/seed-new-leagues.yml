@@ -1,0 +1,76 @@
+name: Backfill new leagues (Liga MX + UEFA Euros)
+
+# One-time historical backfill for leagues newly added to the app. Run manually
+# (Actions -> this workflow -> Run workflow) once the leagues migration is on
+# main. It:
+#   1. inserts the league rows (idempotent; the seeder skips a league whose row
+#      is missing, so this must run first),
+#   2. seeds teams/venues/events from ESPN back to --from for parity with the
+#      other soccer leagues,
+#   3. geocodes the newly created venues so they show up in "happening around
+#      you" and can match photos (still needs venues-geo.json regenerated and
+#      committed afterward, which is a separate local step).
+#
+# mex.1 and uefa.euro are kept FRESH going forward by the Vercel /api/sync-events
+# cron, so they are intentionally NOT added to the recurring event-sync.yml.
+#
+# Requires repository secret DATABASE_URL (direct Postgres). Geocoding also needs
+# SUPABASE_PAT + SUPABASE_PROJECT. Default is a dry run; flip the input off to
+# write. Safe to re-run: events dedupe by ESPN id, league rows ON CONFLICT.
+
+on:
+  workflow_dispatch:
+    inputs:
+      from:
+        description: "Backfill start date (YYYY-MM-DD)"
+        type: string
+        default: "2023-01-01"
+      leagues:
+        description: "Leagues to seed (comma-separated)"
+        type: string
+        default: "mex.1,uefa.euro"
+      dry_run:
+        description: "Roll back all DB changes (validate only)"
+        type: boolean
+        default: true
+
+concurrency:
+  group: seed-new-leagues
+  cancel-in-progress: false
+
+jobs:
+  seed:
+    runs-on: ubuntu-latest
+    env:
+      DATABASE_URL: ${{ secrets.DATABASE_URL }}
+      SUPABASE_PAT: ${{ secrets.SUPABASE_PAT }}
+      SUPABASE_PROJECT: ${{ secrets.SUPABASE_PROJECT }}
+      DRY: ${{ github.event.inputs.dry_run == 'true' && '--dry-run' || '' }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+
+      # Insert the league rows first (the seeder requires them to pre-exist).
+      # Skipped on a dry run so a validate-only pass touches nothing.
+      - name: Insert league rows
+        if: ${{ env.DATABASE_URL != '' && github.event.inputs.dry_run != 'true' }}
+        run: psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f supabase/migrations/20260629_add_liga_mx_uefa_euro_leagues.sql
+
+      - name: Seed teams / venues / events
+        if: ${{ env.DATABASE_URL != '' }}
+        run: node scripts/data/seed-real-data.mjs --leagues=${{ github.event.inputs.leagues }} --from=${{ github.event.inputs.from }} $DRY
+
+      # Geocode the venues just created so they aren't invisible on the map.
+      # venues-geo.json (the photo-finder radius file) must still be regenerated
+      # and committed locally afterward.
+      - name: Geocode new venues
+        if: ${{ env.DATABASE_URL != '' && env.SUPABASE_PAT != '' && github.event.inputs.dry_run != 'true' }}
+        run: node scripts/data/geocode-venues.mjs --limit=200
+
+      - name: Notice when nothing ran
+        if: ${{ env.DATABASE_URL == '' }}
+        run: echo "::warning::seed-new-leagues skipped — set the DATABASE_URL repository secret to enable."
