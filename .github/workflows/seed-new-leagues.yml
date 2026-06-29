@@ -24,7 +24,11 @@ on:
       from:
         description: "Backfill start date (YYYY-MM-DD)"
         type: string
-        default: "2023-01-01"
+        # Deep history for parity with MLS / the US leagues. ESPN has Liga MX
+        # back to the early 2000s and every Euros edition from 2004 on; pre-2004
+        # years just sweep empty (harmless). The seeder only inserts completed
+        # events it actually finds.
+        default: "2002-01-01"
       leagues:
         description: "Leagues to seed (comma-separated)"
         type: string
