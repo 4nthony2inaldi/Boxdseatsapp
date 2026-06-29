@@ -109,7 +109,11 @@ export default function PassportView({ username, displayName, avatarUrl, data, e
       {teams.length > 0 && (
         <div className="mt-5">
           <MiniLabel className="mb-2 px-4">Teams</MiniLabel>
-          <div className="flex gap-3 overflow-x-auto px-4 scroll-fade-x" style={{ scrollbarWidth: "none" }}>
+          {/* Center the avatars when they don't fill the row; scroll when they
+              overflow. w-max + mx-auto centers a narrow row but collapses its
+              auto margins once the content is wider than the viewport. */}
+          <div className="overflow-x-auto px-4 scroll-fade-x" style={{ scrollbarWidth: "none" }}>
+          <div className="flex gap-3 w-max mx-auto">
             {teams.map((t) => (
               <Link
                 key={t.id}
@@ -133,6 +137,7 @@ export default function PassportView({ username, displayName, avatarUrl, data, e
                 )}
               </Link>
             ))}
+          </div>
           </div>
         </div>
       )}
