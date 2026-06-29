@@ -16,6 +16,14 @@ import { recordHeartbeat } from "@/lib/ingest/heartbeat";
  * Query params: ?days=10 (lookback), ?ahead=2 (lookahead), ?dryRun=1
  */
 
+// The leagues are processed sequentially (one ESPN scoreboard fetch + its DB
+// work apiece), and we now carry ~40 of them, so the run needs well more than
+// the platform default function timeout. Sequential is deliberate: it lets each
+// venue insert populate the in-memory cache before the next league reads it, so
+// a venue shared across competitions (Wembley hosts the FA Cup and League Cup
+// finals and England games) isn't created twice. 60s leaves comfortable head.
+export const maxDuration = 60;
+
 const LEAGUE_PATHS: Record<string, string> = {
   nfl: "football/nfl",
   nba: "basketball/nba",
