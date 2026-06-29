@@ -1,0 +1,30 @@
+name: Inspect user (read-only)
+on:
+  workflow_dispatch:
+    inputs:
+      username:
+        description: "Username to inspect"
+        type: string
+        required: true
+concurrency:
+  group: inspect-user
+  cancel-in-progress: false
+jobs:
+  inspect:
+    runs-on: ubuntu-latest
+    env:
+      DATABASE_URL: ${{ secrets.DATABASE_URL }}
+      INSPECT_USER: ${{ github.event.inputs.username }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Inspect
+        if: ${{ env.DATABASE_URL != '' }}
+        run: node scripts/data/inspect-user.mjs
+      - name: Notice when DATABASE_URL is missing
+        if: ${{ env.DATABASE_URL == '' }}
+        run: echo "::warning::inspect-user skipped — set the DATABASE_URL repository secret to enable."
