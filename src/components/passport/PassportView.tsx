@@ -114,12 +114,22 @@ export default function PassportView({ username, displayName, avatarUrl, data, e
               <Link
                 key={t.id}
                 href={`/team/${t.id}`}
-                className="w-14 h-14 flex-shrink-0 rounded-full bg-bg-elevated flex items-center justify-center overflow-hidden hover:opacity-80 transition-opacity"
+                className="relative flex-shrink-0 hover:opacity-80 transition-opacity"
+                title={t.name}
               >
-                {t.logo_url ? (
-                  <Image src={t.logo_url} alt={t.name} width={44} height={44} className="object-contain" />
-                ) : (
-                  <span className="text-text-secondary text-xs font-semibold">{t.name.slice(0, 3).toUpperCase()}</span>
+                <div className="w-14 h-14 rounded-full bg-bg-elevated flex items-center justify-center overflow-hidden">
+                  {t.logo_url ? (
+                    <Image src={t.logo_url} alt={t.name} width={44} height={44} className="object-contain" />
+                  ) : (
+                    <span className="text-text-secondary text-xs font-semibold">{t.name.slice(0, 3).toUpperCase()}</span>
+                  )}
+                </div>
+                {/* Sport badge — tells apart same-school picks that share a logo
+                    (e.g. Pitt football vs Pitt basketball). */}
+                {t.sport && (
+                  <span className="absolute -bottom-0.5 -right-0.5 w-5 h-5 rounded-full bg-bg flex items-center justify-center ring-2 ring-bg">
+                    <SportIcon sport={t.sport} size={12} />
+                  </span>
                 )}
               </Link>
             ))}

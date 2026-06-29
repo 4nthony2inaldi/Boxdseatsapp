@@ -74,8 +74,10 @@ export type PassportData = {
   hidden: string[];
   /** Top 4 most-complete list sets, for the share card. */
   topComplete: PassportRing[];
-  /** Favorite teams (by stack rank). The page shows all; the share card uses the first 4. */
-  teams: { id: string; name: string; logo_url: string | null }[];
+  /** Favorite teams (by stack rank). The page shows all; the share card uses the first 4.
+   *  `sport` drives the per-logo badge that distinguishes same-school picks
+   *  (e.g. Pitt football vs Pitt basketball, which share one logo). */
+  teams: { id: string; name: string; logo_url: string | null; sport: string | null }[];
 };
 
 export type PassportListOption = {
@@ -201,15 +203,25 @@ export async function fetchPassport(
   // the first 4 (which is what fits the card layout).
   const { data: teamFavs } = await supabase
     .from("user_league_favorites")
-    .select("rank, team_id, teams(name, short_name, logo_url)")
+    .select("rank, team_id, teams(name, short_name, logo_url, leagues(sport))")
     .eq("user_id", userId)
     .eq("category", "team")
     .not("team_id", "is", null)
     .order("rank", { ascending: true })
     .limit(20);
   const teams = (teamFavs || []).map((t) => {
-    const tm = t.teams as unknown as { name: string; short_name: string | null; logo_url: string | null } | null;
-    return { id: t.team_id as string, name: tm?.short_name || tm?.name || "", logo_url: tm?.logo_url || null };
+    const tm = t.teams as unknown as {
+      name: string;
+      short_name: string | null;
+      logo_url: string | null;
+      leagues: { sport: string | null } | null;
+    } | null;
+    return {
+      id: t.team_id as string,
+      name: tm?.short_name || tm?.name || "",
+      logo_url: tm?.logo_url || null,
+      sport: tm?.leagues?.sport ?? null,
+    };
   });
 
   // Players you've seen: every athlete who appeared in a game this user logged.
