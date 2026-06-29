@@ -137,6 +137,41 @@ the record. Always dry-run destructive scripts first.
 - Keep user-facing copy plain: no "leverage/utilize/ensure/synergy", minimal em
   dashes (spaces around them), no emoji, no AI-tell phrasing.
 
+## Working agreement (generator / evaluator separation)
+
+There is no staging environment and changes merge straight to `main` (= prod),
+often inside autonomous loops (scheduled wakeups, the sync/ingest crons). That
+makes self-review the weak point: the agent that wrote a change is the one least
+likely to find its flaw, and a wrong assumption that ships gets built on across
+later turns until it's load-bearing. These rules keep a real "no" between
+generation and `main`.
+
+- **High-blast-radius changes get an independent review before merge.** Anything
+  touching DB migrations, production data (seeders/backfills), RLS/auth, push,
+  or a core flow (log, photo finder, ingest): run `/code-review` as a separate
+  skeptical pass (default stance: assume it's broken) and surface its findings in
+  the PR before merging. CI (`tsc`/`lint`/`vitest`) is a gate for "does it
+  compile/pass," not "is it right" — it does not replace the review.
+- **Pause for the user on schema and prod-data changes.** Migrations and
+  data backfills that touch prod wait for an explicit go (use `AskUserQuestion`
+  when scope or blast radius is non-trivial). This is the one human checkpoint
+  that stays open by design — don't weld it shut for speed.
+- **The evaluator should act, not just read.** For UI/web changes, exercise the
+  change (the `verify` skill / Playwright) instead of judging that the code
+  "looks right." For data changes, query the result and check it against an
+  expectation (e.g. a duplicate/row-count audit), don't just trust the run log.
+- **Prefer a deterministic guard over agent judgment.** When an invariant can be
+  enforced in code or the schema (a unique index, `ON CONFLICT`, an idempotent
+  migration), do that rather than relying on the model getting it right every
+  run. Push rule-bound work out of the probabilistic path.
+- **Cap autonomous loops before they run unattended.** A self-driving loop
+  (wakeup chains, run-until-condition) needs an explicit terminal state and a
+  sane iteration/interval ceiling set up front, so a stuck step can't spin.
+- **Trivial changes keep the fast path.** Copy tweaks, config, a Sentry filter,
+  docs: normal CI + merge, no extra review pass.
+
+The fast path stays fast; the rule is about where being wrong is expensive.
+
 ## App Store status
 
 Privacy Policy and Terms live at `/privacy` and `/terms`. Per-content reporting

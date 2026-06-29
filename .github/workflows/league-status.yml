@@ -45,6 +45,33 @@ jobs:
           order by l.display_order, l.name;
           SQL
 
+      # Duplicate-club audit. A given ESPN id should map to exactly ONE team row
+      # within a sport; a club playing several competitions (Arsenal in eng.1,
+      # the Champions League, the FA Cup) must reuse the same row, not spawn one
+      # per competition. This catches a regression in the seeder's sharedTeams
+      # reuse / sync-events' cross-league team map. Zero rows = clean (and a
+      # (sport, espn) unique index would then be safe to add).
+      - name: Duplicate-club audit
+        if: ${{ env.DATABASE_URL != '' }}
+        run: |
+          psql "$DATABASE_URL" -P pager=off -v ON_ERROR_STOP=1 <<'SQL'
+          \echo '=== Duplicate clubs: same ESPN id + same sport in >1 team row ==='
+          select sub.sport, sub.espn, sub.rows, sub.teams
+          from (
+            select l.sport,
+                   t.external_ids->>'espn'                       as espn,
+                   count(*)                                      as rows,
+                   string_agg(t.name || ' [' || l.slug || ']', ', ') as teams
+            from teams t
+            join leagues l on l.id = t.league_id
+            where t.external_ids->>'espn' is not null
+            group by l.sport, t.external_ids->>'espn'
+            having count(*) > 1
+          ) sub
+          order by sub.sport, sub.rows desc, sub.espn
+          limit 200;
+          SQL
+
       - name: Notice when nothing ran
         if: ${{ env.DATABASE_URL == '' }}
         run: echo "::warning::league-status skipped — set the DATABASE_URL repository secret to enable."
