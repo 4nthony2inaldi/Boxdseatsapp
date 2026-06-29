@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import MiniLabel from "@/components/MiniLabel";
 import { createClient } from "@/lib/supabase/client";
 import type { LeagueFavorite } from "@/lib/queries/bigfour";
@@ -38,6 +39,7 @@ export default function VenueFavoritesPicker({ userId, initialFavorites, onChang
   favoritesRef.current = favorites;
   dragIndexRef.current = dragIndex;
   const supabase = createClient();
+  const router = useRouter();
 
   const pickedIds = new Set(favorites.map((f) => f.pick_id));
 
@@ -92,6 +94,9 @@ export default function VenueFavoritesPicker({ userId, initialFavorites, onChang
       setDragIndex(null);
       const result = await reorderLeagueFavorites(supabase, userId, "venue", order);
       if ("error" in result) toastError(result.error);
+      // Bust the client Router Cache so the profile (reached via back-nav)
+      // reflects the new order immediately.
+      else router.refresh();
     }
     window.addEventListener("pointermove", onMove);
     window.addEventListener("pointerup", onUp);
@@ -105,6 +110,8 @@ export default function VenueFavoritesPicker({ userId, initialFavorites, onChang
   async function refresh() {
     const next = await fetchLeagueFavorites(supabase, userId, "venue");
     setFavorites([...next].sort((a, b) => a.rank - b.rank));
+    // Invalidate the cached profile page so the change shows on back-nav.
+    router.refresh();
   }
 
   async function add(venueId: string) {
