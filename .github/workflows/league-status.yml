@@ -49,13 +49,18 @@ jobs:
       # within a sport; a club playing several competitions (Arsenal in eng.1,
       # the Champions League, the FA Cup) must reuse the same row, not spawn one
       # per competition. This catches a regression in the seeder's sharedTeams
-      # reuse / sync-events' cross-league team map. Zero rows = clean (and a
-      # (sport, espn) unique index would then be safe to add).
+      # reuse / sync-events' cross-league team map held.
+      #
+      # Scoped by the same :sport filter as the report. This matters: a global
+      # (sport, espn) check is noisy for college, where men's (ncaam) and
+      # women's (ncaaw) programs legitimately share one ESPN id but are separate
+      # teams — so that pair is NOT a real duplicate. Within soccer there is no
+      # such shared-id case in our data, so soccer rows here are true duplicates.
       - name: Duplicate-club audit
         if: ${{ env.DATABASE_URL != '' }}
         run: |
-          psql "$DATABASE_URL" -P pager=off -v ON_ERROR_STOP=1 <<'SQL'
-          \echo '=== Duplicate clubs: same ESPN id + same sport in >1 team row ==='
+          psql "$DATABASE_URL" -P pager=off -v ON_ERROR_STOP=1 -v sport="$SPORT" <<'SQL'
+          \echo '=== Duplicate clubs: same ESPN id within the filtered sport, >1 team row ==='
           select sub.sport, sub.espn, sub.rows, sub.teams
           from (
             select l.sport,
@@ -65,6 +70,7 @@ jobs:
             from teams t
             join leagues l on l.id = t.league_id
             where t.external_ids->>'espn' is not null
+              and (:'sport' = '' or l.sport = :'sport')
             group by l.sport, t.external_ids->>'espn'
             having count(*) > 1
           ) sub
