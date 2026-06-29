@@ -37,7 +37,7 @@ const NON_TEAM_SPORTS = new Set(["tennis", "golf", "motorsports", "mma", "horse_
 const LEAGUE_PRIORITY: Record<string, number> = {
   nfl: 1, mlb: 2, nba: 3, nhl: 4, "eng.1": 5,
   "pga-tour": 6, atp: 7, f1: 8, "nascar-cup": 9,
-  ncaaf: 10, ncaam: 11, mls: 12,
+  ncaaf: 10, ncaam: 11, mls: 12, "mex.1": 13, "uefa.euro": 14,
 };
 
 /** A one-tap "add this favorite" chip (e.g. teams surfaced by the photo scan). */
