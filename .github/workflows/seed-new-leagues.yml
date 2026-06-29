@@ -75,6 +75,14 @@ jobs:
         if: ${{ env.DATABASE_URL != '' && env.SUPABASE_PAT != '' && github.event.inputs.dry_run != 'true' }}
         run: node scripts/data/geocode-venues.mjs --limit=200
 
+      # Rebuild the per-league "Grounds" system lists from each domestic soccer
+      # league's latest season (idempotent: drops + recreates the soccer Grounds
+      # lists). Picks up a newly seeded league like Liga MX. Harmless for
+      # non-soccer backfills — it just refreshes the existing soccer lists.
+      - name: Build soccer Grounds lists
+        if: ${{ env.DATABASE_URL != '' && github.event.inputs.dry_run != 'true' }}
+        run: psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f scripts/data/010-soccer-grounds-lists.sql
+
       - name: Notice when nothing ran
         if: ${{ env.DATABASE_URL == '' }}
         run: echo "::warning::seed-new-leagues skipped — set the DATABASE_URL repository secret to enable."
