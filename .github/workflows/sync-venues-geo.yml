@@ -15,6 +15,10 @@ on:
         description: "Report the count only; don't open a PR"
         type: boolean
         default: true
+      leagues:
+        description: "Restrict to venues hosting these leagues' events (comma-separated slugs). Blank = all venues with coords."
+        type: string
+        default: ""
 
 permissions:
   contents: write
@@ -47,7 +51,12 @@ jobs:
 
       - name: Regenerate venues-geo.json
         if: ${{ env.DATABASE_URL != '' }}
-        run: node scripts/data/sync-venues-geo.mjs $DRY
+        run: |
+          LEAGUES_ARG=""
+          if [ -n "${{ github.event.inputs.leagues }}" ]; then
+            LEAGUES_ARG="--leagues=${{ github.event.inputs.leagues }}"
+          fi
+          node scripts/data/sync-venues-geo.mjs $DRY $LEAGUES_ARG
 
       - name: Open PR with the additions
         if: ${{ env.DATABASE_URL != '' && github.event.inputs.dry_run != 'true' }}
