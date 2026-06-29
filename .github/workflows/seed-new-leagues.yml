@@ -81,6 +81,13 @@ jobs:
         if: ${{ env.DATABASE_URL != '' && env.SUPABASE_PAT != '' && github.event.inputs.dry_run != 'true' }}
         run: node scripts/data/geocode-venues.mjs --limit=500
 
+      # Fill venue photos (Wikipedia infobox image) for any venue still missing
+      # one, so the new leagues' venues look the same as the rest. Idempotent:
+      # venues that already have photo_url are skipped.
+      - name: Seed venue images
+        if: ${{ env.DATABASE_URL != '' && github.event.inputs.dry_run != 'true' }}
+        run: node scripts/data/seed-venue-images.mjs
+
       # Rebuild the per-league "Grounds" system lists from each domestic soccer
       # league's latest season (idempotent: drops + recreates the soccer Grounds
       # lists). Picks up newly seeded domestic leagues. Harmless for non-domestic
