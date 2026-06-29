@@ -20,7 +20,7 @@ const db = new Client({ connectionString: process.env.DATABASE_URL });
 await db.connect();
 const q = async (sql) => (await db.query(sql)).rows;
 
-const [[totals], [cities], bySport, topVenues, topAthletes, perSport, intl, [range], mapPoints] = await Promise.all([
+const [[totals], [cities], bySport, topVenues, topAthletes, perSport, intl, [range], mapPoints, visitedPoints] = await Promise.all([
   q(`select
        count(*)::int as logs,
        count(distinct user_id)::int as fans,
@@ -60,6 +60,16 @@ const [[totals], [cities], bySport, topVenues, topAthletes, perSport, intl, [ran
        from event_logs el join venues v on v.id = el.venue_id
       where v.location is not null
       group by v.location order by c desc`),
+  // Every venue marked "visited" (any user), with its total logged-game count
+  // (0 = visited but never logged, e.g. a circuit you went to without a game log).
+  q(`select round(extensions.ST_Y(v.location::extensions.geometry)::numeric, 4) as lat,
+            round(extensions.ST_X(v.location::extensions.geometry)::numeric, 4) as lng,
+            count(el.id)::int as c
+       from venues v
+       join venue_visits vv on vv.venue_id = v.id and vv.relationship = 'visited'
+       left join event_logs el on el.venue_id = v.id
+      where v.location is not null
+      group by v.id, v.location`),
 ]);
 await db.end();
 
@@ -72,6 +82,7 @@ const out = {
   perSport,
   intl,
   mapPoints: mapPoints.map((p) => ({ c: p.c, lat: Number(p.lat), lng: Number(p.lng) })),
+  visitedPoints: visitedPoints.map((p) => ({ c: p.c, lat: Number(p.lat), lng: Number(p.lng) })),
 };
 
 console.log("STATS_START");
