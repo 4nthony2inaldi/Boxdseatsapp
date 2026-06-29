@@ -199,6 +199,28 @@ function chunk<T>(a: T[], n: number): T[][] {
 }
 
 /**
+ * Cache the box-score outcome on the event so the ingest sweep can find the
+ * events that still need work with a single indexed query, instead of
+ * re-deriving "what's missing" by scanning every logged event each run.
+ *   pending = logged, still needs a box score (retry).
+ *   done    = athletes ingested (or already present).
+ *   skip    = terminal: no ESPN id, unsupported sport/comp, or a final game
+ *             ESPN has no lineup for — never worth re-attempting.
+ * Best-effort: a state-write failure must never break the ingest itself.
+ */
+async function setBoxScoreState(
+  supabase: SupabaseClient,
+  eventId: string,
+  state: "pending" | "done" | "skip"
+): Promise<void> {
+  try {
+    await supabase.from("events").update({ box_score_state: state }).eq("id", eventId);
+  } catch {
+    /* observability only */
+  }
+}
+
+/**
  * Ingest one event's box score. `supabase` must be a service-role client
  * (writes to athletes / event_athletes bypass RLS, as the script does).
  */
@@ -211,7 +233,7 @@ export async function ingestEventBoxScore(
     .from("event_athletes")
     .select("id", { count: "exact", head: true })
     .eq("event_id", eventId);
-  if ((count ?? 0) > 0) return { status: "already" };
+  if ((count ?? 0) > 0) { await setBoxScoreState(supabase, eventId, "done"); return { status: "already" }; }
 
   // Event meta (sport + slug + espn id + date)
   const { data: ev } = await supabase
@@ -230,17 +252,17 @@ export async function ingestEventBoxScore(
   const slug = league?.slug;
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const date = (ev as any).event_date as string;
-  if (!espnId || !sport || !slug || sport === "tennis") return { status: "skip" };
+  if (!espnId || !sport || !slug || sport === "tennis") { await setBoxScoreState(supabase, eventId, "skip"); return { status: "skip" }; }
 
   const fetched = await fetchEvent(sport, slug, String(espnId), date);
-  if (!fetched) return { status: "skip" };
-  if (!fetched.completed) return { status: "pending" }; // game not final — retry later
+  if (!fetched) { await setBoxScoreState(supabase, eventId, "skip"); return { status: "skip" }; } // unsupported sport/comp — terminal
+  if (!fetched.completed) { await setBoxScoreState(supabase, eventId, "pending"); return { status: "pending" }; } // game not final — retry later
 
   // Dedupe participants by espn id
   const byId = new Map<string, Participant>();
   for (const p of fetched.participants) byId.set(p.espnId, p);
   const participants = [...byId.values()];
-  if (participants.length === 0) return { status: "empty" };
+  if (participants.length === 0) { await setBoxScoreState(supabase, eventId, "skip"); return { status: "empty" }; } // final, but ESPN has no lineup
 
   // Resolve existing athletes by (sport, espn id); insert the genuinely new ones.
   const espnToUuid = new Map<string, string>();
@@ -317,5 +339,6 @@ export async function ingestEventBoxScore(
     await supabase.from("event_athletes").insert(c);
   }
 
+  await setBoxScoreState(supabase, eventId, "done");
   return { status: "ingested", athletesAdded: added, rows: eaRows.length };
 }

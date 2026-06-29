@@ -560,6 +560,7 @@ export type Database = {
         Row: {
           away_score: number | null
           away_team_id: string | null
+          box_score_state: string | null
           cover_photo_event_log_id: string | null
           cover_photo_url: string | null
           created_at: string
@@ -589,6 +590,7 @@ export type Database = {
         Insert: {
           away_score?: number | null
           away_team_id?: string | null
+          box_score_state?: string | null
           cover_photo_event_log_id?: string | null
           cover_photo_url?: string | null
           created_at?: string
@@ -618,6 +620,7 @@ export type Database = {
         Update: {
           away_score?: number | null
           away_team_id?: string | null
+          box_score_state?: string | null
           cover_photo_event_log_id?: string | null
           cover_photo_url?: string | null
           created_at?: string

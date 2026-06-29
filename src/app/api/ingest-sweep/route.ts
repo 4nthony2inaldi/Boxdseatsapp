@@ -8,13 +8,20 @@ import { ingestEventBoxScore } from "@/lib/ingest/boxScore";
  * Reconciliation pass for box-score ingestion. The log flow and onboarding fire
  * a best-effort ingest on save, but that can miss: a game logged before it went
  * final, a fire-and-forget that failed, or any future insert path that forgets.
- * This sweep is the catch-all — it finds events that have been logged but have
- * no event_athletes yet and ingests them, so correctness doesn't depend on
- * every insert site remembering to trigger.
+ * This sweep is the catch-all — it finds events still owed a box score and
+ * ingests them, so correctness doesn't depend on every insert site remembering
+ * to trigger.
  *
- * It only touches events someone actually logged (not whole leagues), reuses
- * ingestEventBoxScore (idempotent + finality-gated), and processes at most
- * `limit` per run so it stays well within the function budget. Runs on a Vercel
+ * It reads the work list straight off events.box_score_state = 'pending', an
+ * indexed column kept current by a trigger on event_logs (a new log marks its
+ * event pending) and by ingestEventBoxScore itself (which flips each event to
+ * done/skip/pending as it resolves). That replaces the old approach of paging
+ * every logged event and every event_athletes row each run to re-derive what
+ * was missing: now the sweep only ever looks at the handful of events that
+ * actually still need work.
+ *
+ * Reuses ingestEventBoxScore (idempotent + finality-gated) and processes at
+ * most `limit` per run so it stays within the function budget. Runs on a Vercel
  * cron (see vercel.json); requires CRON_SECRET bearer auth.
  * Query params: ?limit=25 (max 50), ?dryRun=1
  */
@@ -37,57 +44,27 @@ async function handle(request: Request) {
     process.env.SUPABASE_SERVICE_ROLE_KEY!
   );
 
-  // Distinct event_ids that have been logged.
-  const loggedIds = new Set<string>();
-  for (let from = 0; ; from += 1000) {
-    const { data } = await supabase
-      .from("event_logs")
-      .select("event_id")
-      .not("event_id", "is", null)
-      .range(from, from + 999);
-    if (!data || data.length === 0) break;
-    for (const r of data) if (r.event_id) loggedIds.add(r.event_id as string);
-    if (data.length < 1000) break;
-  }
+  // How many events are owed a box score, for reporting. Head-only count so it
+  // stays O(1) regardless of backlog size.
+  const { count: pendingCount } = await supabase
+    .from("events")
+    .select("id", { count: "exact", head: true })
+    .eq("box_score_state", "pending");
 
-  // Which of those already have athletes. event_athletes holds ~dozens of rows
-  // per event, so a plain .in() over a chunk blows past the 1000-row cap and
-  // silently under-reports — page through each chunk's rows explicitly.
-  const ids = [...loggedIds];
-  const done = new Set<string>();
-  for (let i = 0; i < ids.length; i += 300) {
-    const chunk = ids.slice(i, i + 300);
-    for (let from = 0; ; from += 1000) {
-      const { data } = await supabase
-        .from("event_athletes")
-        .select("event_id")
-        .in("event_id", chunk)
-        .order("event_id", { ascending: true })
-        .range(from, from + 999);
-      if (!data || data.length === 0) break;
-      for (const r of data) if (r.event_id) done.add(r.event_id as string);
-      if (data.length < 1000) break;
-    }
-  }
-
-  const candidates = ids.filter((id) => !done.has(id));
-  // Shuffle before taking the batch. Some candidates can never gain athletes
-  // (not-yet-final games, events with no ESPN id, unsupported comps, empty box
-  // scores) and would otherwise sit at the front of this stable list and get
-  // re-processed every run — starving the ingestable games behind them. A random
-  // sample each run guarantees forward progress instead of a permanent stall.
-  for (let i = candidates.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [candidates[i], candidates[j]] = [candidates[j], candidates[i]];
-  }
-  const batch = candidates.slice(0, limit);
+  // The work list: pending events, newest first so a fresh round of logs gets
+  // box scores before we grind through any older backlog.
+  const { data: batchRows } = await supabase
+    .from("events")
+    .select("id")
+    .eq("box_score_state", "pending")
+    .order("event_date", { ascending: false })
+    .limit(limit);
+  const batch = (batchRows ?? []).map((r) => r.id as string);
 
   if (dryRun) {
     return NextResponse.json({
       dryRun: true,
-      logged: ids.length,
-      withAthletes: done.size,
-      candidates: candidates.length,
+      pending: pendingCount ?? 0,
       wouldProcess: batch.length,
     });
   }
@@ -107,11 +84,9 @@ async function handle(request: Request) {
   }
 
   return NextResponse.json({
-    logged: ids.length,
-    withAthletes: done.size,
-    candidates: candidates.length,
+    pending: pendingCount ?? 0,
     processed: batch.length,
-    remaining: Math.max(0, candidates.length - batch.length),
+    remaining: Math.max(0, (pendingCount ?? 0) - batch.length),
     tally,
     athletesAdded,
     eventAthleteRows: rows,
