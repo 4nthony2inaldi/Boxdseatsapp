@@ -1,5 +1,6 @@
 import { SupabaseClient } from "@supabase/supabase-js";
 import { sanitizeSearchTerm } from "@/lib/queries/searchSanitize";
+import { expandSearchTerms, orIlike } from "@/lib/searchAliases";
 
 // ── Types ──
 
@@ -674,6 +675,9 @@ export async function searchAll(
   if (!q) return { users: [], venues: [], teams: [], lists: [] };
 
   const pattern = `%${q}%`;
+  // Expand nicknames/acronyms ("msg" -> Madison Square Garden, "sixers" -> 76ers)
+  // for venue/team matching. Users and lists keep the literal query.
+  const terms = expandSearchTerms(q);
 
   const [usersRes, venuesRes, teamsRes, listsRes, aliasRes] = await Promise.all([
     // Search users by username or display_name
@@ -688,14 +692,14 @@ export async function searchAll(
       .from("venues")
       .select("id, name, city, state, photo_url")
       .eq("status", "active")
-      .or(`name.ilike.${pattern},city.ilike.${pattern}`)
+      .or(orIlike(terms, ["name", "city"]))
       .limit(limit),
 
-    // Search teams by name or short_name
+    // Search teams by name, short_name, or abbreviation ("UNC")
     supabase
       .from("teams")
       .select("id, name, short_name, logo_url, leagues(name, slug)")
-      .or(`name.ilike.${pattern},short_name.ilike.${pattern}`)
+      .or(orIlike(terms, ["name", "short_name", "abbreviation"]))
       .limit(limit),
 
     // Search lists by name (RLS limits visibility to public/system lists)
@@ -709,7 +713,7 @@ export async function searchAll(
     supabase
       .from("venue_aliases")
       .select("venue_id")
-      .ilike("alias_name", pattern)
+      .or(orIlike(terms, ["alias_name"]))
       .limit(limit),
   ]);
 

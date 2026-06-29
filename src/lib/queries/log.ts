@@ -2,6 +2,7 @@ import { SupabaseClient } from "@supabase/supabase-js";
 import { getSportIconPath } from "@/lib/sportIcons";
 import { checkAndAwardBadges, type BadgeData } from "@/lib/queries/badges";
 import { sanitizeSearchTerm } from "@/lib/queries/searchSanitize";
+import { expandSearchTerms, orIlike } from "@/lib/searchAliases";
 
 // ── Types ──
 
@@ -135,6 +136,9 @@ export async function searchVenues(
   const trimmed = sanitizeSearchTerm(query);
   if (!trimmed) return [];
   const pattern = `%${trimmed}%`;
+  // Expand nicknames/acronyms: "msg" -> Madison Square Garden (name/alias),
+  // "sixers" -> 76ers (team match, which then resolves to its home venue).
+  const terms = expandSearchTerms(trimmed);
 
   // Full state names resolve to their code ("florida" finds FL spring parks)
   const STATE_CODES: Record<string, string> = {
@@ -162,7 +166,7 @@ export async function searchVenues(
     supabase
       .from("venues")
       .select("id, name, city, state, primary_sport")
-      .ilike("name", pattern)
+      .or(orIlike(terms, ["name"]))
       .eq("status", "active")
       .order("name")
       .limit(20),
@@ -170,7 +174,7 @@ export async function searchVenues(
     supabase
       .from("venue_aliases")
       .select("venue_id")
-      .ilike("alias_name", pattern)
+      .or(orIlike(terms, ["alias_name"]))
       .limit(10),
     // City / state ("Bronx", "Florida")
     supabase
@@ -180,11 +184,11 @@ export async function searchVenues(
       .eq("status", "active")
       .order("name")
       .limit(15),
-    // Team names ("Yankees") -> their home venues
+    // Team names ("Yankees", "sixers", "UNC") -> their home venues
     supabase
       .from("teams")
       .select("id")
-      .or(`name.ilike.${pattern},short_name.ilike.${pattern}`)
+      .or(orIlike(terms, ["name", "short_name", "abbreviation"]))
       .limit(10),
   ]);
 
