@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect, useMemo } from "react";
+import { useRouter } from "next/navigation";
 import MiniLabel from "@/components/MiniLabel";
 import { createClient } from "@/lib/supabase/client";
 import type { LeagueFavorite } from "@/lib/queries/bigfour";
@@ -153,6 +154,7 @@ export default function BigFourDrillThrough({
   favoritesRef.current = favorites;
   dragIndexRef.current = dragIndex;
   const supabase = createClient();
+  const router = useRouter();
 
   // Selectable leagues come from the DB so a newly added league appears here
   // automatically — no hardcoded list to maintain.
@@ -229,6 +231,10 @@ export default function BigFourDrillThrough({
       setDragIndex(null);
       const result = await reorderLeagueFavorites(supabase, userId, category, order);
       if ("error" in result) toastError(result.error);
+      // Bust the client Router Cache so the profile page (reached via the back
+      // button, i.e. router.back) re-renders with the new order instead of the
+      // stale pre-edit snapshot.
+      else router.refresh();
     }
 
     window.addEventListener("pointermove", onMove);
@@ -303,6 +309,9 @@ export default function BigFourDrillThrough({
   async function refresh() {
     const next = await fetchLeagueFavorites(supabase, userId, category);
     setFavorites([...next].sort((a, b) => a.rank - b.rank));
+    // Invalidate the cached profile page so the change is there on back-nav,
+    // not only after navigating away and returning.
+    router.refresh();
   }
 
   async function handleSelect(leagueSlug: string, pick: SearchResult) {
