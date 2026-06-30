@@ -8,7 +8,7 @@ import {
 } from "@/lib/queries/onboarding";
 import AvatarUpload from "@/components/AvatarUpload";
 import Button from "@/components/Button";
-import { METROS } from "@/lib/metros";
+import { metrosByRegion } from "@/lib/metros";
 import OnboardingActionBar from "./OnboardingActionBar";
 
 type StepAccountProps = {
@@ -204,11 +204,15 @@ export default function StepAccount({
           className="w-full py-3.5 px-3.5 rounded-xl bg-bg-input border border-border text-text-primary text-[15px] outline-none focus:border-accent transition-colors"
         >
           <option value="">Select your city...</option>
-          {METROS.map((m) => (
-            <option key={m.key} value={m.key}>
-              {m.label}
-              {m.state ? `, ${m.state}` : ""}
-            </option>
+          {metrosByRegion().map(({ region, metros }) => (
+            <optgroup key={region} label={region}>
+              {metros.map((m) => (
+                <option key={m.key} value={m.key}>
+                  {m.label}
+                  {m.state ? `, ${m.state}` : ""}
+                </option>
+              ))}
+            </optgroup>
           ))}
         </select>
       </div>

@@ -12,7 +12,7 @@ import NotificationSettings from "@/components/settings/NotificationSettings";
 import UsernameEditor from "@/components/settings/UsernameEditor";
 import SportIcon from "@/components/SportIcon";
 import { SPORTS_LIST } from "@/lib/sportIcons";
-import { METROS } from "@/lib/metros";
+import { metrosByRegion } from "@/lib/metros";
 import { toastError } from "@/components/Toaster";
 
 type Props = {
@@ -177,11 +177,15 @@ export default function SettingsForm({ profile, userEmail, availableLists }: Pro
             className="w-full py-2 px-3 rounded-lg bg-bg-input border border-border text-text-primary text-sm outline-none"
           >
             <option value="">Not set</option>
-            {METROS.map((m) => (
-              <option key={m.key} value={m.key}>
-                {m.label}
-                {m.state ? `, ${m.state}` : ""}
-              </option>
+            {metrosByRegion().map(({ region, metros }) => (
+              <optgroup key={region} label={region}>
+                {metros.map((m) => (
+                  <option key={m.key} value={m.key}>
+                    {m.label}
+                    {m.state ? `, ${m.state}` : ""}
+                  </option>
+                ))}
+              </optgroup>
             ))}
           </select>
           <p className="text-[11px] text-text-muted mt-1">
