@@ -39,6 +39,8 @@ type MatchCtx = { favTeamIds: Set<string> };
 export type BadgeDef = {
   key: string;
   label: string;
+  /** Compact label shown inside the badge tile; defaults to label. */
+  short?: string;
   group: BadgeGroup;
   // Per-game badge: count = number of logged games that match.
   match?: (r: Row, ctx: MatchCtx) => boolean;
@@ -69,7 +71,7 @@ export const BADGE_CATALOG: BadgeDef[] = [
   { key: "stanley-cup", label: "Stanley Cup", group: "event", match: (r) => r.slug === "nhl" && round(/stanley cup/i)(r) },
   { key: "super-bowl", label: "Super Bowl", group: "event", match: (r) => r.slug === "nfl" && round(/super bowl/i)(r) },
   { key: "world-cup", label: "World Cup", group: "event", match: (r) => !!r.slug && r.slug.startsWith("fifa.world") },
-  { key: "fav-team-road", label: "Favorite Team on the Road", group: "event", match: (r, ctx) => !!r.awayTeamId && ctx.favTeamIds.has(r.awayTeamId) },
+  { key: "fav-team-road", label: "Favorite Team on the Road", short: "Team on Road", group: "event", match: (r, ctx) => !!r.awayTeamId && ctx.favTeamIds.has(r.awayTeamId) },
   {
     key: "multiple-countries",
     label: "Multiple Countries",
@@ -94,6 +96,7 @@ export const BADGE_CATALOG: BadgeDef[] = [
   { key: "pts-40", label: "40-Point Game", group: "stat", match: tag("pts-40") },
   { key: "pts-50", label: "50-Point Game", group: "stat", match: tag("pts-50") },
   { key: "pts-60", label: "60-Point Game", group: "stat", match: tag("pts-60") },
+  { key: "pass-5-td", label: "5 Passing TDs", group: "stat", match: tag("pass-5-td") },
 ];
 
 export function badgeByKey(key: string): BadgeDef | undefined {
@@ -186,7 +189,7 @@ async function fetchFavoriteContext(supabase: SupabaseClient, userId: string): P
   return { favTeamIds };
 }
 
-export type EarnedBadge = { key: string; label: string; group: BadgeGroup; count: number };
+export type EarnedBadge = { key: string; label: string; short: string; group: BadgeGroup; count: number };
 
 /** Count, per catalog badge, how many of the user's logged games earn it.
  *  Returns every badge (count 0 = locked) so the UI can grey unearned ones. */
@@ -201,6 +204,7 @@ export async function fetchUserAchievements(
   return BADGE_CATALOG.map((b) => ({
     key: b.key,
     label: b.label,
+    short: b.short ?? b.label,
     group: b.group,
     count: b.aggregate
       ? b.aggregate(rows, ctx)
