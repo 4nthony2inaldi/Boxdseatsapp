@@ -93,15 +93,26 @@ export async function processClosedVoting(
 ): Promise<{ processed: number; errors: number }> {
   const now = new Date().toISOString();
 
-  // Find events where voting closed and no cover photo yet
-  const { data: events } = await supabase
-    .from("events")
-    .select("id, venue_id")
-    .lt("voting_closes_at", now)
-    .is("cover_photo_event_log_id", null)
-    .not("voting_closes_at", "is", null);
+  // Find events where voting closed and no cover photo yet. Paginate past the
+  // 1,000-row PostgREST cap: events with no photos can never get a cover, so
+  // they persist in this candidate set, and a single select would silently
+  // truncate (and re-scan the same first 1,000) once the backlog crosses 1,000.
+  const events: { id: string; venue_id: string }[] = [];
+  for (let from = 0; ; from += 1000) {
+    const { data } = await supabase
+      .from("events")
+      .select("id, venue_id")
+      .lt("voting_closes_at", now)
+      .is("cover_photo_event_log_id", null)
+      .not("voting_closes_at", "is", null)
+      .order("id", { ascending: true })
+      .range(from, from + 999);
+    if (!data || data.length === 0) break;
+    events.push(...(data as { id: string; venue_id: string }[]));
+    if (data.length < 1000) break;
+  }
 
-  if (!events || events.length === 0) return { processed: 0, errors: 0 };
+  if (events.length === 0) return { processed: 0, errors: 0 };
 
   let processed = 0;
   let errors = 0;
