@@ -17,6 +17,7 @@ import BigFourSection from "@/components/profile/BigFourSection";
 import ActivityChart from "@/components/profile/ActivityChart";
 import PinnedLists from "@/components/profile/PinnedLists";
 import AchievementBadges from "@/components/profile/AchievementBadges";
+import ProfileStickyBar from "@/components/profile/ProfileStickyBar";
 import LatestEvent from "@/components/profile/LatestEvent";
 import SummaryRows from "@/components/profile/SummaryRows";
 import ShareButton from "@/components/sharing/ShareButton";
@@ -77,6 +78,16 @@ export default async function ProfilePage() {
       <HeadshotBackfill />
       <ProfileHeader profile={profile} stats={stats} />
       <StatsRow stats={stats} eventsHref="/timeline" venuesHref="/venues" />
+      <ProfileStickyBar
+        avatarUrl={profile.avatar_url}
+        initial={(profile.display_name || profile.username || "?").charAt(0).toUpperCase()}
+        stats={[
+          { value: stats.totalEvents, label: "Events" },
+          { value: stats.totalVenues, label: "Venues" },
+          { value: stats.followers, label: "Followers" },
+          { value: stats.following, label: "Following" },
+        ]}
+      />
       <BigFourSection items={bigFour} isOwner />
       <ActivityChart months={activityData.months} total={activityData.total} timelineHref="/timeline" />
       <PinnedLists lists={pinnedLists} isOwner />
