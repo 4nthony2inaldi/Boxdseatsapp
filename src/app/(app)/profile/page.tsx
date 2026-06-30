@@ -5,17 +5,18 @@ import {
   fetchBigFour,
   fetchActivityChart,
   fetchPinnedLists,
+  fetchAutoPinnedListIds,
   fetchTimeline,
   fetchProfileSummaryCounts,
   fetchVisitedCityCount,
 } from "@/lib/queries/profile";
-import { fetchUserBadges, fetchTrackedIncomplete } from "@/lib/queries/badges";
+import { fetchUserAchievements } from "@/lib/queries/achievements";
 import ProfileHeader from "@/components/profile/ProfileHeader";
 import StatsRow from "@/components/profile/StatsRow";
 import BigFourSection from "@/components/profile/BigFourSection";
 import ActivityChart from "@/components/profile/ActivityChart";
 import PinnedLists from "@/components/profile/PinnedLists";
-import BadgeSection from "@/components/profile/BadgeSection";
+import AchievementBadges from "@/components/profile/AchievementBadges";
 import LatestEvent from "@/components/profile/LatestEvent";
 import SummaryRows from "@/components/profile/SummaryRows";
 import ShareButton from "@/components/sharing/ShareButton";
@@ -47,19 +48,20 @@ export default async function ProfilePage() {
     );
   }
 
-  const [stats, bigFour, activityData, pinnedLists, timelinePage, summaryCounts, badges, trackedIncomplete, cityCount] =
+  // Pinned lists: manual pins win; otherwise auto-pick the user's two
+  // most-completed lists.
+  const manualPins = [profile.pinned_list_1_id, profile.pinned_list_2_id].filter(Boolean) as string[];
+  const pinIds = manualPins.length > 0 ? manualPins : await fetchAutoPinnedListIds(supabase, user.id);
+
+  const [stats, bigFour, activityData, pinnedLists, timelinePage, summaryCounts, achievements, cityCount] =
     await Promise.all([
       fetchProfileStats(supabase, user.id),
       fetchBigFour(supabase, profile),
       fetchActivityChart(supabase, user.id),
-      fetchPinnedLists(supabase, user.id, [
-        profile.pinned_list_1_id,
-        profile.pinned_list_2_id,
-      ]),
+      fetchPinnedLists(supabase, user.id, pinIds),
       fetchTimeline(supabase, user.id, undefined, 1, 0, undefined, user.id),
       fetchProfileSummaryCounts(supabase, user.id),
-      fetchUserBadges(supabase, user.id),
-      fetchTrackedIncomplete(supabase, user.id),
+      fetchUserAchievements(supabase, user.id),
       fetchVisitedCityCount(supabase, user.id),
     ]);
 
@@ -78,7 +80,7 @@ export default async function ProfilePage() {
       <BigFourSection items={bigFour} isOwner />
       <ActivityChart months={activityData.months} total={activityData.total} timelineHref="/timeline" />
       <PinnedLists lists={pinnedLists} isOwner />
-      <BadgeSection badges={badges} tracked={trackedIncomplete} userId={user.id} showTracked={pinnedLists.length === 0} isOwner />
+      <AchievementBadges badges={achievements} />
       <LatestEvent entry={latestEvent} canEdit viewerId={user.id} />
       <SummaryRows counts={summaryCounts} passportHref={`/@${profile.username}/passport`} />
       {/* Share — lands on the fan passport, a more fun destination than the
