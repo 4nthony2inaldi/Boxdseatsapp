@@ -92,7 +92,7 @@ export default async function UserFavoritesCategoryPage({ params }: Props) {
                 <div className="flex items-center gap-2.5 px-3 py-3">
                   <div
                     className={`flex-shrink-0 w-6 h-6 rounded-full flex items-center justify-center text-xs font-semibold ${
-                      i === 0 ? "bg-accent text-white" : "bg-bg-elevated text-text-secondary"
+                      i === 0 ? "bg-accent text-bg" : "bg-bg-elevated text-text-secondary"
                     }`}
                   >
                     {i + 1}

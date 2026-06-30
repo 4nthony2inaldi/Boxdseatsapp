@@ -101,7 +101,7 @@ export default function ListActions({
           className={`${btnBase} ${
             following
               ? "bg-bg-elevated border-border text-text-secondary hover:border-loss/40 hover:text-loss hover:bg-loss/10"
-              : "bg-accent border-accent text-white hover:opacity-90"
+              : "bg-accent border-accent text-bg hover:opacity-90"
           }`}
         >
           {following ? (

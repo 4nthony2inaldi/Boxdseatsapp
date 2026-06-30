@@ -411,7 +411,7 @@ export default function BigFourDrillThrough({
             onChange={(e) => handleSearch(e.target.value)}
             placeholder={placeholder}
             autoFocus
-            className="w-full py-2.5 px-3 rounded-lg bg-bg-input border border-border text-text-primary text-sm outline-none focus:border-accent transition-colors"
+            className="w-full py-2.5 px-3 rounded-lg bg-bg-input border border-border text-text-primary text-base outline-none focus:border-accent transition-colors"
           />
           {searching && (
             <div className="absolute right-3 top-1/2 -translate-y-1/2">
@@ -424,6 +424,11 @@ export default function BigFourDrillThrough({
             {searchQuery.trim()
               ? "No logged events match."
               : `No logged ${leagueName} events yet — favorite events are picked from events you've logged.`}
+          </p>
+        )}
+        {category !== "event" && !searching && searchResults.length === 0 && searchQuery.trim() && (
+          <p className="mt-2 text-xs text-text-muted">
+            No {category === "athlete" ? "players" : category === "team" ? "teams" : "results"} match &ldquo;{searchQuery.trim()}&rdquo;
           </p>
         )}
         {searchResults.length > 0 && (
@@ -507,7 +512,7 @@ export default function BigFourDrillThrough({
                   {/* Rank badge */}
                   <div
                     className={`flex-shrink-0 w-6 h-6 rounded-full flex items-center justify-center text-xs font-semibold ${
-                      i === 0 ? "bg-accent text-white" : "bg-bg-elevated text-text-secondary"
+                      i === 0 ? "bg-accent text-bg" : "bg-bg-elevated text-text-secondary"
                     }`}
                   >
                     {i + 1}

@@ -103,7 +103,7 @@ export default function StepVenue({ userId, onSelect }: StepVenueProps) {
           placeholder="Search venue, team, or city..."
           aria-label="Search venues"
           autoFocus
-          className="w-full pl-9 pr-3 py-3 rounded-lg bg-bg-input border border-border text-text-primary text-sm outline-none focus:border-accent transition-colors"
+          className="w-full pl-9 pr-3 py-3 rounded-lg bg-bg-input border border-border text-text-primary text-base outline-none focus:border-accent transition-colors"
         />
       </div>
 

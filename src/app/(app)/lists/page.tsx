@@ -48,7 +48,7 @@ export default async function ListsPage({
         </h1>
         <Link
           href="/lists/create"
-          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-accent text-white text-xs font-display tracking-wider uppercase hover:opacity-90 transition-opacity"
+          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-accent text-bg text-xs font-display tracking-wider uppercase hover:opacity-90 transition-opacity"
         >
           <svg
             width="14"

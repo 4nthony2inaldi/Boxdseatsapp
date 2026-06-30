@@ -219,7 +219,7 @@ export default function CommentsSection({ eventLogId, eventId, userId, logOwnerI
       <button
         onClick={handlePost}
         disabled={posting || !body.trim()}
-        className="bg-accent rounded-lg px-4 py-2.5 text-sm text-white font-display tracking-wider uppercase disabled:opacity-40 hover:opacity-90 transition-opacity cursor-pointer disabled:cursor-not-allowed"
+        className="bg-accent rounded-lg px-4 py-2.5 text-sm text-bg font-display tracking-wider uppercase disabled:opacity-40 hover:opacity-90 transition-opacity cursor-pointer disabled:cursor-not-allowed"
       >
         {posting ? "..." : "Post"}
       </button>

@@ -169,7 +169,7 @@ export default function UserList({
                   ? "bg-bg-elevated border border-border text-text-secondary hover:bg-loss/20 hover:text-loss hover:border-loss/30"
                   : user.isPending
                   ? "bg-bg-elevated border border-border text-text-muted"
-                  : "bg-accent text-white hover:opacity-90"
+                  : "bg-accent text-bg hover:opacity-90"
               }`}
             >
               {togglingId === user.id

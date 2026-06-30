@@ -270,7 +270,7 @@ export default function StepDate({
                           onClick={() => setJumpYear(y)}
                           className={`py-2 rounded-lg text-[12px] cursor-pointer transition-colors ${
                             y === viewYear
-                              ? "bg-accent text-white font-semibold"
+                              ? "bg-accent text-bg font-semibold"
                               : n > 0
                                 ? "bg-bg-input text-text-primary hover:bg-accent/15"
                                 : "bg-transparent text-text-muted/50 hover:bg-bg-input"
@@ -366,7 +366,7 @@ export default function StepDate({
                   disabled={future}
                   className={`p-2 rounded-lg text-[13px] relative transition-colors ${
                     isSelected
-                      ? "bg-accent text-white font-semibold"
+                      ? "bg-accent text-bg font-semibold"
                       : hasEvent
                         ? "text-text-primary font-semibold cursor-pointer hover:bg-accent/15"
                         : future
