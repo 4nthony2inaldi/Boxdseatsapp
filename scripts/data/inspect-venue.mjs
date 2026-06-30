@@ -25,7 +25,9 @@ const q = async (sql, p = []) => (await db.query(sql, p)).rows;
 console.log("STATS_START");
 
 const venues = await q(
-  `select v.id, v.name, v.city, v.country, v.latitude, v.longitude,
+  `select v.id, v.name, v.city, v.state, v.country, v.primary_sport,
+          extensions.ST_Y(v.location::extensions.geometry) as lat,
+          extensions.ST_X(v.location::extensions.geometry) as lng,
           v.external_ids->>'espn' as espn,
           (select count(*) from events e where e.venue_id = v.id)::int as events
      from venues v
