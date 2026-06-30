@@ -60,6 +60,22 @@ const GROUNDS = [
   { names: ['hands oval'], city: 'Bunbury', state: 'WA', lat: -33.3358, lng: 115.642 },
   { names: ['rushton park'], city: 'Mandurah', state: 'WA', lat: -32.5295, lng: 115.729 },
   { names: ['flinders university stadium', 'flinders university'], city: 'Adelaide', state: 'SA', lat: -35.0277, lng: 138.572 },
+  // Additional known AFL/AFLW grounds surfaced by the repair (well-known venues;
+  // obscure one-off country reserves are intentionally left uncoordinated).
+  { names: ['accor stadium', 'stadium australia', 'anz stadium'], city: 'Sydney', state: 'NSW', lat: -33.847, lng: 151.0634 },
+  { names: ['ikon park', 'princes park'], city: 'Melbourne', state: 'VIC', lat: -37.7847, lng: 144.9612 },
+  { names: ['domain stadium', 'subiaco oval'], city: 'Perth', state: 'WA', lat: -31.9447, lng: 115.8267 },
+  { names: ['fremantle oval'], city: 'Fremantle', state: 'WA', lat: -32.0566, lng: 115.7486 },
+  { names: ['leederville oval'], city: 'Perth', state: 'WA', lat: -31.93, lng: 115.842 },
+  { names: ['hbf arena', 'arena joondalup'], city: 'Joondalup', state: 'WA', lat: -31.7448, lng: 115.7661 },
+  { names: ['mineral resources park'], city: 'Perth', state: 'WA', lat: -31.976, lng: 115.908 },
+  { names: ['alberton oval'], city: 'Adelaide', state: 'SA', lat: -34.861, lng: 138.521 },
+  { names: ['richmond oval', 'punt road oval'], city: 'Melbourne', state: 'VIC', lat: -37.823, lng: 144.987 },
+  { names: ['rsea park', 'moorabbin oval'], city: 'Melbourne', state: 'VIC', lat: -37.937, lng: 145.04 },
+  { names: ['mission whitten oval', 'whitten oval'], city: 'Melbourne', state: 'VIC', lat: -37.799, lng: 144.889 },
+  { names: ['blacktown international sportspark'], city: 'Sydney', state: 'NSW', lat: -33.769, lng: 150.859 },
+  { names: ['great barrier reef arena'], city: 'Mackay', state: 'QLD', lat: -21.144, lng: 149.186 },
+  { names: ['brighton homes arena'], city: 'Brisbane', state: 'QLD', lat: -27.668, lng: 152.912 },
 ];
 
 const byName = new Map();
