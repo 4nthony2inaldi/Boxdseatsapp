@@ -45,6 +45,19 @@ jobs:
           from profiles p
           join event_logs el on el.user_id = p.id and el.event_id is not null
           group by p.username order by logged_games desc limit 10;
+
+          \echo '=== Your NBA games whose round mentions "finals" (diagnose NBA Finals matcher) ==='
+          select e.event_date, e.round_or_stage, ht.name as home, at.name as away
+          from profiles p
+          join event_logs el on el.user_id = p.id and el.event_id is not null
+          join events e on e.id = el.event_id
+          join leagues l on l.id = e.league_id
+          left join teams ht on ht.id = e.home_team_id
+          left join teams at on at.id = e.away_team_id
+          where l.slug = 'nba' and e.round_or_stage ilike '%finals%'
+            and ((:'uname' <> '' and lower(p.username) = lower(:'uname'))
+              or (:'uname'  = '' and p.id = (select id from auth.users where lower(email) = lower(:'email') limit 1)))
+          order by e.event_date;
           with me as (
             select p.id from profiles p
             where (:'uname' <> '' and lower(p.username) = lower(:'uname'))
@@ -69,7 +82,7 @@ jobs:
             union all select 'game','Playoff Game',               count(*) filter (where is_postseason) from ev
             union all select 'game','World Series',               count(*) filter (where slug='mlb' and round_or_stage ilike '%world series%') from ev
             union all select 'game','Super Bowl',                 count(*) filter (where slug='nfl' and round_or_stage ilike '%super bowl%') from ev
-            union all select 'game','NBA Finals',                 count(*) filter (where slug='nba' and round_or_stage ilike '%finals%' and round_or_stage not ilike '%conference%') from ev
+            union all select 'game','NBA Finals',                 count(*) filter (where slug='nba' and round_or_stage ilike '%nba finals%') from ev
             union all select 'game','Stanley Cup',                count(*) filter (where slug='nhl' and round_or_stage ilike '%stanley cup%') from ev
             union all select 'game','March Madness',              count(*) filter (where slug in ('ncaam','ncaaw') and is_postseason) from ev
             union all select 'game','Spring Training',            count(*) filter (where slug='mlb' and is_preseason) from ev
@@ -109,7 +122,7 @@ jobs:
             union all select 'game', count(*) filter (where is_postseason) from ev
             union all select 'game', count(*) filter (where slug='mlb' and round_or_stage ilike '%world series%') from ev
             union all select 'game', count(*) filter (where slug='nfl' and round_or_stage ilike '%super bowl%') from ev
-            union all select 'game', count(*) filter (where slug='nba' and round_or_stage ilike '%finals%' and round_or_stage not ilike '%conference%') from ev
+            union all select 'game', count(*) filter (where slug='nba' and round_or_stage ilike '%nba finals%') from ev
             union all select 'game', count(*) filter (where slug='nhl' and round_or_stage ilike '%stanley cup%') from ev
             union all select 'game', count(*) filter (where slug in ('ncaam','ncaaw') and is_postseason) from ev
             union all select 'game', count(*) filter (where slug='mlb' and is_preseason) from ev
