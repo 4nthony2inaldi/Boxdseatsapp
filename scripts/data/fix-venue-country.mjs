@@ -46,6 +46,11 @@ const offenders = await q(
      from venues v
     where v.state = any($1)
       and coalesce(v.country, '') <> 'US'
+      -- "WA" is both Washington (US) and Western Australia; the AFL grounds in
+      -- WA are genuinely Australian, so never flip a WA row whose country is
+      -- already an Australian code.
+      and not (v.state = 'WA'
+               and upper(coalesce(v.country, '')) in ('AU', 'AUS', 'AUSTRALIA'))
     order by events desc`,
   [US_STATES]
 );
