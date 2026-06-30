@@ -100,6 +100,7 @@ try {
   console.log(`AFL venues: ${venues.length}\n`);
   const matchedGrounds = new Set();
   let updated = 0;
+  let cleared = 0;
   const unmatched = [];
 
   for (const v of venues) {
@@ -119,12 +120,26 @@ try {
       updated++;
     } else {
       unmatched.push(v);
-      console.log(`  MISS   ${v.name}  [${v.country}/${v.city}] cur=${cur}  <-- no curated entry`);
+      // Obscure reserves we don't curate that still sit at the original bad
+      // geocode (the shared Washington-State junk point, ~48.275,-121.742):
+      // null their location so they're excluded from venues-geo and can't
+      // mis-match photos. They become uncoordinated (correct for a venue we
+      // can't place) rather than confidently wrong. Also fix country to AU.
+      const atJunk = v.lat != null && v.lat > 48.27 && v.lat < 48.28 && v.lng > -121.75 && v.lng < -121.74;
+      const note = atJunk ? '  <-- at junk geocode: clearing location' : '  <-- no curated entry';
+      console.log(`  MISS   ${v.name}  [${v.country}/${v.city}] cur=${cur}${note}`);
+      if (!DRY && (atJunk || v.country !== 'AU')) {
+        await db.query(
+          `update venues set country = 'AU'${atJunk ? ', location = null' : ''} where id = $1`,
+          [v.id]
+        );
+        if (atJunk) cleared++;
+      }
     }
   }
 
   const unusedGrounds = GROUNDS.filter((g) => !matchedGrounds.has(g));
-  console.log(`\n${DRY ? '[DRY] would update' : 'updated'} ${updated}/${venues.length} venues.`);
+  console.log(`\n${DRY ? '[DRY] would update' : 'updated'} ${updated}/${venues.length} venues; ${DRY ? 'would clear' : 'cleared'} ${cleared} junk-geocoded location(s).`);
   if (unmatched.length) {
     console.log(`\nUNMATCHED AFL venues (no curated coords — still need attention):`);
     for (const v of unmatched) console.log(`  - "${v.name}" (city=${v.city}, country=${v.country})`);
