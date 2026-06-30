@@ -1,0 +1,45 @@
+name: Tag Opening Day (MLB)
+
+# Derives and tags MLB "Opening Day" events (event_tags ['opening-day']): each
+# team's first regular-season game of the season, home or away. No single
+# league-wide date exists, so it's computed per team. Idempotent full recompute
+# (see scripts/data/tag-opening-day.sql) — safe to re-run each spring once the
+# new openers land, or after a historical backfill.
+#
+# Requires repository secret DATABASE_URL (direct Postgres). Default is a dry run
+# that wraps the pass in a rolled-back transaction (the verification counts still
+# print, then nothing is committed).
+
+on:
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "Roll back after running (validate + show counts only)"
+        type: boolean
+        default: true
+
+concurrency:
+  group: backfill-opening-day
+  cancel-in-progress: false
+
+jobs:
+  tag:
+    runs-on: ubuntu-latest
+    env:
+      DATABASE_URL: ${{ secrets.DATABASE_URL }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Tag (real)
+        if: ${{ env.DATABASE_URL != '' && github.event.inputs.dry_run != 'true' }}
+        run: psql "$DATABASE_URL" -P pager=off -v ON_ERROR_STOP=1 -f scripts/data/tag-opening-day.sql
+
+      - name: Validate (rolled back, counts still print)
+        if: ${{ env.DATABASE_URL != '' && github.event.inputs.dry_run == 'true' }}
+        run: |
+          { echo "BEGIN;"; cat scripts/data/tag-opening-day.sql; echo "ROLLBACK;"; } \
+            | psql "$DATABASE_URL" -P pager=off -v ON_ERROR_STOP=1 -f -
+
+      - name: Notice when nothing ran
+        if: ${{ env.DATABASE_URL == '' }}
+        run: echo "::warning::backfill-opening-day skipped — set the DATABASE_URL repository secret to enable."
