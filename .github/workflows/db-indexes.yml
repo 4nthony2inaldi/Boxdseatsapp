@@ -1,0 +1,45 @@
+name: DB index introspection (read-only)
+
+# Lists the indexes that exist on the hot tables, plus whether pg_trgm is
+# installed, so we can confirm which of the audit's suggested indexes are
+# already present and write a migration only for the genuine gaps. Read-only:
+# queries pg_indexes / pg_extension only, no writes. Requires DATABASE_URL.
+
+on:
+  workflow_dispatch:
+
+concurrency:
+  group: db-indexes
+  cancel-in-progress: true
+
+jobs:
+  introspect:
+    runs-on: ubuntu-latest
+    env:
+      DATABASE_URL: ${{ secrets.DATABASE_URL }}
+    steps:
+      - name: Report indexes
+        if: ${{ env.DATABASE_URL != '' }}
+        run: |
+          psql "$DATABASE_URL" -P pager=off -v ON_ERROR_STOP=1 <<'SQL'
+          \echo '=== Indexes on hot tables ==='
+          select tablename, indexname, indexdef
+          from pg_indexes
+          where schemaname = 'public'
+            and tablename in ('events','venues','event_logs','event_athletes','teams','leagues')
+          order by tablename, indexname;
+
+          \echo '=== pg_trgm installed? (needed for trigram search indexes) ==='
+          select extname, extversion from pg_extension where extname = 'pg_trgm';
+
+          \echo '=== row counts (context for index value) ==='
+          select 'events' as t, count(*) from events
+          union all select 'venues', count(*) from venues
+          union all select 'event_logs', count(*) from event_logs
+          union all select 'event_athletes', count(*) from event_athletes
+          union all select 'teams', count(*) from teams;
+          SQL
+
+      - name: Notice when nothing ran
+        if: ${{ env.DATABASE_URL == '' }}
+        run: echo "::warning::db-indexes skipped — set the DATABASE_URL repository secret to enable."
