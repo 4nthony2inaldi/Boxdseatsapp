@@ -1,0 +1,46 @@
+name: Fix AFL venue geo
+
+# Corrects the AFL venues' country + coordinates from a curated grounds map
+# (they were seeded as country=US / city=Unknown because ESPN's AFL venue
+# records have no address, then mis-geocoded to one US point). Run the dry run
+# first to read the per-venue match report; flip dry_run off to write.
+#
+# Requires the DATABASE_URL repository secret. After a real run, re-run the
+# "Sync venues-geo.json from DB" workflow (leagues=afl) to refresh the
+# photo-finder match file with the corrected coordinates.
+
+on:
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "Roll back all writes (report only)"
+        type: boolean
+        default: true
+
+concurrency:
+  group: fix-afl-venues
+  cancel-in-progress: false
+
+jobs:
+  fix:
+    runs-on: ubuntu-latest
+    env:
+      DATABASE_URL: ${{ secrets.DATABASE_URL }}
+      DRY: ${{ github.event.inputs.dry_run == 'true' && '--dry-run' || '' }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+
+      - name: Notice when DATABASE_URL is missing
+        if: ${{ env.DATABASE_URL == '' }}
+        run: |
+          echo "::warning::fix-afl-venues skipped — set the DATABASE_URL repository secret to enable."
+          exit 0
+
+      - name: Fix AFL venues
+        if: ${{ env.DATABASE_URL != '' }}
+        run: node scripts/data/fix-afl-venues.mjs $DRY
