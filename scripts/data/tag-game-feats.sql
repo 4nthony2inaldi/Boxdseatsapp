@@ -8,7 +8,7 @@
 --                                     (27 up, 27 down — separates it from a
 --                                      walk- or error-marred no-hitter)
 --   multi-hr     (baseball)        — a batter with 3+ HR; four-hr for 4+
---   hat-trick    (hockey, soccer)  — a player with 3+ goals (this game, not YTD)
+--   hat-trick-hockey / -soccer     — a player with 3+ goals (this game, not YTD)
 --   pts-40/50/60 (basketball)      — a player scoring 40 / 50 / 60+
 --   pass-5-td    (football)        — a player with 5+ passing TDs
 --
@@ -24,9 +24,9 @@ update events e
 set event_tags = coalesce((
   select array_agg(t order by ord)
   from unnest(e.event_tags) with ordinality as u(t, ord)
-  where t <> all (array['no-hitter','perfect-game','multi-hr','four-hr','hat-trick','pts-40','pts-50','pts-60','pass-5-td'])
+  where t <> all (array['no-hitter','perfect-game','multi-hr','four-hr','hat-trick','hat-trick-hockey','hat-trick-soccer','pts-40','pts-50','pts-60','pass-5-td'])
 ), array[]::text[])
-where e.event_tags && array['no-hitter','perfect-game','multi-hr','four-hr','hat-trick','pts-40','pts-50','pts-60','pass-5-td'];
+where e.event_tags && array['no-hitter','perfect-game','multi-hr','four-hr','hat-trick','hat-trick-hockey','hat-trick-soccer','pts-40','pts-50','pts-60','pass-5-td'];
 
 -- 2) Re-tag from the box scores.
 with ea as (
@@ -60,13 +60,13 @@ feats as (
     where sport = 'baseball' and (sl->'batting'->>'HR') ~ '^[0-9]+$' and (sl->'batting'->>'HR')::int >= 4
   union
   -- hockey hat trick: goals (this game = 'G', not YTD) under the skater group
-  select distinct event_id, 'hat-trick' from ea
+  select distinct event_id, 'hat-trick-hockey' from ea
     where sport = 'hockey'
       and coalesce(sl->'forwards'->>'G', sl->'defenses'->>'G', sl->'skaters'->>'G') ~ '^[0-9]+$'
       and coalesce(sl->'forwards'->>'G', sl->'defenses'->>'G', sl->'skaters'->>'G')::int >= 3
   union
   -- soccer hat trick
-  select distinct event_id, 'hat-trick' from ea
+  select distinct event_id, 'hat-trick-soccer' from ea
     where sport = 'soccer' and (sl->'stats'->>'G') ~ '^[0-9]+$' and (sl->'stats'->>'G')::int >= 3
   union
   select distinct event_id, 'pts-40' from ea where sport = 'basketball' and (sl->'stats'->>'PTS') ~ '^[0-9]+$' and (sl->'stats'->>'PTS')::int >= 40
@@ -87,5 +87,5 @@ where agg.event_id = e.id;
 \echo '=== Feat tags (logged games only) ==='
 select tag, count(*) as games
 from (select unnest(event_tags) as tag from events) s
-where tag in ('no-hitter','perfect-game','multi-hr','four-hr','hat-trick','pts-40','pts-50','pts-60','pass-5-td')
+where tag in ('no-hitter','perfect-game','multi-hr','four-hr','hat-trick-hockey','hat-trick-soccer','pts-40','pts-50','pts-60','pass-5-td')
 group by tag order by tag;
