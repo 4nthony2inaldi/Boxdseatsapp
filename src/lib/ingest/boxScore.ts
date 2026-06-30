@@ -18,7 +18,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
  * attendance is ambiguous).
  */
 
-type Sport = "baseball" | "basketball" | "football" | "hockey" | "soccer" | "golf" | "motorsports" | "tennis";
+type Sport = "baseball" | "basketball" | "football" | "hockey" | "soccer" | "golf" | "motorsports" | "tennis" | "australian_football";
 
 // stat_line is per-category because sports report wildly different lines
 // (baseball batting/pitching, basketball PTS/REB/AST, football passing/rushing,
@@ -58,6 +58,9 @@ const TEAM_PATH: Record<string, string> = {
   ncaaw: "basketball/womens-college-basketball",
   nhl: "hockey/nhl",
   nfl: "football/nfl", ncaaf: "football/college-football",
+  // AFL box scores use the same summary->boxscore.players shape as the other
+  // team sports, so parseTeam handles them; just register the ESPN path.
+  afl: "australian-football/afl",
 };
 
 async function espn(url: string): Promise<Record<string, unknown> | null> {

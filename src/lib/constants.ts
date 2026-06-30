@@ -89,6 +89,7 @@ export const LEAGUES = {
   IMSA: { slug: "imsa", color: "#E4002B", icon: "/motorsports.svg", sport: "motorsports" },
   UFC: { slug: "ufc", color: "#D20A0A", icon: "/mma.svg", sport: "mma" },
   HORSERACING: { slug: "horse-racing", color: "#5B3A1E", icon: "/horse-racing.svg", sport: "horse_racing" },
+  AFL: { slug: "afl", color: "#003DA5", icon: "/football.svg", sport: "australian_football" },
 } as const;
 
 export type LeagueKey = keyof typeof LEAGUES;

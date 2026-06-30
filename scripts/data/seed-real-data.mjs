@@ -93,6 +93,10 @@ const LEAGUES = {
   // college scoreboard rejects date RANGES and defaults to only a featured
   // handful of games per day, so we fetch one day at a time with groups=50
   // (all of Division I).
+  // Australian rules football — standard ESPN team-sport path (teams endpoint
+  // works, home/away + integer scores + venues). `sport` is the ESPN path
+  // segment; the DB sport_type ('australian_football') lives on the league row.
+  afl: { sport: 'australian-football', espn: 'afl', soccer: false },
   ncaam: { sport: 'basketball', espn: 'mens-college-basketball', soccer: false, lazyTeams: true, singleDayFetch: true, groups: 50, seasonMonths: true },
   ncaaw: { sport: 'basketball', espn: 'womens-college-basketball', soccer: false, lazyTeams: true, singleDayFetch: true, groups: 50, seasonMonths: true },
   // NCAA football (ncaaf) is intentionally absent here: the ESPN scoreboard

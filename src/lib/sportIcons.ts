@@ -14,6 +14,8 @@ const SPORT_ICON_MAP: Record<string, string> = {
   tennis: "/tennis.svg",
   mma: "/mma.svg",
   horse_racing: "/horse-racing.svg",
+  // AFL reuses the football (oval-ball) icon for now — closest existing glyph.
+  australian_football: "/football.svg",
 };
 
 /** League slug → sport name mapping */
@@ -68,6 +70,7 @@ const LEAGUE_SPORT_MAP: Record<string, string> = {
   imsa: "motorsports",
   ufc: "mma",
   "horse-racing": "horse_racing",
+  afl: "australian_football",
 };
 
 /**
@@ -102,4 +105,5 @@ export const SPORTS_LIST = [
   { key: "motorsports", label: "Motorsports", icon: "/motorsports.svg" },
   { key: "mma", label: "MMA", icon: "/mma.svg" },
   { key: "horse_racing", label: "Horse Racing", icon: "/horse-racing.svg" },
+  { key: "australian_football", label: "Aussie Rules", icon: "/football.svg" },
 ] as const;

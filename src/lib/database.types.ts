@@ -2719,6 +2719,7 @@ export type Database = {
         | "golf"
         | "motorsports"
         | "tennis"
+        | "australian_football"
       venue_relationship: "visited" | "want_to_visit"
       venue_status: "active" | "retired" | "demolished"
     }
@@ -2885,6 +2886,7 @@ export const Constants = {
         "golf",
         "motorsports",
         "tennis",
+        "australian_football",
       ],
       venue_relationship: ["visited", "want_to_visit"],
       venue_status: ["active", "retired", "demolished"],
