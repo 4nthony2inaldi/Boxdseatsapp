@@ -9,9 +9,9 @@ import { SupabaseClient } from "@supabase/supabase-js";
  * Most badges read an event_tag we already stamp at ingest (allstar,
  * opening-day, no-hitter, perfect-game, multi-hr, four-hr, hat-trick,
  * pts-40/50/60); a few are derived (per-sport playoffs, championship rounds,
- * spring training, WBC, and a favorite team playing away/neutral — "on the
- * road"). Soccer playoffs are intentionally absent until the soccer
- * is_postseason data is cleaned.
+ * spring training, WBC, and a favorite team being the away (road) side).
+ * Soccer playoffs are intentionally absent until the soccer is_postseason data
+ * is cleaned.
  */
 
 export type BadgeGroup = "event" | "stat";
@@ -27,29 +27,13 @@ type Row = {
   round: string | null;
   homeTeamId: string | null;
   awayTeamId: string | null;
-  venueId: string | null;
   // display
   title: string;
   venue: string | null;
 };
 
 /** Per-user context a predicate may need beyond a single event. */
-type MatchCtx = {
-  favTeamIds: Set<string>;
-  // team_id -> the set of that team's home venue ids (from venue_teams). A game
-  // is "on the road" for a team when it's played at a venue NOT in this set —
-  // which covers both away games and neutral-site games.
-  favTeamHomeVenues: Map<string, Set<string>>;
-};
-
-// True when one of the user's favorite teams played this game away from home
-// (away game or neutral site): the team is in the game and the venue is not one
-// of that team's home venues.
-function favTeamOnRoad(r: Row, ctx: MatchCtx): boolean {
-  const onRoad = (teamId: string | null) =>
-    !!teamId && ctx.favTeamIds.has(teamId) && !(ctx.favTeamHomeVenues.get(teamId)?.has(r.venueId ?? "") ?? false);
-  return onRoad(r.awayTeamId) || onRoad(r.homeTeamId);
-}
+type MatchCtx = { favTeamIds: Set<string> };
 
 export type BadgeDef = {
   key: string;
@@ -78,7 +62,7 @@ export const BADGE_CATALOG: BadgeDef[] = [
   { key: "nba-finals", label: "NBA Finals", group: "event", match: (r) => r.slug === "nba" && round(/nba finals/i)(r) },
   { key: "stanley-cup", label: "Stanley Cup", group: "event", match: (r) => r.slug === "nhl" && round(/stanley cup/i)(r) },
   { key: "super-bowl", label: "Super Bowl", group: "event", match: (r) => r.slug === "nfl" && round(/super bowl/i)(r) },
-  { key: "fav-team-road", label: "Favorite Team on the Road", group: "event", match: favTeamOnRoad },
+  { key: "fav-team-road", label: "Favorite Team on the Road", group: "event", match: (r, ctx) => !!r.awayTeamId && ctx.favTeamIds.has(r.awayTeamId) },
 
   // ── stat-based ──
   { key: "no-hitter", label: "No-Hitter", group: "stat", match: tag("no-hitter") },
@@ -104,7 +88,6 @@ type EventRel = {
   tournament_name: string | null;
   home_team_id: string | null;
   away_team_id: string | null;
-  venue_id: string | null;
   venues: { name: string | null } | null;
   leagues: { slug: string | null } | null;
   home_team: { short_name: string | null; name: string | null } | null;
@@ -114,7 +97,7 @@ type EventRel = {
 const SELECT = `event_date,
   events!event_logs_event_id_fkey(
     id, event_tags, is_postseason, is_preseason, round_or_stage, tournament_name,
-    home_team_id, away_team_id, venue_id,
+    home_team_id, away_team_id,
     venues!events_venue_id_fkey(name),
     leagues(slug),
     home_team:teams!events_home_team_id_fkey(short_name, name),
@@ -154,7 +137,6 @@ async function fetchLoggedRows(supabase: SupabaseClient, userId: string): Promis
         round: e.round_or_stage,
         homeTeamId: e.home_team_id,
         awayTeamId: e.away_team_id,
-        venueId: e.venue_id,
         title: titleOf(e),
         venue: e.venues?.name ?? null,
       });
@@ -165,8 +147,7 @@ async function fetchLoggedRows(supabase: SupabaseClient, userId: string): Promis
 }
 
 /** The match context for one user: their favorite teams (ranked `team`
- *  favorites + legacy profiles.fav_team_id) and each of those teams' home
- *  venues, so "Favorite Team on the Road" can treat away + neutral as on-road. */
+ *  favorites + legacy profiles.fav_team_id), used by "Favorite Team on the Road". */
 async function fetchFavoriteContext(supabase: SupabaseClient, userId: string): Promise<MatchCtx> {
   const favTeamIds = new Set<string>();
   const [favsRes, profileRes] = await Promise.all([
@@ -180,20 +161,7 @@ async function fetchFavoriteContext(supabase: SupabaseClient, userId: string): P
   ]);
   for (const f of favsRes.data || []) if (f.team_id) favTeamIds.add(f.team_id as string);
   if (profileRes.data?.fav_team_id) favTeamIds.add(profileRes.data.fav_team_id as string);
-
-  const favTeamHomeVenues = new Map<string, Set<string>>();
-  if (favTeamIds.size > 0) {
-    const { data: vt } = await supabase
-      .from("venue_teams")
-      .select("team_id, venue_id")
-      .in("team_id", [...favTeamIds]);
-    for (const row of vt || []) {
-      const set = favTeamHomeVenues.get(row.team_id as string) ?? new Set<string>();
-      set.add(row.venue_id as string);
-      favTeamHomeVenues.set(row.team_id as string, set);
-    }
-  }
-  return { favTeamIds, favTeamHomeVenues };
+  return { favTeamIds };
 }
 
 export type EarnedBadge = { key: string; label: string; group: BadgeGroup; count: number };
