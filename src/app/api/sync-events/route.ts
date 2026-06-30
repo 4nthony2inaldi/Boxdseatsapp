@@ -327,17 +327,6 @@ async function handleSync(request: Request) {
         stats.skipped++;
         continue;
       }
-      // The All-Star game is kept, but ingested as a team-less 'field' event
-      // (below). The weekend side-events stay out (scope: just the game).
-      const isAllStar =
-        compType === "ALLSTAR" && !ALLSTAR_SIDE_EVENT_RE.test(ev.name || "");
-      if (compType === "ALLSTAR" && !isAllStar) {
-        stats.skipped++;
-        continue;
-      }
-      const home = comp.competitors?.find((c) => c.homeAway === "home");
-      const away = comp.competitors?.find((c) => c.homeAway === "away");
-
       // Season typing: 1 = preseason (kept, labeled), 2 = regular,
       // 3 = postseason, 4 = offseason (skipped).
       const seasonType = ev.season?.type;
@@ -346,6 +335,19 @@ async function handleSync(request: Request) {
         continue;
       }
       const isPreseason = seasonType === 1;
+      // The All-Star game is kept, ingested as a team-less 'field' event (below).
+      // ESPN also (mis)labels some preseason games compType ALLSTAR, so exclude
+      // those and the weekend side-events; only the real game is left.
+      const isAllStar =
+        compType === "ALLSTAR" &&
+        !isPreseason &&
+        !ALLSTAR_SIDE_EVENT_RE.test(ev.name || "");
+      if (compType === "ALLSTAR" && !isAllStar) {
+        stats.skipped++;
+        continue;
+      }
+      const home = comp.competitors?.find((c) => c.homeAway === "home");
+      const away = comp.competitors?.find((c) => c.homeAway === "away");
 
       const completed =
         comp.status?.type?.completed === true ||

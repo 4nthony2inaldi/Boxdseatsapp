@@ -938,10 +938,15 @@ async function processEvent(ev, leagueSlug, leagueId, cfg, teamIndex, existingBy
   if (cfg.postseasonOnly && !cls.isPostseason) { stats.eventsFiltered++; return; }
 
   // All-Star games -> team-less, tagged 'field' events (see insertAllStarEvent).
-  // ESPN marks them compType ALLSTAR on the standard scoreboard; exclude the
-  // weekend side-events by name in case ESPN ever surfaces them this way.
-  if (ev.compType === 'ALLSTAR'
-      && !ALLSTAR_SIDE_EVENT_RE.test(`${ev.name ?? ''} ${noteHeadlines(ev)}`)) {
+  // ESPN marks them compType ALLSTAR, but it ALSO (mis)labels some preseason
+  // games that way (2000s-2010s NFL preseason carries compType ALLSTAR with real
+  // teams), so exclude anything ESPN typed as preseason plus the weekend
+  // skills/derby side-events; only the real all-star game is left.
+  if (ev.compType === 'ALLSTAR') {
+    if (cls.isPreseason || ALLSTAR_SIDE_EVENT_RE.test(`${ev.name ?? ''} ${noteHeadlines(ev)}`)) {
+      stats.eventsFiltered++;
+      return;
+    }
     await insertAllStarEvent(ev, leagueSlug, leagueId, cfg, existingByEspn, stats);
     return;
   }
