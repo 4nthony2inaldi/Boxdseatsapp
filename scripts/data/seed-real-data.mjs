@@ -264,12 +264,25 @@ const HOME_VENUE_FALLBACKS = {
   },
 };
 
-// exhibition competitions to exclude (this is a "games you attended" app, but
-// all-star exhibitions pollute the teams table with fake franchises)
-const EXCLUDED_COMP_TYPES = new Set(['ALLSTAR', 'QRR']); // QRR = 4 Nations round robin
+// Exhibition handling. The All-Star GAME is ingested as a team-less, tagged
+// 'field' event (insertAllStarEvent) so its ad-hoc squads (AL/NL, Team LeBron,
+// AFC/NFC) never become real team rows. Everything left in EXCLUDED_COMP_TYPES
+// is dropped outright (QRR = the 4 Nations round robin).
+const EXCLUDED_COMP_TYPES = new Set(['QRR']);
 const EXHIBITION_RE = /all-star|all star|pro bowl|4 nations|rising stars|celebrity|skills challenge/i;
 // 2000s Pro Bowls are named just "NFC at AFC" — catch conference pseudo-teams
 const CONFERENCE_TEAM_RE = /^(afc|nfc|east|west) (all-stars)?$/i;
+// All-Star WEEKEND side-events (out of scope: just the game). Not on the
+// scoreboard API today, but guard by name so a future ESPN change can't sneak a
+// derby/dunk/skills row in through the All-Star path.
+const ALLSTAR_SIDE_EVENT_RE = /rising stars|celebrity|skills|home run derby|dunk|three-point|3-point|4 nations/i;
+// Clean per-league titles for the All-Star game (ESPN's notes headline carries
+// trailing rules text); stored as the 'field' event's tournament_name.
+const ALLSTAR_TITLES = {
+  nfl: 'Pro Bowl', nba: 'NBA All-Star Game', mlb: 'MLB All-Star Game',
+  nhl: 'NHL All-Star Game', wnba: 'WNBA All-Star Game',
+};
+const noteHeadlines = (ev) => (ev.notes ?? []).map((n) => n.headline ?? '').join(' ');
 
 // ---------------------------------------------------------------------------
 // Small utilities
@@ -924,10 +937,19 @@ async function processEvent(ev, leagueSlug, leagueId, cfg, teamIndex, existingBy
   // "Big Events" leagues ingest only the NCAA tournament, not the season
   if (cfg.postseasonOnly && !cls.isPostseason) { stats.eventsFiltered++; return; }
 
-  // exclude all-star / exhibition competitions (Pro Bowl, ASG, 4 Nations, …)
+  // All-Star games -> team-less, tagged 'field' events (see insertAllStarEvent).
+  // ESPN marks them compType ALLSTAR on the standard scoreboard; exclude the
+  // weekend side-events by name in case ESPN ever surfaces them this way.
+  if (ev.compType === 'ALLSTAR'
+      && !ALLSTAR_SIDE_EVENT_RE.test(`${ev.name ?? ''} ${noteHeadlines(ev)}`)) {
+    await insertAllStarEvent(ev, leagueSlug, leagueId, cfg, existingByEspn, stats);
+    return;
+  }
+
+  // exclude remaining exhibition competitions (4 Nations round robin, …)
   if (ev.compType && EXCLUDED_COMP_TYPES.has(ev.compType)) { stats.eventsFiltered++; return; }
-  const noteText = (ev.notes ?? []).map((n) => n.headline ?? '').join(' ');
-  if (EXHIBITION_RE.test(ev.name ?? '') || EXHIBITION_RE.test(noteText)) { stats.eventsFiltered++; return; }
+  const notes = noteHeadlines(ev);
+  if (EXHIBITION_RE.test(ev.name ?? '') || EXHIBITION_RE.test(notes)) { stats.eventsFiltered++; return; }
 
   if (existingByEspn.has(ev.id)) { stats.eventsSkipped++; return; } // idempotent re-run
 
@@ -1011,6 +1033,44 @@ async function processEvent(ev, leagueSlug, leagueId, cfg, teamIndex, existingBy
     existingByNatural.set(naturalKey, { id: null, hasEspn: true, home_score: homeScore, away_score: awayScore });
   }
   if (!ev.neutralSite) await ensureVenueTeam(venueId, homeTeam.id);
+  stats.eventsInserted++;
+}
+
+// Insert an All-Star game as a team-less, tagged 'field' event — the same shape
+// as a single-day race: a titled event at a real (neutral) venue, the winning
+// side in winner_name, event_tags ['allstar'] for the badge. No home/away teams,
+// so the ad-hoc all-star squads never reach the teams table.
+async function insertAllStarEvent(ev, leagueSlug, leagueId, cfg, existingByEspn, stats) {
+  if (existingByEspn.has(ev.id)) { stats.eventsSkipped++; return; } // idempotent re-run
+  if (!ev.venue?.fullName && !ev.venue?.id) { stats.eventsFiltered++; return; } // can't place it
+  const season = ev.season?.year;
+  if (!Number.isFinite(season)) throw new Error('missing season year');
+
+  const venueId = await resolveVenue(ev.venue, null, true, stats, internalSport(cfg));
+  const venueName = venueById.get(venueId)?.name;
+  const venueNameAtTime = ev.venue.fullName && ev.venue.fullName !== venueName ? ev.venue.fullName : null;
+
+  // winner = the higher-scored squad's name (null on a tie or non-numeric score)
+  let winner = null;
+  const comps = ev.competitors ?? [];
+  if (comps.length === 2) {
+    const sa = Number.parseInt(comps[0].score, 10);
+    const sb = Number.parseInt(comps[1].score, 10);
+    if (Number.isFinite(sa) && Number.isFinite(sb) && sa !== sb) {
+      winner = (sa > sb ? comps[0] : comps[1]).team?.displayName ?? null;
+    }
+  }
+
+  const title = ALLSTAR_TITLES[leagueSlug] ?? `${leagueSlug.toUpperCase()} All-Star Game`;
+  await db.query(
+    `insert into events (
+       league_id, venue_id, event_date, event_template, tournament_name,
+       winner_name, season, is_postseason, is_preseason, round_or_stage,
+       event_tags, venue_name_at_time, external_ids
+     ) values ($1,$2,$3,'field',$4,$5,$6,false,false,null,$7,$8, jsonb_build_object('espn',$9::text))`,
+    [leagueId, venueId, localEventDate(ev.date), title, winner, season, ['allstar'], venueNameAtTime, ev.id],
+  );
+  existingByEspn.add(ev.id);
   stats.eventsInserted++;
 }
 

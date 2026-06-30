@@ -113,6 +113,20 @@ const LEAGUE_SPORTS: Record<string, string> = {
   "caribbean-series": "baseball",
 };
 
+// All-Star games are ingested as team-less, tagged 'field' events (their ad-hoc
+// squads aren't real teams) — same shape and titles as the seeder backfill.
+const ALLSTAR_TITLES: Record<string, string> = {
+  nfl: "Pro Bowl",
+  nba: "NBA All-Star Game",
+  mlb: "MLB All-Star Game",
+  nhl: "NHL All-Star Game",
+  wnba: "WNBA All-Star Game",
+};
+// Weekend side-events are out of scope (just the game). Not on this API today,
+// but guard by name in case ESPN ever surfaces one through the All-Star path.
+const ALLSTAR_SIDE_EVENT_RE =
+  /rising stars|celebrity|skills|home run derby|dunk|three-point|3-point|4 nations/i;
+
 type EspnEvent = {
   id: string;
   date: string;
@@ -128,7 +142,7 @@ type EspnEvent = {
     competitors?: Array<{
       homeAway?: string;
       score?: string;
-      team?: { id?: string };
+      team?: { id?: string; displayName?: string };
     }>;
     status?: { type?: { completed?: boolean } };
   }>;
@@ -307,8 +321,17 @@ async function handleSync(request: Request) {
       seenEspnIds.add(String(ev.id));
       const comp = ev.competitions?.[0];
       if (!comp) continue;
-      // Exhibitions (All-Star etc.) are excluded — same policy as the seeder
-      if (["ALLSTAR", "QRR"].includes(comp.type?.abbreviation || "")) {
+      const compType = comp.type?.abbreviation || "";
+      // 4 Nations round robin and the like stay excluded outright.
+      if (compType === "QRR") {
+        stats.skipped++;
+        continue;
+      }
+      // The All-Star game is kept, but ingested as a team-less 'field' event
+      // (below). The weekend side-events stay out (scope: just the game).
+      const isAllStar =
+        compType === "ALLSTAR" && !ALLSTAR_SIDE_EVENT_RE.test(ev.name || "");
+      if (compType === "ALLSTAR" && !isAllStar) {
         stats.skipped++;
         continue;
       }
@@ -375,13 +398,18 @@ async function handleSync(request: Request) {
         continue;
       }
 
-      // New event: inserting it needs our home/away team ids. (Unmatched teams
+      // New event. All-Star games are team-less (their squads aren't real
+      // teams); every other game needs our home/away team ids. (Unmatched teams
       // are exhibitions/foreign sides we don't carry — skip.)
-      const homeId = teamByEspn.get(String(home?.team?.id ?? ""));
-      const awayId = teamByEspn.get(String(away?.team?.id ?? ""));
-      if (!homeId || !awayId) {
-        stats.skipped++;
-        continue;
+      let homeId: string | undefined;
+      let awayId: string | undefined;
+      if (!isAllStar) {
+        homeId = teamByEspn.get(String(home?.team?.id ?? ""));
+        awayId = teamByEspn.get(String(away?.team?.id ?? ""));
+        if (!homeId || !awayId) {
+          stats.skipped++;
+          continue;
+        }
       }
 
       // Resolve venue: espn id, then name, then create
@@ -430,26 +458,47 @@ async function handleSync(request: Request) {
       }
 
       if (!dryRun) {
-        const { error } = await supabase.from("events").insert({
-          league_id: leagueId,
-          venue_id: venueId,
-          event_date: eventDate,
-          event_template: "match",
-          home_team_id: homeId,
-          away_team_id: awayId,
-          home_score: homeScore,
-          away_score: awayScore,
-          is_draw: completed && homeScore !== null && homeScore === awayScore,
-          season: ev.season?.year ?? new Date(eventDate).getFullYear(),
-          is_postseason: seasonType === 3,
-          is_preseason: isPreseason,
-          round_or_stage: isPreseason
-            ? slug === "mlb"
-              ? "Spring Training"
-              : "Preseason"
-            : null,
-          external_ids: { espn: String(ev.id) },
-        });
+        // All-Star game: team-less, tagged 'field' event (winner from the score,
+        // null until played). Otherwise the normal two-team match row.
+        const row = isAllStar
+          ? {
+              league_id: leagueId,
+              venue_id: venueId,
+              event_date: eventDate,
+              event_template: "field" as const,
+              tournament_name:
+                ALLSTAR_TITLES[slug] ?? `${slug.toUpperCase()} All-Star Game`,
+              winner_name:
+                completed && homeScore !== null && awayScore !== null && homeScore !== awayScore
+                  ? (homeScore > awayScore ? home : away)?.team?.displayName ?? null
+                  : null,
+              season: ev.season?.year ?? new Date(eventDate).getFullYear(),
+              is_postseason: false,
+              is_preseason: false,
+              event_tags: ["allstar"],
+              external_ids: { espn: String(ev.id) },
+            }
+          : {
+              league_id: leagueId,
+              venue_id: venueId,
+              event_date: eventDate,
+              event_template: "match" as const,
+              home_team_id: homeId,
+              away_team_id: awayId,
+              home_score: homeScore,
+              away_score: awayScore,
+              is_draw: completed && homeScore !== null && homeScore === awayScore,
+              season: ev.season?.year ?? new Date(eventDate).getFullYear(),
+              is_postseason: seasonType === 3,
+              is_preseason: isPreseason,
+              round_or_stage: isPreseason
+                ? slug === "mlb"
+                  ? "Spring Training"
+                  : "Preseason"
+                : null,
+              external_ids: { espn: String(ev.id) },
+            };
+        const { error } = await supabase.from("events").insert(row);
         if (error) {
           stats.skipped++;
           continue;
