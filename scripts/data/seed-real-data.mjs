@@ -97,6 +97,14 @@ const LEAGUES = {
   // works, home/away + integer scores + venues). `sport` is the ESPN path
   // segment; the DB sport_type ('australian_football') lives on the league row.
   afl: { sport: 'australian-football', espn: 'afl', soccer: false },
+  // International baseball tournaments of national/invitee teams (no /teams
+  // endpoint listing, so create teams lazily from match data, like uefa.euro).
+  // ESPN tags their knockout rounds with season.type 5 (semis) and 6 (final) —
+  // outside the regular non-soccer 1/2/3 set — so `tournament: true` keeps every
+  // completed game (see classifySeason), or WBC's semifinals and championship
+  // would be silently dropped.
+  wbc: { sport: 'baseball', espn: 'world-baseball-classic', soccer: false, lazyTeams: true, tournament: true },
+  'caribbean-series': { sport: 'baseball', espn: 'caribbean-series', soccer: false, lazyTeams: true, tournament: true },
   ncaam: { sport: 'basketball', espn: 'mens-college-basketball', soccer: false, lazyTeams: true, singleDayFetch: true, groups: 50, seasonMonths: true },
   ncaaw: { sport: 'basketball', espn: 'womens-college-basketball', soccer: false, lazyTeams: true, singleDayFetch: true, groups: 50, seasonMonths: true },
   // NCAA football (ncaaf) is intentionally absent here: the ESPN scoreboard
@@ -726,10 +734,19 @@ async function resolveCompetitorTeam(leagueSlug, leagueId, index, team, stats) {
 // --- season classification ----------------------------------------------------
 
 /** returns {include, isPostseason, roundFromSlug} */
-function classifySeason(season, soccer) {
+function classifySeason(season, soccer, tournament) {
   if (!soccer) {
     const t = season?.type;
     if (t === 1) return { include: true, isPostseason: false, isPreseason: true, roundFromSlug: null };
+    // International tournaments (WBC, Caribbean Series) tag knockout rounds with
+    // season.type 5 (semis) / 6 (final), outside the standard 1/2/3 set. Keep
+    // every completed game, treating anything past the round-robin (type !== 2)
+    // as postseason — otherwise the marquee semifinals and championship would be
+    // filtered out. round_or_stage comes from the ESPN notes headline, like the
+    // other non-soccer leagues.
+    if (tournament) {
+      return { include: true, isPostseason: t !== 2, isPreseason: false, roundFromSlug: null };
+    }
     if (t !== 2 && t !== 3) return { include: false };
     return { include: true, isPostseason: t === 3, isPreseason: false, roundFromSlug: null };
   }
@@ -902,7 +919,7 @@ async function processEvent(ev, leagueSlug, leagueId, cfg, teamIndex, existingBy
   }
 
   if (!ev.completed) { stats.eventsFiltered++; return; }
-  const cls = classifySeason(ev.season, cfg.soccer);
+  const cls = classifySeason(ev.season, cfg.soccer, cfg.tournament);
   if (!cls.include) { stats.eventsFiltered++; return; }
   // "Big Events" leagues ingest only the NCAA tournament, not the season
   if (cfg.postseasonOnly && !cls.isPostseason) { stats.eventsFiltered++; return; }

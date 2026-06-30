@@ -61,6 +61,9 @@ const TEAM_PATH: Record<string, string> = {
   // AFL box scores use the same summary->boxscore.players shape as the other
   // team sports, so parseTeam handles them; just register the ESPN path.
   afl: "australian-football/afl",
+  // International baseball tournaments — same summary->boxscore.players shape.
+  wbc: "baseball/world-baseball-classic",
+  "caribbean-series": "baseball/caribbean-series",
 };
 
 async function espn(url: string): Promise<Record<string, unknown> | null> {
