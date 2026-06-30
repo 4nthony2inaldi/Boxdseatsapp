@@ -65,6 +65,8 @@ const LEAGUE_PATHS: Record<string, string> = {
   "concacaf.gold": "soccer/concacaf.gold",
   "conmebol.libertadores": "soccer/conmebol.libertadores",
   "fifa.cwc": "soccer/fifa.cwc",
+  // Australian rules football
+  afl: "australian-football/afl",
 };
 
 const LEAGUE_SPORTS: Record<string, string> = {
@@ -103,6 +105,7 @@ const LEAGUE_SPORTS: Record<string, string> = {
   "concacaf.gold": "soccer",
   "conmebol.libertadores": "soccer",
   "fifa.cwc": "soccer",
+  afl: "australian_football",
 };
 
 type EspnEvent = {
