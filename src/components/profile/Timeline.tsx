@@ -193,6 +193,7 @@ export default function Timeline({ initialEntries, initialHasMore, userId, viewe
       .eq("league_id", league.id)
       .order("event_date", { ascending: false })
       .range(0, PAGE_SIZE);
+    if (!isOwner) fq = fq.neq("privacy", "hide_all");
     if (monthFilter && /^\d{4}-\d{2}$/.test(monthFilter)) {
       const [y, mo] = monthFilter.split("-").map(Number);
       const to = `${mo === 12 ? y + 1 : y}-${String(mo === 12 ? 1 : mo + 1).padStart(2, "0")}-01`;
@@ -205,7 +206,7 @@ export default function Timeline({ initialEntries, initialHasMore, userId, viewe
     if (data) {
       const moreAvailable = data.length > PAGE_SIZE;
       const pageData = moreAvailable ? data.slice(0, PAGE_SIZE) : data;
-      setEntries(pageData.map(mapLogToEntry));
+      setEntries(pageData.map((l) => redactTimelineEntry(mapLogToEntry(l), isOwner)));
       setHasMore(moreAvailable);
     } else {
       setEntries([]);
