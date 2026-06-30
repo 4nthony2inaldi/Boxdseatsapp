@@ -1,6 +1,7 @@
 import { SupabaseClient } from "@supabase/supabase-js";
 import { fetchUserEventTags } from "./eventTags";
 import { getSportIconPath } from "@/lib/sportIcons";
+import { redactTimelineEntry } from "./timelinePrivacy";
 
 export type ProfileData = {
   id: string;
@@ -481,8 +482,10 @@ export async function fetchTimeline(
   leagueFilter?: string,
   limit = 20,
   offset = 0,
-  monthFilter?: string // YYYY-MM
+  monthFilter?: string, // YYYY-MM
+  viewerId?: string | null // the logged-in viewer (null when logged out); owner sees everything
 ): Promise<TimelinePage> {
+  const isOwner = !!viewerId && viewerId === userId;
   let query = supabase
     .from("event_logs")
     .select(
@@ -505,6 +508,10 @@ export async function fetchTimeline(
     .eq("user_id", userId)
     .order("event_date", { ascending: false })
     .range(offset, offset + limit);
+
+  // Defense-in-depth: never return hide_all rows to a non-owner, even if RLS
+  // were to regress (RLS is the primary guard; this is the second).
+  if (!isOwner) query = query.neq("privacy", "hide_all");
 
   if (monthFilter && /^\d{4}-\d{2}$/.test(monthFilter)) {
     const [y, mo] = monthFilter.split("-").map(Number);
@@ -579,7 +586,7 @@ export async function fetchTimeline(
       }
     }
 
-    return {
+    return redactTimelineEntry({
       id: log.id,
       event_date: log.event_date,
       rating: log.rating,
@@ -607,7 +614,7 @@ export async function fetchTimeline(
       is_manual: log.is_manual || false,
       manual_title: log.manual_title || null,
       manual_description: log.manual_description || null,
-    };
+    }, isOwner);
   });
 
   return { entries, hasMore };

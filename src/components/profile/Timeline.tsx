@@ -2,6 +2,7 @@
 
 import { useState, useCallback, useRef, useEffect, useMemo } from "react";
 import type { TimelineEntry } from "@/lib/queries/profile";
+import { redactTimelineEntry } from "@/lib/queries/timelinePrivacy";
 import { LEAGUES } from "@/lib/constants";
 import SectionLabel from "./SectionLabel";
 import { ButtonLink } from "@/components/Button";
@@ -31,6 +32,9 @@ type TimelineProps = {
 const leagueOptions = ["All", ...Object.keys(LEAGUES)];
 
 export default function Timeline({ initialEntries, initialHasMore, userId, viewerId, canEdit = false, monthFilter }: TimelineProps) {
+  // The owner sees their own hide_personal fields; everyone else gets them
+  // stripped from load-more pages (matching the server's fetchTimeline).
+  const isOwner = !!viewerId && viewerId === userId;
   const [filter, setFilter] = useState("All");
   const [commentLogId, setCommentLogId] = useState<string | null>(null);
   const [entries, setEntries] = useState(initialEntries);
@@ -252,6 +256,9 @@ export default function Timeline({ initialEntries, initialHasMore, userId, viewe
       .order("event_date", { ascending: false })
       .range(offset, offset + PAGE_SIZE);
 
+    // Non-owners never receive hide_all rows (RLS is the primary guard).
+    if (!isOwner) query = query.neq("privacy", "hide_all");
+
     if (leagueId) {
       query = query.eq("league_id", leagueId);
     }
@@ -271,13 +278,13 @@ export default function Timeline({ initialEntries, initialHasMore, userId, viewe
     } else if (data) {
       const moreAvailable = data.length > PAGE_SIZE;
       const pageData = moreAvailable ? data.slice(0, PAGE_SIZE) : data;
-      setEntries((prev) => [...prev, ...pageData.map(mapLogToEntry)]);
+      setEntries((prev) => [...prev, ...pageData.map((l) => redactTimelineEntry(mapLogToEntry(l), isOwner))]);
       setHasMore(moreAvailable);
     } else {
       setHasMore(false);
     }
     setLoadingMore(false);
-  }, [entries.length, hasMore, loadingMore, filter, userId, monthFilter]);
+  }, [entries.length, hasMore, loadingMore, filter, userId, monthFilter, isOwner]);
 
   const sentinelRef = useInfiniteScroll(loadMore, {
     enabled: hasMore && !loadingMore && !loading && !loadError,

@@ -196,7 +196,7 @@ export default async function PublicProfilePage({ params }: Props) {
         profile.pinned_list_1_id,
         profile.pinned_list_2_id,
       ]),
-      fetchTimeline(supabase, profile.id),
+      fetchTimeline(supabase, profile.id, undefined, 20, 0, undefined, user?.id ?? null),
       fetchUserBadges(supabase, profile.id),
       fetchTrackedIncomplete(supabase, profile.id),
     ]);

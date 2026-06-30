@@ -34,7 +34,7 @@ export default async function TimelinePage({
   }
 
   const [{ entries: timelineEntries, hasMore }, photolessCount, rootlessCount] = await Promise.all([
-    fetchTimeline(supabase, user.id, undefined, 20, 0, monthFilter),
+    fetchTimeline(supabase, user.id, undefined, 20, 0, monthFilter, user.id),
     countPhotolessLogs(supabase, user.id),
     countRootlessLogs(supabase, user.id),
   ]);

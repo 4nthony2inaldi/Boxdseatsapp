@@ -55,7 +55,7 @@ export default async function ProfilePage() {
         profile.pinned_list_1_id,
         profile.pinned_list_2_id,
       ]),
-      fetchTimeline(supabase, user.id, undefined, 1),
+      fetchTimeline(supabase, user.id, undefined, 1, 0, undefined, user.id),
       fetchProfileSummaryCounts(supabase, user.id),
       fetchUserBadges(supabase, user.id),
       fetchTrackedIncomplete(supabase, user.id),
