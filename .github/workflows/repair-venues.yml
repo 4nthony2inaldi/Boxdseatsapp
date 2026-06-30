@@ -1,0 +1,57 @@
+name: Repair event venues (cross-sport collision)
+
+# Re-points events that were attached to a wrong-sport venue by the old global
+# ESPN venue-id match (e.g. AFL games on MLB ballparks, European soccer on US
+# parks). Runs seed-real-data.mjs in --repair-venues mode: for each already-
+# seeded event it re-resolves the venue with the now sport-scoped logic and
+# updates venue_id only when it changed. Non-destructive — scores/teams/logs are
+# untouched, and it never deletes anything.
+#
+# Run the dry run first (wraps every write in a transaction and rolls back,
+# printing the repointed count per league); flip dry_run off to apply. Requires
+# the DATABASE_URL repository secret. After a real run for AFL, run
+# fix-afl-venues (curated coords) then sync-venues-geo (leagues=afl).
+
+on:
+  workflow_dispatch:
+    inputs:
+      leagues:
+        description: "Comma-separated league slugs to repair"
+        type: string
+        default: "afl"
+      from:
+        description: "Re-fetch start date (YYYY-MM-DD) — must cover the events' dates"
+        type: string
+        default: "2002-01-01"
+      dry_run:
+        description: "Roll back all writes (report repointed counts only)"
+        type: boolean
+        default: true
+
+concurrency:
+  group: repair-venues
+  cancel-in-progress: false
+
+jobs:
+  repair:
+    runs-on: ubuntu-latest
+    env:
+      DATABASE_URL: ${{ secrets.DATABASE_URL }}
+      DRY: ${{ github.event.inputs.dry_run == 'true' && '--dry-run' || '' }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+
+      - name: Notice when DATABASE_URL is missing
+        if: ${{ env.DATABASE_URL == '' }}
+        run: |
+          echo "::warning::repair-venues skipped — set the DATABASE_URL repository secret to enable."
+          exit 0
+
+      - name: Repair venues
+        if: ${{ env.DATABASE_URL != '' }}
+        run: node scripts/data/seed-real-data.mjs --leagues=${{ github.event.inputs.leagues }} --from=${{ github.event.inputs.from }} --repair-venues $DRY

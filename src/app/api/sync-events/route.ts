@@ -179,21 +179,26 @@ async function handleSync(request: Request) {
   // Venue lookup: by espn id and by normalized name.
   // Page past the 1,000-row cap — the venues table is already >1,500, so a
   // single select would hide venues from the matcher and spawn duplicates.
-  const venues: { id: string; name: string; external_ids: Record<string, unknown> }[] = [];
+  const venues: { id: string; name: string; primary_sport: string | null; external_ids: Record<string, unknown> }[] = [];
   for (let from = 0; ; from += 1000) {
     const { data: page } = await supabase
       .from("venues")
-      .select("id, name, external_ids")
+      .select("id, name, primary_sport, external_ids")
       .range(from, from + 999);
     if (!page || page.length === 0) break;
     venues.push(...(page as typeof venues));
     if (page.length < 1000) break;
   }
-  const venueByEspn = new Map<string, string>();
+  // ESPN venue ids are not unique across sports, so the espn-id map is keyed by
+  // {id, sport} and only trusted when the sport matches the league being synced
+  // (else a new league's venue id can collide with an existing other-sport
+  // venue — that's how AFL games once attached to MLB ballparks). A cross-sport
+  // or unknown-sport id falls through to the name map / creation.
+  const venueByEspn = new Map<string, { id: string; sport: string | null }>();
   const venueByName = new Map<string, string>();
   for (const v of venues || []) {
     const espn = (v.external_ids as Record<string, string>)?.espn;
-    if (espn) venueByEspn.set(String(espn), v.id);
+    if (espn) venueByEspn.set(String(espn), { id: v.id, sport: v.primary_sport });
     venueByName.set(normName(v.name), v.id);
   }
 
@@ -377,7 +382,12 @@ async function handleSync(request: Request) {
       // Resolve venue: espn id, then name, then create
       let venueId: string | undefined;
       const espnVenueId = comp.venue?.id ? String(comp.venue.id) : null;
-      if (espnVenueId) venueId = venueByEspn.get(espnVenueId);
+      // Trust the espn-id match only when the venue's sport matches this league's
+      // (ids collide across sports); otherwise resolve by name / create.
+      if (espnVenueId) {
+        const cand = venueByEspn.get(espnVenueId);
+        if (cand && cand.sport === LEAGUE_SPORTS[slug]) venueId = cand.id;
+      }
       if (!venueId && comp.venue?.fullName) {
         venueId = venueByName.get(normName(comp.venue.fullName));
       }
@@ -405,7 +415,7 @@ async function handleSync(request: Request) {
           continue;
         }
         venueId = newVenue.id;
-        if (espnVenueId) venueByEspn.set(espnVenueId, venueId!);
+        if (espnVenueId) venueByEspn.set(espnVenueId, { id: venueId!, sport: LEAGUE_SPORTS[slug] || null });
         venueByName.set(normName(comp.venue.fullName), venueId!);
         stats.venuesCreated++;
       }
