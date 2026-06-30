@@ -880,25 +880,25 @@ async function processEvent(ev, leagueSlug, leagueId, cfg, teamIndex, existingBy
   // the season filters because the row already exists in the DB.
   if (args.repairVenues) {
     const existingEv = existingEventByEspn.get(ev.id);
-    if (existingEv) {
-      if (ev.venue?.fullName || ev.venue?.id) {
-        // homeTeamId=null skips the rename heuristic (needs no team resolution);
-        // name match / creation still resolves the correct venue.
-        const newVenueId = await resolveVenue(ev.venue, null, ev.neutralSite, stats, internalSport(cfg));
-        if (newVenueId && newVenueId !== existingEv.venue_id) {
-          const vName = venueById.get(newVenueId)?.name;
-          const venueNameAtTime = ev.venue.fullName && ev.venue.fullName !== vName ? ev.venue.fullName : null;
-          await db.query(
-            `update events set venue_id = $1, venue_name_at_time = $2 where id = $3`,
-            [newVenueId, venueNameAtTime, existingEv.id],
-          );
-          stats.venuesRepointed = (stats.venuesRepointed ?? 0) + 1;
-        }
+    if (existingEv && (ev.venue?.fullName || ev.venue?.id)) {
+      // homeTeamId=null skips the rename heuristic (needs no team resolution);
+      // name match / creation still resolves the correct venue.
+      const newVenueId = await resolveVenue(ev.venue, null, ev.neutralSite, stats, internalSport(cfg));
+      if (newVenueId && newVenueId !== existingEv.venue_id) {
+        const vName = venueById.get(newVenueId)?.name;
+        const venueNameAtTime = ev.venue.fullName && ev.venue.fullName !== vName ? ev.venue.fullName : null;
+        await db.query(
+          `update events set venue_id = $1, venue_name_at_time = $2 where id = $3`,
+          [newVenueId, venueNameAtTime, existingEv.id],
+        );
+        stats.venuesRepointed = (stats.venuesRepointed ?? 0) + 1;
       }
-      stats.eventsSkipped++;
-      return;
     }
-    // Not yet in the DB — fall through and insert it normally.
+    // Repair only re-points venues of events already in the DB; it never inserts
+    // new events. Falling through to the insert path would backfill unseeded
+    // (often venue-less) older games and throw "no venue in payload" on them.
+    stats.eventsSkipped++;
+    return;
   }
 
   if (!ev.completed) { stats.eventsFiltered++; return; }
