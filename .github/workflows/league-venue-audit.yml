@@ -1,0 +1,77 @@
+name: League venue audit (read-only)
+
+# Quantifies a venue mis-assignment bug: the seeder/sync matched venues by a
+# GLOBAL ESPN venue id, but ESPN venue ids are not unique across sports, so a
+# new league's events can attach to an existing other-sport venue (e.g. AFL
+# games landing on MLB ballparks). This report shows, for a league:
+#   1. its events split by venue country (AFL should be ~all AU),
+#   2. every venue hosting its events, flagged with how many OTHER-league
+#      events that same venue also has (a non-zero "other" count on a venue is
+#      the collision signature), and its country.
+# Read-only: SELECTs only. Needs the DATABASE_URL secret.
+
+on:
+  workflow_dispatch:
+    inputs:
+      slug:
+        description: "League slug to audit"
+        type: string
+        default: "afl"
+
+concurrency:
+  group: league-venue-audit
+  cancel-in-progress: true
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    env:
+      DATABASE_URL: ${{ secrets.DATABASE_URL }}
+      SLUG: ${{ github.event.inputs.slug }}
+    steps:
+      - name: Report
+        if: ${{ env.DATABASE_URL != '' }}
+        run: |
+          psql "$DATABASE_URL" -P pager=off -v ON_ERROR_STOP=1 -v slug="$SLUG" <<'SQL'
+          \echo '=== Events by venue country ==='
+          select coalesce(v.country, '(null)') as venue_country,
+                 count(*) as events,
+                 count(distinct v.id) as venues
+          from events e
+          join venues v on v.id = e.venue_id
+          join leagues l on l.id = e.league_id
+          where l.slug = :'slug'
+          group by v.country
+          order by events desc;
+
+          \echo ''
+          \echo '=== Totals ==='
+          select count(*) as events_total,
+                 count(distinct v.id) as venues_total
+          from events e
+          join venues v on v.id = e.venue_id
+          join leagues l on l.id = e.league_id
+          where l.slug = :'slug';
+
+          \echo ''
+          \echo '=== Each venue hosting this league + its OTHER-league event count (other>0 = collision) ==='
+          select v.name, coalesce(v.city,'-') as city, coalesce(v.country,'-') as country,
+                 count(distinct e.id) filter (where l.slug = :'slug')  as this_league,
+                 count(distinct e.id) filter (where l.slug <> :'slug')  as other_leagues,
+                 string_agg(distinct l.slug, ',') filter (where l.slug <> :'slug') as other_slugs
+          from venues v
+          join events e on e.venue_id = v.id
+          join leagues l on l.id = e.league_id
+          where v.id in (
+            select e2.venue_id from events e2
+            join leagues l2 on l2.id = e2.league_id
+            where l2.slug = :'slug'
+          )
+          group by v.id, v.name, v.city, v.country
+          order by other_leagues desc, this_league desc
+          limit 200;
+          SQL
+
+      - name: Notice when nothing ran
+        if: ${{ env.DATABASE_URL == '' }}
+        run: echo "::warning::league-venue-audit skipped — set the DATABASE_URL repository secret to enable."
