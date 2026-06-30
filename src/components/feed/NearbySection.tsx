@@ -39,7 +39,6 @@ function NearbyCard({ ev }: { ev: NearbyEvent }) {
   const photo = ev.cover_photo_url || ev.venue_photo;
   const chip = dateChip(ev.event_date);
   const isMatch = ev.home_team && ev.away_team;
-  const isPast = new Date(ev.event_date + "T23:59:59") < new Date();
 
   return (
     <Link
@@ -83,11 +82,6 @@ function NearbyCard({ ev }: { ev: NearbyEvent }) {
         <div className="text-[10px] text-text-muted truncate">
           {ev.venue_name} · {miles(ev.distance_m)}
         </div>
-        {isPast && (
-          <div className="mt-1.5 font-display text-[10px] tracking-[1px] uppercase text-accent">
-            Were you there?
-          </div>
-        )}
       </div>
     </Link>
   );

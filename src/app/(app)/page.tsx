@@ -3,6 +3,8 @@ import { fetchFeed, fetchDiscoveryFeed, type FeedPage } from "@/lib/queries/soci
 import { fetchNearbyEvents, type NearbyPage } from "@/lib/queries/nearby";
 import FeedList from "@/components/feed/FeedList";
 import NearbySection from "@/components/feed/NearbySection";
+import RememberSomeGuys from "@/components/feed/RememberSomeGuys";
+import { fetchRememberGuys } from "@/lib/queries/rememberGuys";
 import PullToRefresh from "@/components/PullToRefresh";
 
 export default async function FeedPage() {
@@ -19,12 +21,14 @@ export default async function FeedPage() {
     );
   }
 
-  const [{ entries, hasMore }, profileRes, followCountRes] = await Promise.all([
+  const [{ entries, hasMore }, profileRes, followCountRes, remember] = await Promise.all([
     fetchFeed(supabase, user.id),
-    supabase.from("profiles").select("home_city").eq("id", user.id).single(),
+    supabase.from("profiles").select("home_city, username").eq("id", user.id).single(),
     supabase.from("follows").select("id", { count: "exact", head: true }).eq("follower_id", user.id).eq("status", "active"),
+    fetchRememberGuys(supabase, user.id),
   ]);
   const homeCity = profileRes.data?.home_city ?? null;
+  const username = profileRes.data?.username ?? null;
   const followingCount = followCountRes.count ?? 0;
   let nearby: NearbyPage = { events: [], before: null };
   if (homeCity) {
@@ -52,6 +56,8 @@ export default async function FeedPage() {
       </div>
 
       <NearbySection userId={user.id} initialCity={homeCity} initialPage={nearby} />
+
+      {username && <RememberSomeGuys userId={user.id} username={username} initial={remember} />}
 
       <div className="px-4 mb-2.5">
         <span className="font-display text-[13px] text-text-muted tracking-[2px] uppercase">
