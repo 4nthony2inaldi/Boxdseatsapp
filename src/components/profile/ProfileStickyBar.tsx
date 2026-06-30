@@ -1,0 +1,91 @@
+"use client";
+
+/* eslint-disable @next/next/no-img-element -- small avatar with initial fallback */
+import { useEffect, useRef, useState } from "react";
+
+/**
+ * Condensed, sticky profile bar: a shrunk avatar + the four KPIs that pins
+ * beneath the AppHeader once you scroll past the full profile header.
+ *
+ * Driven by an IntersectionObserver on a sentinel placed right after the
+ * expanded header (no per-frame scroll listener). The bar is position:fixed so
+ * it reserves no layout space and never shifts the page; it sits just below the
+ * AppHeader (whose height we measure at runtime, with a safe-area fallback) and
+ * one z-layer under it.
+ */
+
+type Stat = { value: number; label: string };
+
+export default function ProfileStickyBar({
+  avatarUrl,
+  initial,
+  stats,
+}: {
+  avatarUrl: string | null;
+  initial: string;
+  stats: Stat[];
+}) {
+  const sentinelRef = useRef<HTMLDivElement>(null);
+  const [condensed, setCondensed] = useState(false);
+  const [topPx, setTopPx] = useState<number | null>(null);
+
+  // Pin flush under the real AppHeader height (matches the feed's pinned strip).
+  useEffect(() => {
+    const measure = () => {
+      const h = document.querySelector("header")?.getBoundingClientRect().height;
+      if (h) setTopPx(Math.floor(h));
+    };
+    measure();
+    window.addEventListener("resize", measure);
+    return () => window.removeEventListener("resize", measure);
+  }, []);
+
+  // Reveal once the sentinel (below the full header) passes under the AppHeader.
+  useEffect(() => {
+    const el = sentinelRef.current;
+    if (!el) return;
+    const obs = new IntersectionObserver(
+      ([entry]) => setCondensed(!entry.isIntersecting),
+      { rootMargin: `-${topPx ?? 56}px 0px 0px 0px`, threshold: 0 }
+    );
+    obs.observe(el);
+    return () => obs.disconnect();
+  }, [topPx]);
+
+  return (
+    <>
+      <div ref={sentinelRef} aria-hidden className="h-px w-full" />
+      <div
+        className="fixed inset-x-0 z-40 pointer-events-none"
+        style={{
+          top: topPx != null ? `${topPx}px` : "calc(env(safe-area-inset-top) + 56px)",
+          opacity: condensed ? 1 : 0,
+          transform: condensed ? "translateY(0)" : "translateY(-6px)",
+          transition: "opacity 0.18s ease, transform 0.18s ease",
+        }}
+      >
+        <div
+          className={`max-w-lg mx-auto px-4 h-14 flex items-center gap-3 bg-bg/95 backdrop-blur-sm border-b border-border ${
+            condensed ? "pointer-events-auto" : ""
+          }`}
+        >
+          <div className="w-8 h-8 rounded-full overflow-hidden border border-border shrink-0 bg-bg-elevated flex items-center justify-center">
+            {avatarUrl ? (
+              <img src={avatarUrl} alt="" className="w-full h-full object-cover" />
+            ) : (
+              <span className="font-display text-sm text-text-secondary">{initial}</span>
+            )}
+          </div>
+          <div className="grid grid-cols-4 gap-2 flex-1 min-w-0">
+            {stats.map((s) => (
+              <div key={s.label} className="text-center leading-none">
+                <div className="font-display text-sm text-text-primary">{s.value}</div>
+                <div className="text-[9px] text-text-muted uppercase tracking-wide mt-0.5">{s.label}</div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    </>
+  );
+}
