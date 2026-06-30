@@ -16,7 +16,7 @@ import { SupabaseClient } from "@supabase/supabase-js";
 
 export type BadgeGroup = "event" | "stat";
 
-/** The fields a badge predicate sees, normalized from a logged event + its log. */
+/** The fields a badge predicate sees, normalized from a logged event. */
 type Row = {
   eventId: string;
   date: string;
@@ -27,17 +27,19 @@ type Row = {
   round: string | null;
   homeTeamId: string | null;
   awayTeamId: string | null;
-  rootingTeamId: string | null;
   // display
   title: string;
   venue: string | null;
 };
 
+/** Per-user context a predicate may need beyond a single event. */
+type MatchCtx = { favTeamIds: Set<string> };
+
 export type BadgeDef = {
   key: string;
   label: string;
   group: BadgeGroup;
-  match: (r: Row) => boolean;
+  match: (r: Row, ctx: MatchCtx) => boolean;
 };
 
 const tag = (t: string) => (r: Row) => r.tags.includes(t);
@@ -60,7 +62,7 @@ export const BADGE_CATALOG: BadgeDef[] = [
   { key: "nba-finals", label: "NBA Finals", group: "event", match: (r) => r.slug === "nba" && round(/nba finals/i)(r) },
   { key: "stanley-cup", label: "Stanley Cup", group: "event", match: (r) => r.slug === "nhl" && round(/stanley cup/i)(r) },
   { key: "super-bowl", label: "Super Bowl", group: "event", match: (r) => r.slug === "nfl" && round(/super bowl/i)(r) },
-  { key: "fav-team-road", label: "Favorite Team on the Road", group: "event", match: (r) => !!r.rootingTeamId && r.rootingTeamId === r.awayTeamId },
+  { key: "fav-team-road", label: "Favorite Team on the Road", group: "event", match: (r, ctx) => !!r.awayTeamId && ctx.favTeamIds.has(r.awayTeamId) },
 
   // ── stat-based ──
   { key: "no-hitter", label: "No-Hitter", group: "stat", match: tag("no-hitter") },
@@ -92,7 +94,7 @@ type EventRel = {
   away_team: { short_name: string | null; name: string | null } | null;
 } | null;
 
-const SELECT = `event_date, rooting_team_id,
+const SELECT = `event_date,
   events!event_logs_event_id_fkey(
     id, event_tags, is_postseason, is_preseason, round_or_stage, tournament_name,
     home_team_id, away_team_id,
@@ -135,7 +137,6 @@ async function fetchLoggedRows(supabase: SupabaseClient, userId: string): Promis
         round: e.round_or_stage,
         homeTeamId: e.home_team_id,
         awayTeamId: e.away_team_id,
-        rootingTeamId: (log.rooting_team_id as string | null) ?? null,
         title: titleOf(e),
         venue: e.venues?.name ?? null,
       });
@@ -143,6 +144,26 @@ async function fetchLoggedRows(supabase: SupabaseClient, userId: string): Promis
     if (data.length < 1000) break;
   }
   return out;
+}
+
+/** The user's favorite teams: their ranked `team` favorites, plus the legacy
+ *  profiles.fav_team_id. Used by the "Favorite Team on the Road" badge. */
+async function fetchFavoriteTeamIds(supabase: SupabaseClient, userId: string): Promise<Set<string>> {
+  const ids = new Set<string>();
+  const { data: favs } = await supabase
+    .from("user_league_favorites")
+    .select("team_id")
+    .eq("user_id", userId)
+    .eq("category", "team")
+    .not("team_id", "is", null);
+  for (const f of favs || []) if (f.team_id) ids.add(f.team_id as string);
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("fav_team_id")
+    .eq("id", userId)
+    .maybeSingle();
+  if (profile?.fav_team_id) ids.add(profile.fav_team_id as string);
+  return ids;
 }
 
 export type EarnedBadge = { key: string; label: string; group: BadgeGroup; count: number };
@@ -153,12 +174,16 @@ export async function fetchUserAchievements(
   supabase: SupabaseClient,
   userId: string
 ): Promise<EarnedBadge[]> {
-  const rows = await fetchLoggedRows(supabase, userId);
+  const [rows, favTeamIds] = await Promise.all([
+    fetchLoggedRows(supabase, userId),
+    fetchFavoriteTeamIds(supabase, userId),
+  ]);
+  const ctx: MatchCtx = { favTeamIds };
   return BADGE_CATALOG.map((b) => ({
     key: b.key,
     label: b.label,
     group: b.group,
-    count: rows.reduce((n, r) => n + (b.match(r) ? 1 : 0), 0),
+    count: rows.reduce((n, r) => n + (b.match(r, ctx) ? 1 : 0), 0),
   }));
 }
 
@@ -172,8 +197,12 @@ export async function fetchAchievementGames(
 ): Promise<AchievementGame[]> {
   const def = badgeByKey(key);
   if (!def) return [];
-  const rows = await fetchLoggedRows(supabase, userId);
+  const [rows, favTeamIds] = await Promise.all([
+    fetchLoggedRows(supabase, userId),
+    fetchFavoriteTeamIds(supabase, userId),
+  ]);
+  const ctx: MatchCtx = { favTeamIds };
   return rows
-    .filter((r) => def.match(r))
+    .filter((r) => def.match(r, ctx))
     .map((r) => ({ eventId: r.eventId, date: r.date, title: r.title, venue: r.venue }));
 }
