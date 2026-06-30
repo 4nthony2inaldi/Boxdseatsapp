@@ -1,0 +1,42 @@
+name: Fix soccer regular-season postseason flag
+
+# Corrects soccer regular-season games wrongly flagged is_postseason by the old
+# seeder (year-suffixed 'regular-season-YYYY' slugs fell through to the postseason
+# catch-all). See scripts/data/fix-soccer-postseason.sql. Idempotent. Default is
+# a dry run (rolled back; the BEFORE/AFTER/target counts still print).
+#
+# Requires repository secret DATABASE_URL.
+
+on:
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "Roll back after running (validate + show counts only)"
+        type: boolean
+        default: true
+
+concurrency:
+  group: fix-soccer-postseason
+  cancel-in-progress: false
+
+jobs:
+  fix:
+    runs-on: ubuntu-latest
+    env:
+      DATABASE_URL: ${{ secrets.DATABASE_URL }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Fix (real)
+        if: ${{ env.DATABASE_URL != '' && github.event.inputs.dry_run != 'true' }}
+        run: psql "$DATABASE_URL" -P pager=off -v ON_ERROR_STOP=1 -f scripts/data/fix-soccer-postseason.sql
+
+      - name: Validate (rolled back, counts still print)
+        if: ${{ env.DATABASE_URL != '' && github.event.inputs.dry_run == 'true' }}
+        run: |
+          { echo "BEGIN;"; cat scripts/data/fix-soccer-postseason.sql; echo "ROLLBACK;"; } \
+            | psql "$DATABASE_URL" -P pager=off -v ON_ERROR_STOP=1 -f -
+
+      - name: Notice when nothing ran
+        if: ${{ env.DATABASE_URL == '' }}
+        run: echo "::warning::fix-soccer-postseason skipped — set the DATABASE_URL repository secret to enable."

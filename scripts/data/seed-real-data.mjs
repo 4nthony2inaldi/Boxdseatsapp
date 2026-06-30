@@ -766,7 +766,10 @@ function classifySeason(season, soccer, tournament) {
   const slug = season?.slug ?? '';
   if (/all-star|friendly/.test(slug)) return { include: false };
   if (/preseason/.test(slug)) return { include: true, isPostseason: false, isPreseason: true, roundFromSlug: null };
-  if (slug === 'regular-season' || slug === '') return { include: true, isPostseason: false, isPreseason: false, roundFromSlug: null };
+  // Regular season is NOT postseason. ESPN uses year-suffixed slugs for some
+  // leagues/eras (e.g. MLS "regular-season-2016"), so match the prefix rather
+  // than the exact string — an exact match mis-flagged those as postseason.
+  if (slug === '' || /^regular[ -]?season/.test(slug)) return { include: true, isPostseason: false, isPreseason: false, roundFromSlug: null };
   return { include: true, isPostseason: true, isPreseason: false, roundFromSlug: humanizeSlug(slug) };
 }
 
