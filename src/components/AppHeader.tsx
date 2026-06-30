@@ -109,7 +109,7 @@ export default function AppHeader() {
               <span className="relative block">
                 <BellIcon />
                 {unreadCount > 0 && (
-                  <span className="absolute -top-1 -right-1 min-w-[16px] h-4 rounded-full bg-accent text-[10px] font-bold text-white flex items-center justify-center px-1">
+                  <span className="absolute -top-1 -right-1 min-w-[16px] h-4 rounded-full bg-accent text-[10px] font-bold text-bg flex items-center justify-center px-1">
                     {unreadCount > 99 ? "99+" : unreadCount}
                   </span>
                 )}

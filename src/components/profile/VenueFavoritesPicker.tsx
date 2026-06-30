@@ -205,7 +205,7 @@ export default function VenueFavoritesPicker({ userId, initialFavorites, onChang
                       <circle cx="9" cy="18" r="1.6" /><circle cx="15" cy="18" r="1.6" />
                     </svg>
                   </button>
-                  <div className={`flex-shrink-0 w-6 h-6 rounded-full flex items-center justify-center text-xs font-semibold ${i === 0 ? "bg-accent text-white" : "bg-bg-elevated text-text-secondary"}`}>
+                  <div className={`flex-shrink-0 w-6 h-6 rounded-full flex items-center justify-center text-xs font-semibold ${i === 0 ? "bg-accent text-bg" : "bg-bg-elevated text-text-secondary"}`}>
                     {i + 1}
                   </div>
                   <SportIcon sport={fav.sport} size={22} />

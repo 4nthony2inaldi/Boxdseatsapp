@@ -78,7 +78,7 @@ export default function ReportButton({ targetType, targetId, reporterId, label =
             <button
               onClick={submit}
               disabled={busy}
-              className="flex-1 bg-accent rounded-lg px-3 py-1.5 text-xs text-white font-medium cursor-pointer disabled:opacity-40 hover:opacity-90"
+              className="flex-1 bg-accent rounded-lg px-3 py-1.5 text-xs text-bg font-medium cursor-pointer disabled:opacity-40 hover:opacity-90"
             >
               {busy ? "..." : "Submit"}
             </button>

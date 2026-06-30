@@ -273,7 +273,7 @@ export default function NearbySection({ userId, initialCity, initialPage }: Prop
           </div>
           <button
             onClick={() => setPickerOpen(true)}
-            className="px-3 py-1.5 rounded-lg bg-accent text-white text-xs font-display tracking-wider uppercase border-none cursor-pointer"
+            className="px-3 py-1.5 rounded-lg bg-accent text-bg text-xs font-display tracking-wider uppercase border-none cursor-pointer"
           >
             Choose
           </button>

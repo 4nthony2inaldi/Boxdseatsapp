@@ -455,7 +455,7 @@ export default function LogFlow({ userId, prefillVenue, prefillEvent, editLog }:
                 <div
                   className={`w-6 h-6 rounded-full flex items-center justify-center text-[11px] font-display shrink-0 ${
                     isCompleted
-                      ? "bg-accent text-white"
+                      ? "bg-accent text-bg"
                       : isActive
                         ? "bg-accent/20 text-accent border border-accent"
                         : "bg-bg-input text-text-muted border border-border"

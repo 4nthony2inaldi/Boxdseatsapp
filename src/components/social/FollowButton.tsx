@@ -79,7 +79,7 @@ export default function FollowButton({
   } else {
     label = "Follow";
     style =
-      "bg-accent text-white hover:opacity-90";
+      "bg-accent text-bg hover:opacity-90";
   }
 
   return (
