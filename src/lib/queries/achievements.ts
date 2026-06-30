@@ -30,6 +30,7 @@ type Row = {
   // display
   title: string;
   venue: string | null;
+  country: string | null;
 };
 
 /** Per-user context a predicate may need beyond a single event. */
@@ -39,7 +40,12 @@ export type BadgeDef = {
   key: string;
   label: string;
   group: BadgeGroup;
-  match: (r: Row, ctx: MatchCtx) => boolean;
+  // Per-game badge: count = number of logged games that match.
+  match?: (r: Row, ctx: MatchCtx) => boolean;
+  // Whole-collection badge (e.g. distinct countries): count = aggregate over all
+  // the user's logged games. detailRows supplies the games behind it.
+  aggregate?: (rows: Row[], ctx: MatchCtx) => number;
+  detailRows?: (rows: Row[], ctx: MatchCtx) => Row[];
 };
 
 const tag = (t: string) => (r: Row) => r.tags.includes(t);
@@ -62,7 +68,22 @@ export const BADGE_CATALOG: BadgeDef[] = [
   { key: "nba-finals", label: "NBA Finals", group: "event", match: (r) => r.slug === "nba" && round(/nba finals/i)(r) },
   { key: "stanley-cup", label: "Stanley Cup", group: "event", match: (r) => r.slug === "nhl" && round(/stanley cup/i)(r) },
   { key: "super-bowl", label: "Super Bowl", group: "event", match: (r) => r.slug === "nfl" && round(/super bowl/i)(r) },
+  { key: "world-cup", label: "World Cup", group: "event", match: (r) => !!r.slug && r.slug.startsWith("fifa.world") },
   { key: "fav-team-road", label: "Favorite Team on the Road", group: "event", match: (r, ctx) => !!r.awayTeamId && ctx.favTeamIds.has(r.awayTeamId) },
+  {
+    key: "multiple-countries",
+    label: "Multiple Countries",
+    group: "event",
+    // Earned at 2+ distinct venue countries; the count IS the number of countries.
+    aggregate: (rows) => {
+      const c = new Set(rows.map((r) => r.country).filter(Boolean) as string[]);
+      return c.size >= 2 ? c.size : 0;
+    },
+    detailRows: (rows) =>
+      rows
+        .filter((r) => r.country)
+        .sort((a, b) => (a.country ?? "").localeCompare(b.country ?? "") || (a.date < b.date ? 1 : -1)),
+  },
 
   // ── stat-based ──
   { key: "no-hitter", label: "No-Hitter", group: "stat", match: tag("no-hitter") },
@@ -88,7 +109,7 @@ type EventRel = {
   tournament_name: string | null;
   home_team_id: string | null;
   away_team_id: string | null;
-  venues: { name: string | null } | null;
+  venues: { name: string | null; country: string | null } | null;
   leagues: { slug: string | null } | null;
   home_team: { short_name: string | null; name: string | null } | null;
   away_team: { short_name: string | null; name: string | null } | null;
@@ -98,7 +119,7 @@ const SELECT = `event_date,
   events!event_logs_event_id_fkey(
     id, event_tags, is_postseason, is_preseason, round_or_stage, tournament_name,
     home_team_id, away_team_id,
-    venues!events_venue_id_fkey(name),
+    venues!events_venue_id_fkey(name, country),
     leagues(slug),
     home_team:teams!events_home_team_id_fkey(short_name, name),
     away_team:teams!events_away_team_id_fkey(short_name, name)
@@ -139,6 +160,7 @@ async function fetchLoggedRows(supabase: SupabaseClient, userId: string): Promis
         awayTeamId: e.away_team_id,
         title: titleOf(e),
         venue: e.venues?.name ?? null,
+        country: e.venues?.country ?? null,
       });
     }
     if (data.length < 1000) break;
@@ -180,11 +202,13 @@ export async function fetchUserAchievements(
     key: b.key,
     label: b.label,
     group: b.group,
-    count: rows.reduce((n, r) => n + (b.match(r, ctx) ? 1 : 0), 0),
+    count: b.aggregate
+      ? b.aggregate(rows, ctx)
+      : rows.reduce((n, r) => n + (b.match?.(r, ctx) ? 1 : 0), 0),
   }));
 }
 
-export type AchievementGame = { eventId: string; date: string; title: string; venue: string | null };
+export type AchievementGame = { eventId: string; date: string; title: string; venue: string | null; country: string | null };
 
 /** The games behind one badge, for the badge detail page. */
 export async function fetchAchievementGames(
@@ -198,7 +222,6 @@ export async function fetchAchievementGames(
     fetchLoggedRows(supabase, userId),
     fetchFavoriteContext(supabase, userId),
   ]);
-  return rows
-    .filter((r) => def.match(r, ctx))
-    .map((r) => ({ eventId: r.eventId, date: r.date, title: r.title, venue: r.venue }));
+  const matched = def.detailRows ? def.detailRows(rows, ctx) : rows.filter((r) => def.match?.(r, ctx));
+  return matched.map((r) => ({ eventId: r.eventId, date: r.date, title: r.title, venue: r.venue, country: r.country }));
 }
