@@ -34,7 +34,7 @@ function twoLines(label: string): [string, string] {
   return [label.slice(0, mid), label.slice(mid)];
 }
 
-function BadgeTile({ badge }: { badge: EarnedBadge }) {
+function BadgeTile({ badge, hrefBase }: { badge: EarnedBadge; hrefBase: string }) {
   const earned = badge.count > 0;
   const [line1, line2] = twoLines(badge.short);
   const inner = (
@@ -69,13 +69,13 @@ function BadgeTile({ badge }: { badge: EarnedBadge }) {
     );
   }
   return (
-    <Link href={`/profile/badges/${badge.key}`} className={`${className} block active:opacity-80 transition-opacity`}>
+    <Link href={`${hrefBase}/${badge.key}`} className={`${className} block active:opacity-80 transition-opacity`}>
       {inner}
     </Link>
   );
 }
 
-function Row({ title, badges }: { title: string; badges: EarnedBadge[] }) {
+function Row({ title, badges, hrefBase }: { title: string; badges: EarnedBadge[]; hrefBase: string }) {
   if (badges.length === 0) return null;
   // Earned first (most-earned first), then locked, so the collection reads well.
   const sorted = [...badges].sort((a, b) => b.count - a.count);
@@ -86,20 +86,27 @@ function Row({ title, badges }: { title: string; badges: EarnedBadge[] }) {
       </div>
       <div className="pl-4 pr-4 flex gap-3 overflow-x-auto pb-1 scroll-fade-x" style={{ scrollbarWidth: "none" }}>
         {sorted.map((b) => (
-          <BadgeTile key={b.key} badge={b} />
+          <BadgeTile key={b.key} badge={b} hrefBase={hrefBase} />
         ))}
       </div>
     </div>
   );
 }
 
-export default function AchievementBadges({ badges }: { badges: EarnedBadge[] }) {
+/** hrefBase: where a badge links for its games (own profile vs a public one). */
+export default function AchievementBadges({
+  badges,
+  hrefBase = "/profile/badges",
+}: {
+  badges: EarnedBadge[];
+  hrefBase?: string;
+}) {
   const event = badges.filter((b) => b.group === "event");
   const stat = badges.filter((b) => b.group === "stat");
   return (
     <div className="mb-2">
-      <Row title="Game Badges" badges={event} />
-      <Row title="Stat Badges" badges={stat} />
+      <Row title="Game Badges" badges={event} hrefBase={hrefBase} />
+      <Row title="Stat Badges" badges={stat} hrefBase={hrefBase} />
     </div>
   );
 }
