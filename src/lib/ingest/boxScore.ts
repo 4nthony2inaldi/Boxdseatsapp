@@ -174,7 +174,13 @@ async function fetchEvent(
     const base = espnId.split("-")[0];
     const d = await espn(`https://site.api.espn.com/apis/site/v2/sports/golf/leaderboard?league=pga&event=${base}`);
     const p = parseField(d);
-    return { participants: p, completed: p.length > 0 }; // leaderboard exists -> field is final
+    // The leaderboard/field is populated before play, so "field exists" is not
+    // "final". Gate on the tournament's actual status so an upcoming event a fan
+    // logs early isn't ingested with non-final positions and marked done.
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const gev = arr((d as any)?.events).find((e: any) => String(e.id) === base) ?? arr((d as any)?.events)[0];
+    const st = gev?.status?.type;
+    return { participants: p, completed: st?.completed === true || st?.state === "post" };
   }
   if (sport === "motorsports") {
     const path = RACING[slug];
@@ -183,7 +189,12 @@ async function fetchEvent(
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const matched = arr((d as any)?.events).filter((x: any) => String(x.id) === espnId);
     const p = parseField({ events: matched });
-    return { participants: p, completed: p.length > 0 };
+    // Gate on the race's status (the entry list exists pre-race). Fall back to
+    // field-present only if ESPN omits a status, so this never regresses a real
+    // completed race that lacks the field.
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const st = (matched[0] as any)?.status?.type;
+    return { participants: p, completed: st ? (st.completed === true || st.state === "post") : p.length > 0 };
   }
   const path = TEAM_PATH[slug];
   if (!path) return null;
@@ -236,12 +247,17 @@ export async function ingestEventBoxScore(
   if ((count ?? 0) > 0) { await setBoxScoreState(supabase, eventId, "done"); return { status: "already" }; }
 
   // Event meta (sport + slug + espn id + date)
-  const { data: ev } = await supabase
+  const { data: ev, error: evErr } = await supabase
     .from("events")
     .select("event_date, external_ids, league_id, leagues(sport, slug)")
     .eq("id", eventId)
     .single();
-  if (!ev) return { status: "skip" };
+  // Distinguish a transient read error from a genuinely-missing row. On an error
+  // we leave the event pending so the next sweep retries it; only a true
+  // not-found is marked skip, so a deleted/absent event can't churn the sweep
+  // (re-selected as pending) forever.
+  if (evErr) return { status: "skip" };
+  if (!ev) { await setBoxScoreState(supabase, eventId, "skip"); return { status: "skip" }; }
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const league = (ev as any).leagues as { sport: Sport | null; slug: string | null } | null;
   // eslint-disable-next-line @typescript-eslint/no-explicit-any

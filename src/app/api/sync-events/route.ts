@@ -314,8 +314,15 @@ async function handleSync(request: Request) {
       const completed =
         comp.status?.type?.completed === true ||
         ev.status?.type?.completed === true;
-      const homeScore = completed && home?.score != null ? parseInt(home.score, 10) : null;
-      const awayScore = completed && away?.score != null ? parseInt(away.score, 10) : null;
+      // Guard parseInt: a non-numeric ESPN score must become null, not NaN
+      // (NaN would flow into is_draw/outcome and a NaN write to an int column).
+      const toScore = (s: string | null | undefined): number | null => {
+        if (s == null) return null;
+        const n = parseInt(s, 10);
+        return Number.isFinite(n) ? n : null;
+      };
+      const homeScore = completed ? toScore(home?.score) : null;
+      const awayScore = completed ? toScore(away?.score) : null;
       const eventDate = localDate(ev.date);
 
       // Existing event: refresh its score/date. We matched it by ESPN event id,
