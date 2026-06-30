@@ -1,0 +1,59 @@
+name: Athlete headshot audit (read-only)
+
+# Sizes the "Remember Some Guys" pool: how many distinct team-sport athletes
+# that fans have actually seen (appear in event_athletes) have a headshot, and
+# the gap we could backfill. Read-only SELECTs. Needs the DATABASE_URL secret.
+
+on:
+  workflow_dispatch: {}
+
+concurrency:
+  group: athlete-headshot-audit
+  cancel-in-progress: true
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    env:
+      DATABASE_URL: ${{ secrets.DATABASE_URL }}
+    steps:
+      - name: Report
+        if: ${{ env.DATABASE_URL != '' }}
+        run: |
+          psql "$DATABASE_URL" -P pager=off -v ON_ERROR_STOP=1 <<'SQL'
+          \echo '=== SEEN athletes (appear in event_athletes) headshot coverage, by sport ==='
+          select a.sport,
+                 count(distinct a.id)                                                    as seen_athletes,
+                 count(distinct a.id) filter (where a.headshot_url is not null)           as with_headshot,
+                 round(100.0 * count(distinct a.id) filter (where a.headshot_url is not null)
+                       / nullif(count(distinct a.id), 0), 1)                              as pct
+          from athletes a
+          join event_athletes ea on ea.athlete_id = a.id
+          group by a.sport
+          order by seen_athletes desc;
+
+          \echo ''
+          \echo '=== Remember Some Guys pool: SEEN team-sport athletes with a headshot ==='
+          select count(distinct a.id)                                          as seen_team_athletes,
+                 count(distinct a.id) filter (where a.headshot_url is not null) as pool_with_headshot,
+                 count(distinct a.id) filter (where a.headshot_url is null)     as missing_headshot
+          from athletes a
+          join event_athletes ea on ea.athlete_id = a.id
+          where a.sport in ('baseball','basketball','football','hockey','soccer','australian_football');
+
+          \echo ''
+          \echo '=== Whole universe: ALL team-sport athletes headshot coverage (backfill ceiling) ==='
+          select a.sport,
+                 count(*)                                                  as athletes,
+                 count(*) filter (where a.headshot_url is not null)        as with_headshot,
+                 round(100.0 * count(*) filter (where a.headshot_url is not null)
+                       / nullif(count(*), 0), 1)                           as pct
+          from athletes a
+          where a.sport in ('baseball','basketball','football','hockey','soccer','australian_football')
+          group by a.sport
+          order by athletes desc;
+          SQL
+
+      - name: Notice when nothing ran
+        if: ${{ env.DATABASE_URL == '' }}
+        run: echo "::warning::athlete-headshot-audit skipped — set the DATABASE_URL repository secret to enable."
