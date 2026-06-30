@@ -3,53 +3,38 @@ import type { EarnedBadge } from "@/lib/queries/achievements";
 
 /**
  * Mock UI for the profile's achievement badges: two horizontally-scrollable
- * rows (event-based, stat-based). Earned badges are tappable and carry an "xN"
- * count when earned more than once; locked badges are greyed and inert. The
- * tile art is a placeholder — the real per-badge design comes later; this just
- * wires up the data, layout, and click-through to the games list.
+ * rows (event-based, stat-based). The label sits inside the tile (small font);
+ * earned badges are tappable and carry an "xN" count when earned more than
+ * once; locked badges are greyed and inert. Tile art is a placeholder — the
+ * real per-badge design comes later; this wires up data, layout, and the
+ * click-through to the games list.
  */
-
-function initials(label: string): string {
-  const parts = label.replace(/[^a-zA-Z0-9 ]/g, "").split(/\s+/).filter(Boolean);
-  if (parts.length === 0) return "?";
-  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
-  return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
-}
 
 function BadgeTile({ badge }: { badge: EarnedBadge }) {
   const earned = badge.count > 0;
   const inner = (
-    <>
-      <div className="relative">
-        <div
-          className={`w-16 h-16 rounded-2xl flex items-center justify-center font-display text-lg ${
-            earned
-              ? "bg-accent/15 text-accent border border-accent/40"
-              : "bg-bg-elevated text-text-muted border border-border"
-          }`}
-        >
-          {initials(badge.label)}
-        </div>
-        {earned && badge.count > 1 && (
-          <span
-            className="absolute -bottom-1 -right-1 rounded-full bg-accent text-bg text-[10px] font-display leading-none px-1.5 py-0.5"
-            aria-label={`${badge.count} times`}
-          >
-            {badge.count}×
-          </span>
-        )}
-      </div>
+    <div className="relative">
       <div
-        className={`text-[10px] font-medium mt-1 leading-tight text-center w-full ${
-          earned ? "text-text-primary" : "text-text-muted"
+        className={`w-[72px] h-[72px] rounded-2xl flex items-center justify-center text-center px-1.5 font-medium text-[10px] leading-[1.15] ${
+          earned
+            ? "bg-accent/15 text-accent border border-accent/40"
+            : "bg-bg-elevated text-text-muted border border-border"
         }`}
       >
-        {badge.label}
+        {badge.short}
       </div>
-    </>
+      {earned && badge.count > 1 && (
+        <span
+          className="absolute -bottom-1 -right-1 rounded-full bg-accent text-bg text-[10px] font-display leading-none px-1.5 py-0.5"
+          aria-label={`${badge.count} times`}
+        >
+          {badge.count}×
+        </span>
+      )}
+    </div>
   );
 
-  const className = "flex flex-col items-center w-[72px] shrink-0";
+  const className = "shrink-0";
   if (!earned) {
     return (
       <div className={`${className} opacity-50`} aria-disabled>
@@ -58,7 +43,7 @@ function BadgeTile({ badge }: { badge: EarnedBadge }) {
     );
   }
   return (
-    <Link href={`/profile/badges/${badge.key}`} className={`${className} active:opacity-80 transition-opacity`}>
+    <Link href={`/profile/badges/${badge.key}`} className={`${className} block active:opacity-80 transition-opacity`}>
       {inner}
     </Link>
   );

@@ -10,6 +10,7 @@
 --   multi-hr     (baseball)        — a batter with 3+ HR; four-hr for 4+
 --   hat-trick    (hockey, soccer)  — a player with 3+ goals (this game, not YTD)
 --   pts-40/50/60 (basketball)      — a player scoring 40 / 50 / 60+
+--   pass-5-td    (football)        — a player with 5+ passing TDs
 --
 -- NOT derivable: cycles — ESPN's stored batting line carries H but not 2B/3B,
 -- so a single can't be told from a double. That one needs a curated list.
@@ -23,9 +24,9 @@ update events e
 set event_tags = coalesce((
   select array_agg(t order by ord)
   from unnest(e.event_tags) with ordinality as u(t, ord)
-  where t <> all (array['no-hitter','perfect-game','multi-hr','four-hr','hat-trick','pts-40','pts-50','pts-60'])
+  where t <> all (array['no-hitter','perfect-game','multi-hr','four-hr','hat-trick','pts-40','pts-50','pts-60','pass-5-td'])
 ), array[]::text[])
-where e.event_tags && array['no-hitter','perfect-game','multi-hr','four-hr','hat-trick','pts-40','pts-50','pts-60'];
+where e.event_tags && array['no-hitter','perfect-game','multi-hr','four-hr','hat-trick','pts-40','pts-50','pts-60','pass-5-td'];
 
 -- 2) Re-tag from the box scores.
 with ea as (
@@ -73,6 +74,10 @@ feats as (
   select distinct event_id, 'pts-50' from ea where sport = 'basketball' and (sl->'stats'->>'PTS') ~ '^[0-9]+$' and (sl->'stats'->>'PTS')::int >= 50
   union
   select distinct event_id, 'pts-60' from ea where sport = 'basketball' and (sl->'stats'->>'PTS') ~ '^[0-9]+$' and (sl->'stats'->>'PTS')::int >= 60
+  union
+  -- 5+ passing TDs by a QB (football: NFL + college)
+  select distinct event_id, 'pass-5-td' from ea
+    where sport = 'football' and (sl->'passing'->>'TD') ~ '^[0-9]+$' and (sl->'passing'->>'TD')::int >= 5
 )
 update events e
 set event_tags = coalesce(e.event_tags, array[]::text[]) || agg.tags
@@ -82,5 +87,5 @@ where agg.event_id = e.id;
 \echo '=== Feat tags (logged games only) ==='
 select tag, count(*) as games
 from (select unnest(event_tags) as tag from events) s
-where tag in ('no-hitter','perfect-game','multi-hr','four-hr','hat-trick','pts-40','pts-50','pts-60')
+where tag in ('no-hitter','perfect-game','multi-hr','four-hr','hat-trick','pts-40','pts-50','pts-60','pass-5-td')
 group by tag order by tag;
