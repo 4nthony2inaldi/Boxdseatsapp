@@ -956,12 +956,26 @@ async function processEvent(ev, leagueSlug, leagueId, cfg, teamIndex, existingBy
   let venueId, venueNameAtTime;
   if (!ev.venue?.fullName && !ev.venue?.id) {
     const fb = HOME_VENUE_FALLBACKS[leagueSlug]?.[homeTeam.name]?.(eventDate, cls.isPreseason === true);
-    if (!fb) throw new Error('no venue in payload');
-    const entry = venueByName.get(normName(fb.venue))?.[0];
-    if (!entry) throw new Error(`fallback venue not in db: ${fb.venue}`);
-    venueId = entry.id;
-    venueNameAtTime = fb.nameAtTime ?? null;
-    stats.venuesMatched++;
+    const homeVenues = venuesByTeam.get(homeTeam.id);
+    if (fb) {
+      // Curated era venue (first choice — handles teams that relocated).
+      const entry = venueByName.get(normName(fb.venue))?.[0];
+      if (!entry) throw new Error(`fallback venue not in db: ${fb.venue}`);
+      venueId = entry.id;
+      venueNameAtTime = fb.nameAtTime ?? null;
+      stats.venuesMatched++;
+    } else if (!ev.neutralSite && homeVenues?.size === 1) {
+      // ESPN's scoreboard frequently omits the venue (older seasons, some
+      // preseason). For a non-neutral home game that's not a relocation case —
+      // the home team has exactly one known venue in our data — the venue is
+      // unambiguous, so use it instead of dropping the game (the original
+      // backfill silently skipped all of these as "no venue in payload").
+      // Teams that relocated have >1 venue and still require a curated entry.
+      venueId = [...homeVenues][0];
+      stats.venuesMatched++;
+    } else {
+      throw new Error('no venue in payload');
+    }
   } else {
     venueId = await resolveVenue(ev.venue, homeTeam.id, ev.neutralSite, stats, internalSport(cfg));
     const venueName = venueById.get(venueId)?.name;
