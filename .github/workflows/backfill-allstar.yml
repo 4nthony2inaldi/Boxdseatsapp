@@ -29,6 +29,10 @@ on:
         description: "End date (YYYY-MM-DD, blank = yesterday)"
         type: string
         default: ""
+      purge_unlogged:
+        description: "Delete existing unlogged All-Star events first (clean re-seed)"
+        type: boolean
+        default: false
       dry_run:
         description: "Roll back all DB changes (validate only)"
         type: boolean
@@ -52,6 +56,18 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
+
+      # Optional clean slate: drop All-Star events nobody has logged yet, so a
+      # re-seed with corrected detection can't leave stale/incorrect rows behind.
+      # Logged events are never touched. Only on a real (non-dry) run.
+      - name: Purge unlogged All-Star events
+        if: ${{ env.DATABASE_URL != '' && github.event.inputs.purge_unlogged == 'true' && github.event.inputs.dry_run != 'true' }}
+        run: |
+          psql "$DATABASE_URL" -P pager=off -v ON_ERROR_STOP=1 <<'SQL'
+          delete from events e
+          where e.event_tags @> array['allstar']
+            and not exists (select 1 from event_logs el where el.event_id = e.id);
+          SQL
 
       - name: Seed All-Star games
         if: ${{ env.DATABASE_URL != '' }}
