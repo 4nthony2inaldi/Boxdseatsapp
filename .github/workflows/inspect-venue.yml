@@ -1,0 +1,35 @@
+name: Inspect venue (read-only)
+on:
+  workflow_dispatch:
+    inputs:
+      venue_like:
+        description: "Venue name substring (e.g. Comerica)"
+        type: string
+        required: true
+      username:
+        description: "Optional username to check distinct venue-countries"
+        type: string
+        required: false
+concurrency:
+  group: inspect-venue
+  cancel-in-progress: false
+jobs:
+  inspect:
+    runs-on: ubuntu-latest
+    env:
+      DATABASE_URL: ${{ secrets.DATABASE_URL }}
+      VENUE_LIKE: ${{ github.event.inputs.venue_like }}
+      INSPECT_USER: ${{ github.event.inputs.username }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Inspect
+        if: ${{ env.DATABASE_URL != '' }}
+        run: node scripts/data/inspect-venue.mjs
+      - name: Notice when DATABASE_URL is missing
+        if: ${{ env.DATABASE_URL == '' }}
+        run: echo "::warning::inspect-venue skipped — set the DATABASE_URL repository secret to enable."
