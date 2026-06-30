@@ -1,0 +1,75 @@
+name: Backfill All-Star games
+
+# Historical backfill of All-Star GAMES as team-less, tagged 'field' events
+# (event_tags ['allstar']). seed-real-data.mjs detects ESPN compType ALLSTAR and
+# inserts a titled event at the host venue with the winning side in winner_name;
+# the ad-hoc all-star squads are NOT created as teams. The four leagues below are
+# already fully seeded, so a run inserts ONLY the previously-filtered All-Star
+# games (every other game hits the idempotent ESPN-id skip).
+#
+# Future All-Star games stay fresh via the Vercel /api/sync-events cron (it now
+# ingests compType ALLSTAR the same way), so this is a one-time history pass.
+#
+# WNBA history and the MLS All-Star Game are NOT covered here (WNBA isn't in this
+# seeder; the MLS All-Star Game isn't on the usa.1 league scoreboard) — separate
+# follow-up. Requires repository secret DATABASE_URL. Default is a dry run.
+
+on:
+  workflow_dispatch:
+    inputs:
+      leagues:
+        description: "Leagues to scan for All-Star games (comma-separated)"
+        type: string
+        default: "nfl,nba,nhl,mlb"
+      from:
+        description: "Start date (YYYY-MM-DD)"
+        type: string
+        default: "2002-01-01"
+      to:
+        description: "End date (YYYY-MM-DD, blank = yesterday)"
+        type: string
+        default: ""
+      dry_run:
+        description: "Roll back all DB changes (validate only)"
+        type: boolean
+        default: true
+
+concurrency:
+  group: backfill-allstar
+  cancel-in-progress: false
+
+jobs:
+  seed:
+    runs-on: ubuntu-latest
+    env:
+      DATABASE_URL: ${{ secrets.DATABASE_URL }}
+      DRY: ${{ github.event.inputs.dry_run == 'true' && '--dry-run' || '' }}
+      TO: ${{ github.event.inputs.to != '' && format('--to={0}', github.event.inputs.to) || '' }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+
+      - name: Seed All-Star games
+        if: ${{ env.DATABASE_URL != '' }}
+        run: node scripts/data/seed-real-data.mjs --leagues=${{ github.event.inputs.leagues }} --from=${{ github.event.inputs.from }} $TO $DRY
+
+      - name: Verify (All-Star events now in the DB by league)
+        if: ${{ env.DATABASE_URL != '' }}
+        run: |
+          psql "$DATABASE_URL" -P pager=off -v ON_ERROR_STOP=1 <<'SQL'
+          \echo '=== All-Star events by league (event_tags @> allstar) ==='
+          select l.slug, count(*) as allstar_events, min(e.season) as first_season, max(e.season) as last_season
+          from events e
+          join leagues l on l.id = e.league_id
+          where e.event_tags @> array['allstar']
+          group by l.slug
+          order by allstar_events desc;
+          SQL
+
+      - name: Notice when nothing ran
+        if: ${{ env.DATABASE_URL == '' }}
+        run: echo "::warning::backfill-allstar skipped — set the DATABASE_URL repository secret to enable."
