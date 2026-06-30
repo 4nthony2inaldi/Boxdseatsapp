@@ -10,18 +10,44 @@ import type { EarnedBadge } from "@/lib/queries/achievements";
  * click-through to the games list.
  */
 
+// Split a label into two balanced lines so every tile reads as two lines (a
+// one-line label looks inconsistent next to the multi-word ones). Multi-word
+// labels split on the most-balanced space; a single hyphenated token splits at
+// the hyphen; otherwise split near the middle.
+function twoLines(label: string): [string, string] {
+  const words = label.split(" ");
+  if (words.length >= 2) {
+    let best = 1;
+    let bestDiff = Infinity;
+    for (let i = 1; i < words.length; i++) {
+      const diff = Math.abs(words.slice(0, i).join(" ").length - words.slice(i).join(" ").length);
+      if (diff < bestDiff) {
+        bestDiff = diff;
+        best = i;
+      }
+    }
+    return [words.slice(0, best).join(" "), words.slice(best).join(" ")];
+  }
+  const h = label.indexOf("-");
+  if (h > 0 && h < label.length - 1) return [label.slice(0, h + 1), label.slice(h + 1)];
+  const mid = Math.ceil(label.length / 2);
+  return [label.slice(0, mid), label.slice(mid)];
+}
+
 function BadgeTile({ badge }: { badge: EarnedBadge }) {
   const earned = badge.count > 0;
+  const [line1, line2] = twoLines(badge.short);
   const inner = (
     <div className="relative">
       <div
-        className={`w-[72px] h-[72px] rounded-2xl flex items-center justify-center text-center px-1.5 font-medium text-[10px] leading-[1.15] ${
+        className={`w-[72px] h-[72px] rounded-2xl flex flex-col items-center justify-center text-center px-1.5 font-medium text-[10px] leading-[1.2] ${
           earned
             ? "bg-accent/15 text-accent border border-accent/40"
             : "bg-bg-elevated text-text-muted border border-border"
         }`}
       >
-        {badge.short}
+        <span>{line1}</span>
+        <span>{line2}</span>
       </div>
       {earned && badge.count > 1 && (
         <span
