@@ -105,6 +105,12 @@ const LEAGUES = {
   // dedicated scripts/data/seed-ncaaf.mjs instead.
 };
 
+// Map an ESPN sport-path slug (cfg.sport) to our internal sport name (what
+// venues.primary_sport stores, matching sync-events' LEAGUE_SPORTS). Only the
+// hyphen/underscore case actually differs for this seeder's team sports.
+const ESPN_SPORT_TO_INTERNAL = { 'australian-football': 'australian_football' };
+const internalSport = (cfg) => ESPN_SPORT_TO_INTERNAL[cfg.sport] ?? cfg.sport;
+
 const CONCURRENCY = 8;
 const CHUNK_DAYS = 28; // scoreboard date-range window (well under the 1000-event cap)
 const PROGRESS_EVERY = 200;
@@ -262,9 +268,13 @@ const CONFERENCE_TEAM_RE = /^(afc|nfc|east|west) (all-stars)?$/i;
 // ---------------------------------------------------------------------------
 
 function parseArgs(argv) {
-  const args = { leagues: Object.keys(LEAGUES), from: '2023-01-01', to: null, dryRun: false };
+  const args = { leagues: Object.keys(LEAGUES), from: '2023-01-01', to: null, dryRun: false, repairVenues: false };
   for (const a of argv.slice(2)) {
     if (a === '--dry-run') args.dryRun = true;
+    // Re-resolve and re-point the venue of events that ALREADY exist (matched by
+    // ESPN id), correcting rows mis-assigned by the old cross-sport venue-id
+    // collision. Non-destructive: only venue_id / venue_name_at_time change.
+    else if (a === '--repair-venues') args.repairVenues = true;
     else if (a.startsWith('--leagues=')) args.leagues = a.slice(10).split(',').map((s) => s.trim().toLowerCase()).filter(Boolean);
     else if (a.startsWith('--from=')) args.from = a.slice(7);
     else if (a.startsWith('--to=')) args.to = a.slice(5);
@@ -446,10 +456,10 @@ let espnVenueNamesInLeague = new Set(); // normalized ESPN venue names seen in c
 
 async function loadVenues() {
   const { rows } = await db.query(
-    `select id, name, city, external_ids->>'espn' as espn from venues`,
+    `select id, name, city, primary_sport, external_ids->>'espn' as espn from venues`,
   );
   for (const v of rows) {
-    const entry = { id: v.id, name: v.name, city: v.city, espn: v.espn };
+    const entry = { id: v.id, name: v.name, city: v.city, espn: v.espn, primary_sport: v.primary_sport };
     venueById.set(v.id, entry);
     if (v.espn) venueByEspn.set(String(v.espn), entry);
     push(venueByName, normName(v.name), entry);
@@ -501,9 +511,18 @@ function parseVenueAddress(addr = {}) {
  *      Athletics → Sutter Health Park) from being misattached.
  *   5. insert a new venue.
  */
-async function resolveVenue(espnVenue, homeTeamId, neutralSite, stats) {
+async function resolveVenue(espnVenue, homeTeamId, neutralSite, stats, sport) {
   const espnId = espnVenue.id != null ? String(espnVenue.id) : null;
-  if (espnId && venueByEspn.has(espnId)) return venueByEspn.get(espnId).id;
+  // ESPN venue ids are NOT unique across sports, so an id match is only trusted
+  // when the existing venue belongs to the SAME sport. A cross-sport id "match"
+  // (e.g. an AFL venue id colliding with an MLB ballpark's) falls through to
+  // name matching / creation instead — preventing events from attaching to a
+  // wrong-sport venue. Venues with no recorded sport also fall through (safe:
+  // name match handles real dedupe).
+  if (espnId && venueByEspn.has(espnId)) {
+    const cand = venueByEspn.get(espnId);
+    if (sport && cand.primary_sport === sport) return cand.id;
+  }
 
   const fullName = espnVenue.fullName ?? '';
   const norm = normName(fullName);
@@ -575,11 +594,11 @@ async function resolveVenue(espnVenue, homeTeamId, neutralSite, stats) {
   const { city, state, country } = addr;
   const ext = espnId ? { espn: espnId } : {};
   const { rows } = await db.query(
-    `insert into venues (name, city, state, country, status, external_ids)
-     values ($1, $2, $3, $4, 'active', $5) returning id`,
-    [fullName || 'Unknown Venue', city, state, country, JSON.stringify(ext)],
+    `insert into venues (name, city, state, country, status, primary_sport, external_ids)
+     values ($1, $2, $3, $4, 'active', $5, $6) returning id`,
+    [fullName || 'Unknown Venue', city, state, country, sport ?? null, JSON.stringify(ext)],
   );
-  const entry = { id: rows[0].id, name: fullName, city, espn: espnId };
+  const entry = { id: rows[0].id, name: fullName, city, espn: espnId, primary_sport: sport ?? null };
   venueById.set(entry.id, entry);
   if (espnId) venueByEspn.set(espnId, entry);
   if (norm) push(venueByName, norm, entry);
@@ -736,16 +755,17 @@ async function seedLeague(leagueSlug) {
 
   // preload existing events for dedupe
   const existingByEspn = new Set();
+  const existingEventByEspn = new Map(); // espn id -> {id, venue_id} (for --repair-venues)
   const existingByNatural = new Map(); // `${date}|${homeId}|${awayId}` -> {id, hasEspn, home_score, away_score}
   {
     const { rows } = await db.query(
       `select id, external_ids->>'espn' as espn, event_date::text as event_date,
-              home_team_id, away_team_id, home_score, away_score
+              home_team_id, away_team_id, home_score, away_score, venue_id
          from events where league_id = $1`,
       [leagueId],
     );
     for (const e of rows) {
-      if (e.espn) existingByEspn.add(e.espn);
+      if (e.espn) { existingByEspn.add(e.espn); existingEventByEspn.set(e.espn, { id: e.id, venue_id: e.venue_id }); }
       if (e.home_team_id && e.away_team_id) {
         existingByNatural.set(`${e.event_date}|${e.home_team_id}|${e.away_team_id}`, {
           id: e.id, hasEspn: !!e.espn, home_score: e.home_score, away_score: e.away_score,
@@ -829,7 +849,7 @@ async function seedLeague(leagueSlug) {
       console.log(`  [${leagueSlug}] ${processed}/${allEvents.length} events processed — inserted=${stats.eventsInserted} skipped=${stats.eventsSkipped} enriched=${stats.eventsEnriched}`);
     }
     try {
-      await processEvent(ev, leagueSlug, leagueId, cfg, teamIndex, existingByEspn, existingByNatural, seenThisRun, stats);
+      await processEvent(ev, leagueSlug, leagueId, cfg, teamIndex, existingByEspn, existingEventByEspn, existingByNatural, seenThisRun, stats);
     } catch (err) {
       stats.eventsErrored++;
       console.error(`  [${leagueSlug}] event ${ev.id} (${ev.name}): ${err.message}`);
@@ -837,14 +857,43 @@ async function seedLeague(leagueSlug) {
   }
 
   console.log(`  [${leagueSlug}] done. teams matched=${stats.teamsMatched} created=${stats.teamsCreated}; ` +
-    `venues matched=${stats.venuesMatched} created=${stats.venuesCreated}; ` +
+    `venues matched=${stats.venuesMatched} created=${stats.venuesCreated}` +
+    (args.repairVenues ? ` repointed=${stats.venuesRepointed ?? 0}` : '') + `; ` +
     `events inserted=${stats.eventsInserted} skipped=${stats.eventsSkipped} enriched=${stats.eventsEnriched} ` +
     `filtered=${stats.eventsFiltered} errored=${stats.eventsErrored}`);
 }
 
-async function processEvent(ev, leagueSlug, leagueId, cfg, teamIndex, existingByEspn, existingByNatural, seenThisRun, stats) {
+async function processEvent(ev, leagueSlug, leagueId, cfg, teamIndex, existingByEspn, existingEventByEspn, existingByNatural, seenThisRun, stats) {
   if (seenThisRun.has(ev.id)) return; // overlap safety
   seenThisRun.add(ev.id);
+
+  // Repair mode: re-resolve the venue of an already-seeded event and re-point it
+  // if the (now sport-scoped) resolution differs from what's stored. This is how
+  // we correct rows the old cross-sport id collision mis-assigned. Only venue_id
+  // and venue_name_at_time change; scores/teams/logs are untouched. Runs before
+  // the season filters because the row already exists in the DB.
+  if (args.repairVenues) {
+    const existingEv = existingEventByEspn.get(ev.id);
+    if (existingEv) {
+      if (ev.venue?.fullName || ev.venue?.id) {
+        // homeTeamId=null skips the rename heuristic (needs no team resolution);
+        // name match / creation still resolves the correct venue.
+        const newVenueId = await resolveVenue(ev.venue, null, ev.neutralSite, stats, internalSport(cfg));
+        if (newVenueId && newVenueId !== existingEv.venue_id) {
+          const vName = venueById.get(newVenueId)?.name;
+          const venueNameAtTime = ev.venue.fullName && ev.venue.fullName !== vName ? ev.venue.fullName : null;
+          await db.query(
+            `update events set venue_id = $1, venue_name_at_time = $2 where id = $3`,
+            [newVenueId, venueNameAtTime, existingEv.id],
+          );
+          stats.venuesRepointed = (stats.venuesRepointed ?? 0) + 1;
+        }
+      }
+      stats.eventsSkipped++;
+      return;
+    }
+    // Not yet in the DB — fall through and insert it normally.
+  }
 
   if (!ev.completed) { stats.eventsFiltered++; return; }
   const cls = classifySeason(ev.season, cfg.soccer);
@@ -908,7 +957,7 @@ async function processEvent(ev, leagueSlug, leagueId, cfg, teamIndex, existingBy
     venueNameAtTime = fb.nameAtTime ?? null;
     stats.venuesMatched++;
   } else {
-    venueId = await resolveVenue(ev.venue, homeTeam.id, ev.neutralSite, stats);
+    venueId = await resolveVenue(ev.venue, homeTeam.id, ev.neutralSite, stats, internalSport(cfg));
     const venueName = venueById.get(venueId)?.name;
     venueNameAtTime = ev.venue.fullName && ev.venue.fullName !== venueName ? ev.venue.fullName : null;
   }
