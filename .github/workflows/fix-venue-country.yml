@@ -1,0 +1,30 @@
+name: Fix venue country (US-state mislabels)
+on:
+  workflow_dispatch:
+    inputs:
+      apply:
+        description: "Set to 'true' to commit; otherwise dry-run"
+        type: boolean
+        default: false
+concurrency:
+  group: fix-venue-country
+  cancel-in-progress: false
+jobs:
+  fix:
+    runs-on: ubuntu-latest
+    env:
+      DATABASE_URL: ${{ secrets.DATABASE_URL }}
+      DRY_RUN: ${{ github.event.inputs.apply == 'true' && 'false' || 'true' }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Fix
+        if: ${{ env.DATABASE_URL != '' }}
+        run: node scripts/data/fix-venue-country.mjs
+      - name: Notice when DATABASE_URL is missing
+        if: ${{ env.DATABASE_URL == '' }}
+        run: echo "::warning::fix-venue-country skipped — set the DATABASE_URL repository secret to enable."
