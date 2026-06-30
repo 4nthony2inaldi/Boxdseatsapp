@@ -1,0 +1,77 @@
+name: Badge data audit (read-only)
+
+# Measures whether the data needed for game-role badges exists:
+#   1. round_or_stage values on postseason games for the major leagues, so we
+#      can see whether championship rounds (World Series, Super Bowl, Stanley
+#      Cup Final, NBA Finals) and college bowl names land there cleanly.
+#   2. is_preseason coverage per league, so we know if Spring Training (or any
+#      preseason badge) is even possible without new ingest.
+# Read-only: SELECTs only. Needs the DATABASE_URL secret.
+
+on:
+  workflow_dispatch: {}
+
+concurrency:
+  group: badge-data-audit
+  cancel-in-progress: true
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    env:
+      DATABASE_URL: ${{ secrets.DATABASE_URL }}
+    steps:
+      - name: Report
+        if: ${{ env.DATABASE_URL != '' }}
+        run: |
+          psql "$DATABASE_URL" -P pager=off -v ON_ERROR_STOP=1 <<'SQL'
+          \echo '=== 1a. Postseason round_or_stage values for major leagues (top 40) ==='
+          select l.slug,
+                 coalesce(e.round_or_stage, '(null)') as round_or_stage,
+                 count(*) as events
+          from events e
+          join leagues l on l.id = e.league_id
+          where e.is_postseason
+            and l.slug in ('nfl','mlb','nba','nhl','ncaaf','ncaam','ncaaw')
+          group by l.slug, e.round_or_stage
+          order by l.slug, events desc
+          limit 40;
+
+          \echo ''
+          \echo '=== 1b. Championship-final string matches (the marquee badges) ==='
+          select 'World Series'   as badge, count(*) as events from events e join leagues l on l.id=e.league_id where l.slug='mlb' and e.round_or_stage ilike '%world series%'
+          union all
+          select 'Super Bowl',     count(*) from events e join leagues l on l.id=e.league_id where l.slug='nfl' and e.round_or_stage ilike '%super bowl%'
+          union all
+          select 'NBA Finals',     count(*) from events e join leagues l on l.id=e.league_id where l.slug='nba' and e.round_or_stage ilike '%final%'
+          union all
+          select 'Stanley Cup',    count(*) from events e join leagues l on l.id=e.league_id where l.slug='nhl' and (e.round_or_stage ilike '%stanley cup%' or e.round_or_stage ilike '%final%')
+          union all
+          select 'CFB Bowl-ish',   count(*) from events e join leagues l on l.id=e.league_id where l.slug='ncaaf' and e.round_or_stage ilike '%bowl%';
+
+          \echo ''
+          \echo '=== 1c. How many postseason rows even HAVE a round_or_stage (vs null) ==='
+          select l.slug,
+                 count(*) as postseason_total,
+                 count(*) filter (where e.round_or_stage is not null) as with_round,
+                 count(*) filter (where e.round_or_stage is null)     as null_round
+          from events e
+          join leagues l on l.id = e.league_id
+          where e.is_postseason
+            and l.slug in ('nfl','mlb','nba','nhl','ncaaf','ncaam','ncaaw')
+          group by l.slug
+          order by l.slug;
+
+          \echo ''
+          \echo '=== 2. Preseason coverage per league (is Spring Training possible?) ==='
+          select l.slug, l.sport, count(*) as preseason_events
+          from events e
+          join leagues l on l.id = e.league_id
+          where e.is_preseason
+          group by l.slug, l.sport
+          order by preseason_events desc;
+          SQL
+
+      - name: Notice when nothing ran
+        if: ${{ env.DATABASE_URL == '' }}
+        run: echo "::warning::badge-data-audit skipped — set the DATABASE_URL repository secret to enable."
