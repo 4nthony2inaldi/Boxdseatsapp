@@ -1,0 +1,106 @@
+name: Badge self-check (read-only)
+
+# For one user, counts how many of the (proposed) badges they'd currently earn
+# across the games they've logged — game-based (event type / your side) and
+# stat-based (rare feats from box scores). Read-only SELECTs. Needs DATABASE_URL.
+
+on:
+  workflow_dispatch:
+    inputs:
+      email:
+        description: "User email to check"
+        type: string
+        default: "arinaldi@yext.com"
+
+concurrency:
+  group: badge-self-check
+  cancel-in-progress: true
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    env:
+      DATABASE_URL: ${{ secrets.DATABASE_URL }}
+      EMAIL: ${{ github.event.inputs.email }}
+    steps:
+      - name: Report
+        if: ${{ env.DATABASE_URL != '' }}
+        run: |
+          psql "$DATABASE_URL" -P pager=off -v ON_ERROR_STOP=1 -v email="$EMAIL" <<'SQL'
+          with me as (select id from auth.users where lower(email) = lower(:'email') limit 1),
+          mylogs as (
+            select distinct el.event_id, el.rooting_team_id
+            from event_logs el join me on el.user_id = me.id
+            where el.event_id is not null
+          ),
+          ev as (
+            select e.event_tags, e.is_postseason, e.is_preseason, e.round_or_stage,
+                   e.away_team_id, l.slug, ml.rooting_team_id
+            from mylogs ml
+            join events e on e.id = ml.event_id
+            join leagues l on l.id = e.league_id
+          ),
+          b as (
+            select 'game' as kind, 'All-Star' as badge, count(*) filter (where event_tags @> array['allstar']) as games from ev
+            union all select 'game','Opening Day',                count(*) filter (where event_tags @> array['opening-day']) from ev
+            union all select 'game','Playoff Game',               count(*) filter (where is_postseason) from ev
+            union all select 'game','World Series',               count(*) filter (where slug='mlb' and round_or_stage ilike '%world series%') from ev
+            union all select 'game','Super Bowl',                 count(*) filter (where slug='nfl' and round_or_stage ilike '%super bowl%') from ev
+            union all select 'game','NBA Finals',                 count(*) filter (where slug='nba' and round_or_stage ilike '%finals%' and round_or_stage not ilike '%conference%') from ev
+            union all select 'game','Stanley Cup',                count(*) filter (where slug='nhl' and round_or_stage ilike '%stanley cup%') from ev
+            union all select 'game','March Madness',              count(*) filter (where slug in ('ncaam','ncaaw') and is_postseason) from ev
+            union all select 'game','Spring Training',            count(*) filter (where slug='mlb' and is_preseason) from ev
+            union all select 'game','Favorite Team on the Road',  count(*) filter (where rooting_team_id is not null and rooting_team_id = away_team_id) from ev
+            union all select 'stat','No-hitter',                  count(*) filter (where event_tags @> array['no-hitter']) from ev
+            union all select 'stat','Perfect game',               count(*) filter (where event_tags @> array['perfect-game']) from ev
+            union all select 'stat','3+ HR game',                 count(*) filter (where event_tags @> array['multi-hr']) from ev
+            union all select 'stat','4 HR game',                  count(*) filter (where event_tags @> array['four-hr']) from ev
+            union all select 'stat','Hat trick',                  count(*) filter (where event_tags @> array['hat-trick']) from ev
+            union all select 'stat','40-point game',              count(*) filter (where event_tags @> array['pts-40']) from ev
+            union all select 'stat','50-point game',              count(*) filter (where event_tags @> array['pts-50']) from ev
+            union all select 'stat','60-point game',              count(*) filter (where event_tags @> array['pts-60']) from ev
+          )
+          select kind, badge, games, (games > 0) as earned from b order by kind desc, badge;
+
+          with me as (select id from auth.users where lower(email) = lower(:'email') limit 1),
+          mylogs as (
+            select distinct el.event_id, el.rooting_team_id
+            from event_logs el join me on el.user_id = me.id
+            where el.event_id is not null
+          ),
+          ev as (
+            select e.event_tags, e.is_postseason, e.is_preseason, e.round_or_stage,
+                   e.away_team_id, l.slug, ml.rooting_team_id
+            from mylogs ml
+            join events e on e.id = ml.event_id
+            join leagues l on l.id = e.league_id
+          ),
+          b as (
+            select 'game' as kind, count(*) filter (where event_tags @> array['allstar']) as games from ev
+            union all select 'game', count(*) filter (where event_tags @> array['opening-day']) from ev
+            union all select 'game', count(*) filter (where is_postseason) from ev
+            union all select 'game', count(*) filter (where slug='mlb' and round_or_stage ilike '%world series%') from ev
+            union all select 'game', count(*) filter (where slug='nfl' and round_or_stage ilike '%super bowl%') from ev
+            union all select 'game', count(*) filter (where slug='nba' and round_or_stage ilike '%finals%' and round_or_stage not ilike '%conference%') from ev
+            union all select 'game', count(*) filter (where slug='nhl' and round_or_stage ilike '%stanley cup%') from ev
+            union all select 'game', count(*) filter (where slug in ('ncaam','ncaaw') and is_postseason) from ev
+            union all select 'game', count(*) filter (where slug='mlb' and is_preseason) from ev
+            union all select 'game', count(*) filter (where rooting_team_id is not null and rooting_team_id = away_team_id) from ev
+            union all select 'stat', count(*) filter (where event_tags @> array['no-hitter']) from ev
+            union all select 'stat', count(*) filter (where event_tags @> array['perfect-game']) from ev
+            union all select 'stat', count(*) filter (where event_tags @> array['multi-hr']) from ev
+            union all select 'stat', count(*) filter (where event_tags @> array['four-hr']) from ev
+            union all select 'stat', count(*) filter (where event_tags @> array['hat-trick']) from ev
+            union all select 'stat', count(*) filter (where event_tags @> array['pts-40']) from ev
+            union all select 'stat', count(*) filter (where event_tags @> array['pts-50']) from ev
+            union all select 'stat', count(*) filter (where event_tags @> array['pts-60']) from ev
+          )
+          select kind,
+                 count(*) filter (where games > 0) as badges_earned,
+                 count(*) as badges_possible
+          from b group by kind order by kind desc;
+          SQL
+
+      - name: Notice when nothing ran
+        if: ${{ env.DATABASE_URL == '' }}
+        run: echo "::warning::badge-self-check skipped — set the DATABASE_URL repository secret to enable."
