@@ -61,6 +61,7 @@ export default async function BadgeDetailPage({
                 day: "numeric",
               })}
               {g.venue ? ` · ${g.venue}` : ""}
+              {g.country ? ` · ${g.country}` : ""}
             </div>
           </Link>
         ))}

@@ -58,31 +58,36 @@ export default function ProfileStickyBar({
       <div
         className="fixed inset-x-0 z-40 pointer-events-none"
         style={{
-          top: topPx != null ? `${topPx}px` : "calc(env(safe-area-inset-top) + 56px)",
+          // Tuck 16px UNDER the AppHeader (which sits at z-50 and covers the
+          // overlap) and pad the content back down to the header's bottom, so a
+          // few px of header-height mis-measurement can never leave a gap above.
+          top: topPx != null ? `${topPx - 16}px` : "calc(env(safe-area-inset-top) + 40px)",
           opacity: condensed ? 1 : 0,
           transform: condensed ? "translateY(0)" : "translateY(-6px)",
           transition: "opacity 0.18s ease, transform 0.18s ease",
         }}
       >
         <div
-          className={`max-w-lg mx-auto px-4 h-14 flex items-center gap-3 bg-bg/95 backdrop-blur-sm border-b border-border ${
+          className={`max-w-lg mx-auto pt-4 bg-bg/95 backdrop-blur-sm border-b border-border ${
             condensed ? "pointer-events-auto" : ""
           }`}
         >
-          <div className="w-8 h-8 rounded-full overflow-hidden border border-border shrink-0 bg-bg-elevated flex items-center justify-center">
-            {avatarUrl ? (
-              <img src={avatarUrl} alt="" className="w-full h-full object-cover" />
-            ) : (
-              <span className="font-display text-sm text-text-secondary">{initial}</span>
-            )}
-          </div>
-          <div className="grid grid-cols-4 gap-2 flex-1 min-w-0">
-            {stats.map((s) => (
-              <div key={s.label} className="text-center leading-none">
-                <div className="font-display text-sm text-text-primary">{s.value}</div>
-                <div className="text-[9px] text-text-muted uppercase tracking-wide mt-0.5">{s.label}</div>
-              </div>
-            ))}
+          <div className="px-4 h-14 flex items-center gap-3">
+            <div className="w-8 h-8 rounded-full overflow-hidden border border-border shrink-0 bg-bg-elevated flex items-center justify-center">
+              {avatarUrl ? (
+                <img src={avatarUrl} alt="" className="w-full h-full object-cover" />
+              ) : (
+                <span className="font-display text-sm text-text-secondary">{initial}</span>
+              )}
+            </div>
+            <div className="grid grid-cols-4 gap-2 flex-1 min-w-0">
+              {stats.map((s) => (
+                <div key={s.label} className="text-center leading-none">
+                  <div className="font-display text-sm text-text-primary">{s.value}</div>
+                  <div className="text-[9px] text-text-muted uppercase tracking-wide mt-0.5">{s.label}</div>
+                </div>
+              ))}
+            </div>
           </div>
         </div>
       </div>
