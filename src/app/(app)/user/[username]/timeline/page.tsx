@@ -46,7 +46,7 @@ export default async function UserTimelinePage({ params, searchParams }: Props) 
     );
   }
 
-  const { entries: timelineEntries, hasMore } = await fetchTimeline(supabase, profile.id, undefined, 20, 0, monthFilter);
+  const { entries: timelineEntries, hasMore } = await fetchTimeline(supabase, profile.id, undefined, 20, 0, monthFilter, user.id);
 
   return (
     <div className="max-w-lg mx-auto pb-5">
