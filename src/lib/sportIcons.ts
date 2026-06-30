@@ -71,6 +71,8 @@ const LEAGUE_SPORT_MAP: Record<string, string> = {
   ufc: "mma",
   "horse-racing": "horse_racing",
   afl: "australian_football",
+  wbc: "baseball",
+  "caribbean-series": "baseball",
 };
 
 /**

@@ -90,6 +90,9 @@ export const LEAGUES = {
   UFC: { slug: "ufc", color: "#D20A0A", icon: "/mma.svg", sport: "mma" },
   HORSERACING: { slug: "horse-racing", color: "#5B3A1E", icon: "/horse-racing.svg", sport: "horse_racing" },
   AFL: { slug: "afl", color: "#003DA5", icon: "/football.svg", sport: "australian_football" },
+  // International baseball tournaments.
+  WBC: { slug: "wbc", color: "#C8102E", icon: "/baseball.svg", sport: "baseball" },
+  CARIBBEANSERIES: { slug: "caribbean-series", color: "#1A7A4C", icon: "/baseball.svg", sport: "baseball" },
 } as const;
 
 export type LeagueKey = keyof typeof LEAGUES;

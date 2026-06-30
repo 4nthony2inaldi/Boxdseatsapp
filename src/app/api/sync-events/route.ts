@@ -67,6 +67,9 @@ const LEAGUE_PATHS: Record<string, string> = {
   "fifa.cwc": "soccer/fifa.cwc",
   // Australian rules football
   afl: "australian-football/afl",
+  // International baseball tournaments
+  wbc: "baseball/world-baseball-classic",
+  "caribbean-series": "baseball/caribbean-series",
 };
 
 const LEAGUE_SPORTS: Record<string, string> = {
@@ -106,6 +109,8 @@ const LEAGUE_SPORTS: Record<string, string> = {
   "conmebol.libertadores": "soccer",
   "fifa.cwc": "soccer",
   afl: "australian_football",
+  wbc: "baseball",
+  "caribbean-series": "baseball",
 };
 
 type EspnEvent = {
