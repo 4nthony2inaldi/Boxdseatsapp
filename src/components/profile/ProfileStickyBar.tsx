@@ -29,9 +29,21 @@ export default function ProfileStickyBar({
   const [condensed, setCondensed] = useState(false);
   const [topPx, setTopPx] = useState<number | null>(null);
 
-  // Pin flush under the real AppHeader height (matches the feed's pinned strip).
+  // Pin flush under the sticky top chrome. That chrome differs by layout: in the
+  // app it's the <header> itself; on public pages it's an outer sticky <div>
+  // (get-app bar + header + safe area). So walk up from <header> to the nearest
+  // sticky/fixed ancestor and use its bottom edge — robust to both.
   useEffect(() => {
     const measure = () => {
+      let el: HTMLElement | null = document.querySelector("header");
+      while (el) {
+        const pos = getComputedStyle(el).position;
+        if (pos === "sticky" || pos === "fixed") {
+          setTopPx(Math.floor(el.getBoundingClientRect().bottom));
+          return;
+        }
+        el = el.parentElement;
+      }
       const h = document.querySelector("header")?.getBoundingClientRect().height;
       if (h) setTopPx(Math.floor(h));
     };

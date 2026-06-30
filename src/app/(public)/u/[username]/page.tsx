@@ -5,18 +5,20 @@ import {
   fetchBigFour,
   fetchActivityChart,
   fetchPinnedLists,
+  fetchAutoPinnedListIds,
   fetchTimeline,
   fetchVisitedCityCount,
 } from "@/lib/queries/profile";
 import { fanStatsLine } from "@/lib/formatters";
-import { fetchUserBadges, fetchTrackedIncomplete } from "@/lib/queries/badges";
+import { fetchUserAchievements } from "@/lib/queries/achievements";
 import { fetchUserProfileByUsername } from "@/lib/queries/social";
 import ProfileHeader from "@/components/profile/ProfileHeader";
 import StatsRow from "@/components/profile/StatsRow";
 import BigFourSection from "@/components/profile/BigFourSection";
 import ActivityChart from "@/components/profile/ActivityChart";
 import PinnedLists from "@/components/profile/PinnedLists";
-import BadgeSection from "@/components/profile/BadgeSection";
+import AchievementBadges from "@/components/profile/AchievementBadges";
+import ProfileStickyBar from "@/components/profile/ProfileStickyBar";
 import Timeline from "@/components/profile/Timeline";
 import ShareButton from "@/components/sharing/ShareButton";
 import Link from "next/link";
@@ -187,18 +189,18 @@ export default async function PublicProfilePage({ params }: Props) {
     );
   }
 
+  // Pinned lists: their manual pins win; otherwise their two most-completed.
+  const manualPins = [profile.pinned_list_1_id, profile.pinned_list_2_id].filter(Boolean) as string[];
+  const pinIds = manualPins.length > 0 ? manualPins : await fetchAutoPinnedListIds(supabase, profile.id);
+
   // Full profile — fetch remaining data
-  const [bigFour, activityData, pinnedLists, timelinePage, badges, trackedIncomplete] =
+  const [bigFour, activityData, pinnedLists, timelinePage, achievements] =
     await Promise.all([
       fetchBigFour(supabase, profile),
       fetchActivityChart(supabase, profile.id),
-      fetchPinnedLists(supabase, profile.id, [
-        profile.pinned_list_1_id,
-        profile.pinned_list_2_id,
-      ]),
+      fetchPinnedLists(supabase, profile.id, pinIds),
       fetchTimeline(supabase, profile.id, undefined, 20, 0, undefined, user?.id ?? null),
-      fetchUserBadges(supabase, profile.id),
-      fetchTrackedIncomplete(supabase, profile.id),
+      fetchUserAchievements(supabase, profile.id),
     ]);
 
   return (
@@ -219,10 +221,20 @@ export default async function PublicProfilePage({ params }: Props) {
         </div>
 
         <StatsRow stats={stats} followersHref="#" followingHref="#" />
+        <ProfileStickyBar
+          avatarUrl={profile.avatar_url}
+          initial={(profile.display_name || profile.username || "?").charAt(0).toUpperCase()}
+          stats={[
+            { value: stats.totalEvents, label: "Events" },
+            { value: stats.totalVenues, label: "Venues" },
+            { value: stats.followers, label: "Followers" },
+            { value: stats.following, label: "Following" },
+          ]}
+        />
         <BigFourSection items={bigFour} linkable={false} />
         <ActivityChart months={activityData.months} total={activityData.total} />
         <PinnedLists lists={pinnedLists} />
-        <BadgeSection badges={badges} tracked={trackedIncomplete} userId={profile.id} showTracked={pinnedLists.length === 0} />
+        <AchievementBadges badges={achievements} hrefBase={`/u/${username}/badge`} />
         <Timeline initialEntries={timelinePage.entries} initialHasMore={timelinePage.hasMore} userId={profile.id} />
 
         {/* CTA for logged-out visitors */}
