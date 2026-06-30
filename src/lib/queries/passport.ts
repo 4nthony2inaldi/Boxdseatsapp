@@ -267,10 +267,15 @@ export async function fetchPassport(
     rings = [...allRings].sort((a, b) => b.visited - a.visited || b.total - a.total).slice(0, 6);
   }
 
-  // Most-complete sets (highest visited/total) — used by the share card.
+  // Featured sets for the share card, ranked by raw progress (most venues
+  // actually collected) then completion %. Ranking by percentage alone let a
+  // barely-started small set headline just because its denominator is tiny
+  // (e.g. 3/13 spring-training parks, 23%, beating 7/30 MLB stadiums, 23%) —
+  // the opposite of what reads as an accomplishment. Most-collected first, with
+  // the fuller ring breaking ties, surfaces the more representative set.
   const topComplete = allRings
     .filter((r) => r.total > 0 && r.visited > 0)
-    .sort((a, b) => b.visited / b.total - a.visited / a.total || b.visited - a.visited)
+    .sort((a, b) => b.visited - a.visited || b.visited / b.total - a.visited / a.total)
     .slice(0, 4);
 
   const rooting = await fetchRooting(supabase, userId, Array.isArray(config?.rootingOrder) ? config!.rootingOrder! : []);
