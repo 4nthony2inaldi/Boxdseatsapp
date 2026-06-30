@@ -1,0 +1,45 @@
+name: Tag rare game feats
+
+# Tags "I was there for history" events from stored box-score stat lines:
+# no-hitters, perfect games, 3/4-HR games (baseball), hat tricks (hockey,
+# soccer), and 40/50/60-point games (basketball). See
+# scripts/data/tag-game-feats.sql. Cycles are NOT covered (not derivable from
+# the stored line) — separate curated follow-up.
+#
+# Only logged games have box scores, so this tags the logged population; re-run
+# after new games are logged. Idempotent full recompute. Requires repository
+# secret DATABASE_URL. Default is a dry run (rolled back; counts still print).
+
+on:
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "Roll back after running (validate + show counts only)"
+        type: boolean
+        default: true
+
+concurrency:
+  group: backfill-game-feats
+  cancel-in-progress: false
+
+jobs:
+  tag:
+    runs-on: ubuntu-latest
+    env:
+      DATABASE_URL: ${{ secrets.DATABASE_URL }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Tag (real)
+        if: ${{ env.DATABASE_URL != '' && github.event.inputs.dry_run != 'true' }}
+        run: psql "$DATABASE_URL" -P pager=off -v ON_ERROR_STOP=1 -f scripts/data/tag-game-feats.sql
+
+      - name: Validate (rolled back, counts still print)
+        if: ${{ env.DATABASE_URL != '' && github.event.inputs.dry_run == 'true' }}
+        run: |
+          { echo "BEGIN;"; cat scripts/data/tag-game-feats.sql; echo "ROLLBACK;"; } \
+            | psql "$DATABASE_URL" -P pager=off -v ON_ERROR_STOP=1 -f -
+
+      - name: Notice when nothing ran
+        if: ${{ env.DATABASE_URL == '' }}
+        run: echo "::warning::backfill-game-feats skipped — set the DATABASE_URL repository secret to enable."
