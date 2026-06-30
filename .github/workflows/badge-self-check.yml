@@ -7,8 +7,12 @@ name: Badge self-check (read-only)
 on:
   workflow_dispatch:
     inputs:
+      username:
+        description: "Username to check (preferred)"
+        type: string
+        default: ""
       email:
-        description: "User email to check"
+        description: "Or email (if username is blank)"
         type: string
         default: "arinaldi@yext.com"
 
@@ -22,12 +26,31 @@ jobs:
     env:
       DATABASE_URL: ${{ secrets.DATABASE_URL }}
       EMAIL: ${{ github.event.inputs.email }}
+      UNAME: ${{ github.event.inputs.username }}
     steps:
       - name: Report
         if: ${{ env.DATABASE_URL != '' }}
         run: |
-          psql "$DATABASE_URL" -P pager=off -v ON_ERROR_STOP=1 -v email="$EMAIL" <<'SQL'
-          with me as (select id from auth.users where lower(email) = lower(:'email') limit 1),
+          psql "$DATABASE_URL" -P pager=off -v ON_ERROR_STOP=1 -v email="$EMAIL" -v uname="$UNAME" <<'SQL'
+          \echo '=== Who resolved + total logged games (if 0, see top loggers below) ==='
+          select p.username, count(distinct el.event_id) as logged_games
+          from profiles p
+          join event_logs el on el.user_id = p.id and el.event_id is not null
+          where (:'uname' <> '' and lower(p.username) = lower(:'uname'))
+             or (:'uname'  = '' and p.id = (select id from auth.users where lower(email) = lower(:'email') limit 1))
+          group by p.username;
+
+          \echo '=== Top 10 loggers (to find the right account) ==='
+          select p.username, count(distinct el.event_id) as logged_games
+          from profiles p
+          join event_logs el on el.user_id = p.id and el.event_id is not null
+          group by p.username order by logged_games desc limit 10;
+          with me as (
+            select p.id from profiles p
+            where (:'uname' <> '' and lower(p.username) = lower(:'uname'))
+               or (:'uname'  = '' and p.id = (select id from auth.users where lower(email) = lower(:'email') limit 1))
+            limit 1
+          ),
           mylogs as (
             select distinct el.event_id, el.rooting_team_id
             from event_logs el join me on el.user_id = me.id
@@ -62,7 +85,12 @@ jobs:
           )
           select kind, badge, games, (games > 0) as earned from b order by kind desc, badge;
 
-          with me as (select id from auth.users where lower(email) = lower(:'email') limit 1),
+          with me as (
+            select p.id from profiles p
+            where (:'uname' <> '' and lower(p.username) = lower(:'uname'))
+               or (:'uname'  = '' and p.id = (select id from auth.users where lower(email) = lower(:'email') limit 1))
+            limit 1
+          ),
           mylogs as (
             select distinct el.event_id, el.rooting_team_id
             from event_logs el join me on el.user_id = me.id
