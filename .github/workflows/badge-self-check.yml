@@ -58,6 +58,17 @@ jobs:
             and ((:'uname' <> '' and lower(p.username) = lower(:'uname'))
               or (:'uname'  = '' and p.id = (select id from auth.users where lower(email) = lower(:'email') limit 1)))
           order by e.event_date;
+
+          \echo '=== Your playoff games by sport (playoff badges are per-sport) ==='
+          select l.sport, count(distinct el.event_id) as playoff_games
+          from profiles p
+          join event_logs el on el.user_id = p.id and el.event_id is not null
+          join events e on e.id = el.event_id
+          join leagues l on l.id = e.league_id
+          where e.is_postseason
+            and ((:'uname' <> '' and lower(p.username) = lower(:'uname'))
+              or (:'uname'  = '' and p.id = (select id from auth.users where lower(email) = lower(:'email') limit 1)))
+          group by l.sport order by playoff_games desc;
           with me as (
             select p.id from profiles p
             where (:'uname' <> '' and lower(p.username) = lower(:'uname'))
