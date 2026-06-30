@@ -1,0 +1,49 @@
+name: Venue cities introspection (read-only)
+
+# Lists the cities where we hold venues, with venue counts and a cluster
+# centroid (avg lat/lng), split US vs international — to curate the metro list
+# for "Around You" / home city against real coverage. Read-only. Needs DATABASE_URL.
+
+on:
+  workflow_dispatch:
+    inputs:
+      scope:
+        description: "international | us | all"
+        type: string
+        default: "international"
+
+concurrency:
+  group: venue-cities
+  cancel-in-progress: true
+
+jobs:
+  cities:
+    runs-on: ubuntu-latest
+    env:
+      DATABASE_URL: ${{ secrets.DATABASE_URL }}
+      SCOPE: ${{ github.event.inputs.scope }}
+    steps:
+      - name: Report
+        if: ${{ env.DATABASE_URL != '' }}
+        run: |
+          psql "$DATABASE_URL" -P pager=off -v ON_ERROR_STOP=1 -v scope="$SCOPE" <<'SQL'
+          \echo '=== Venue cities (count + cluster centroid), >=2 venues ==='
+          select v.country,
+                 v.city,
+                 count(*)                                                              as venues,
+                 round(avg(extensions.ST_Y(v.location::extensions.geometry))::numeric,4) as lat,
+                 round(avg(extensions.ST_X(v.location::extensions.geometry))::numeric,4) as lng
+          from venues v
+          where v.location is not null and v.city is not null
+            and ( :'scope' = 'all'
+                  or ( :'scope' = 'us'            and v.country = 'US' )
+                  or ( :'scope' = 'international'  and coalesce(v.country,'US') <> 'US' ) )
+          group by v.country, v.city
+          having count(*) >= 2
+          order by v.country, venues desc, v.city
+          limit 300;
+          SQL
+
+      - name: Notice when nothing ran
+        if: ${{ env.DATABASE_URL == '' }}
+        run: echo "::warning::venue-cities skipped — set the DATABASE_URL repository secret to enable."
