@@ -565,17 +565,20 @@ async function resolveVenue(espnVenue, homeTeamId, neutralSite, stats, sport) {
   }
 
   if (matched) {
-    if (espnId && !matched.espn) {
-      // record the ESPN id (keep the first one if a different league/sport
-      // already supplied one — the partial unique index allows only one)
+    // Claim the ESPN id only if no other venue already owns it. ESPN venue ids
+    // collide across sports and the partial unique index allows just one venue
+    // per id, so a cross-sport id stays with its original owner and this venue
+    // is resolved/served by name instead (avoids a unique-violation that would
+    // abort the run).
+    if (espnId && !matched.espn && !venueByEspn.has(espnId)) {
       await db.query(
         `update venues set external_ids = external_ids || jsonb_build_object('espn', $1::text)
           where id = $2 and not external_ids ? 'espn'`,
         [espnId, matched.id],
       );
       matched.espn = espnId;
+      venueByEspn.set(espnId, matched);
     }
-    if (espnId) venueByEspn.set(espnId, matched); // in-run resolution either way
     // record the ESPN name as an alias when it differs from the canonical name
     if (fullName && normName(matched.name) !== norm) {
       await db.query(
@@ -590,17 +593,20 @@ async function resolveVenue(espnVenue, homeTeamId, neutralSite, stats, sport) {
     return matched.id;
   }
 
-  // insert new venue
+  // insert new venue. Only store the ESPN id if it's unclaimed — a cross-sport
+  // collision (the id already belongs to another sport's venue) would otherwise
+  // violate the partial unique index on external_ids.espn.
   const { city, state, country } = addr;
-  const ext = espnId ? { espn: espnId } : {};
+  const claimEspn = espnId && !venueByEspn.has(espnId);
+  const ext = claimEspn ? { espn: espnId } : {};
   const { rows } = await db.query(
     `insert into venues (name, city, state, country, status, primary_sport, external_ids)
      values ($1, $2, $3, $4, 'active', $5, $6) returning id`,
     [fullName || 'Unknown Venue', city, state, country, sport ?? null, JSON.stringify(ext)],
   );
-  const entry = { id: rows[0].id, name: fullName, city, espn: espnId, primary_sport: sport ?? null };
+  const entry = { id: rows[0].id, name: fullName, city, espn: claimEspn ? espnId : null, primary_sport: sport ?? null };
   venueById.set(entry.id, entry);
-  if (espnId) venueByEspn.set(espnId, entry);
+  if (claimEspn) venueByEspn.set(espnId, entry);
   if (norm) push(venueByName, norm, entry);
   stats.venuesCreated++;
   console.log(`  created venue: ${fullName} (${city}${state ? ', ' + state : ''}) [espn ${espnId}]`);
