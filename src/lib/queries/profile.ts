@@ -395,6 +395,74 @@ export async function fetchPinnedLists(
   });
 }
 
+/**
+ * When a user hasn't manually pinned lists, auto-pick the two with the most
+ * items completed (highest visited count) from the lists they follow or own.
+ * Manual pins (pinned_list_1_id / pinned_list_2_id) take precedence at the call
+ * site. Returns up to two list ids (only lists with any progress).
+ */
+export async function fetchAutoPinnedListIds(
+  supabase: SupabaseClient,
+  userId: string
+): Promise<string[]> {
+  const [followsRes, ownedRes] = await Promise.all([
+    supabase.from("list_follows").select("list_id").eq("user_id", userId),
+    supabase.from("lists").select("id").eq("created_by", userId).eq("source", "user"),
+  ]);
+  const ids = new Set<string>();
+  for (const f of followsRes.data || []) ids.add(f.list_id as string);
+  for (const o of ownedRes.data || []) ids.add(o.id as string);
+  if (ids.size === 0) return [];
+  const idArr = [...ids];
+
+  const { data: lists } = await supabase
+    .from("lists")
+    .select("id, list_type, item_count")
+    .in("id", idArr);
+  if (!lists || lists.length === 0) return [];
+
+  const { data: allItems } = await supabase
+    .from("list_items")
+    .select("list_id, venue_id, event_tag")
+    .in("list_id", idArr);
+  const itemsByList = new Map<string, { venue_id: string | null; event_tag: string | null }[]>();
+  for (const it of allItems || []) {
+    const arr = itemsByList.get(it.list_id as string) ?? [];
+    arr.push({ venue_id: it.venue_id, event_tag: it.event_tag });
+    itemsByList.set(it.list_id as string, arr);
+  }
+
+  const hasVenue = lists.some((l) => l.list_type === "venue");
+  const hasEvent = lists.some((l) => l.list_type === "event");
+  let visitedVenues = new Set<string>();
+  if (hasVenue) {
+    const venueIds = (allItems || []).map((i) => i.venue_id).filter(Boolean) as string[];
+    if (venueIds.length > 0) {
+      const { data: visits } = await supabase
+        .from("venue_visits")
+        .select("venue_id")
+        .eq("user_id", userId)
+        .eq("relationship", "visited")
+        .in("venue_id", venueIds);
+      visitedVenues = new Set((visits || []).map((v) => v.venue_id as string));
+    }
+  }
+  const userTags = hasEvent ? await fetchUserEventTags(supabase, userId) : new Set<string>();
+
+  return lists
+    .map((l) => {
+      const items = itemsByList.get(l.id as string) ?? [];
+      let visited = 0;
+      if (l.list_type === "venue") visited = items.filter((i) => i.venue_id && visitedVenues.has(i.venue_id)).length;
+      else if (l.list_type === "event") visited = items.filter((i) => i.event_tag && userTags.has(i.event_tag)).length;
+      return { id: l.id as string, visited };
+    })
+    .filter((s) => s.visited > 0)
+    .sort((a, b) => b.visited - a.visited)
+    .slice(0, 2)
+    .map((s) => s.id);
+}
+
 export type ProfileSummaryCounts = {
   totalVenues: number;
   venuesThisYear: number;
