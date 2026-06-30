@@ -77,12 +77,27 @@ function GuyCard({ guy, username, personal }: { guy: RememberGuy; username: stri
 export default function RememberSomeGuys({ userId, username, initial }: Props) {
   const [result, setResult] = useState<RememberGuysResult>(initial);
   const [shuffling, setShuffling] = useState(false);
+  // Sticky offset: measure the real AppHeader height so the strip pins flush
+  // beneath it on every device + safe-area inset. A hardcoded guess left a
+  // sliver of feed showing through above the strip. Floor it so we lean toward
+  // a hair of overlap rather than a gap.
+  const [topPx, setTopPx] = useState<number | null>(null);
 
   // Seed the rolling memory with the server batch so the first shuffle excludes
   // the faces already on screen.
   useEffect(() => {
     rememberIds(initial.guys.map((g) => g.id));
     // eslint-disable-next-line react-hooks/exhaustive-deps -- seed once from the initial batch
+  }, []);
+
+  useEffect(() => {
+    const measure = () => {
+      const h = document.querySelector("header")?.getBoundingClientRect().height;
+      if (h) setTopPx(Math.floor(h));
+    };
+    measure();
+    window.addEventListener("resize", measure);
+    return () => window.removeEventListener("resize", measure);
   }, []);
 
   function loadMemory(): string[] {
@@ -124,12 +139,13 @@ export default function RememberSomeGuys({ userId, username, initial }: Props) {
   if (guys.length === 0) return null;
 
   return (
-    // Sit just under the AppHeader (sticky top-0 z-50, ~60px tall + safe-area
-    // inset). Below the header's z-50, with the same translucent/blur treatment
-    // so feed content doesn't show through when pinned.
+    // Sit flush under the AppHeader (sticky top-0 z-50). top is the measured
+    // header height; the calc is a pre-measurement fallback. Below the header's
+    // z-50, with the same translucent/blur treatment so feed content doesn't
+    // show through when pinned.
     <div
       className="sticky z-30 bg-bg/95 backdrop-blur-sm pt-2 pb-3 mb-3"
-      style={{ top: "calc(env(safe-area-inset-top) + 60px)" }}
+      style={{ top: topPx != null ? `${topPx}px` : "calc(env(safe-area-inset-top) + 56px)" }}
     >
       <div className="px-4 flex items-center justify-between mb-2.5">
         <div className="flex items-center gap-2">
