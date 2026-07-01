@@ -250,6 +250,18 @@ const n = (v: string | undefined): number => {
   return Number.isFinite(x) ? x : 0;
 };
 
+/** A baseball pitcher's line ("9 IP, 0 H, 0 R, 0 ER, 1 BB, 12 K") from the
+ *  pitching category. Used for no-hitter/perfect-game credit — formatStatLine
+ *  prefers the batting line, which for an NL pitcher shows their at-bats. */
+function pitchingLine(sl: StatLine | null): string | null {
+  const p = sl?.pitching;
+  if (!p) return null;
+  const parts = ["IP", "H", "R", "ER", "BB", "K"]
+    .filter((k) => p[k] != null && p[k] !== "")
+    .map((k) => `${p[k]} ${k}`);
+  return parts.length ? parts.join(", ") : null;
+}
+
 /**
  * Per single-player stat badge: the sport and the per-athlete predicate that
  * earned it, mirroring exactly the thresholds in scripts/data/tag-game-feats.sql
@@ -367,7 +379,7 @@ async function fetchNoHitterAchievers(
     const pitchers = rows.filter((r) => r.team && r.team !== noHitTeam && r.sl?.pitching);
     if (pitchers.length === 0) continue;
     if (pitchers.length === 1) {
-      byEvent.set(eid, [{ name: pitchers[0].name ?? "Pitcher", line: formatStatLine("baseball", pitchers[0].sl) }]);
+      byEvent.set(eid, [{ name: pitchers[0].name ?? "Pitcher", line: pitchingLine(pitchers[0].sl) }]);
     } else {
       const names = pitchers.map((p) => p.name).filter(Boolean) as string[];
       byEvent.set(eid, [{ name: "Combined", line: names.join(", ") || null }]);
