@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { LogoWithWordmark } from "@/components/Logo";
 import GetAppBar from "@/components/GetAppBar";
+import RouteScrollTop from "@/components/RouteScrollTop";
 import { createClient } from "@/lib/supabase/server";
 
 export default async function PublicLayout({
@@ -19,6 +20,7 @@ export default async function PublicLayout({
 
   return (
     <div className="min-h-screen bg-bg flex flex-col">
+      <RouteScrollTop />
       {/* Pinned together: the get-the-app bar sits above the brand header so a
           shared link always leads with a way into the app. The background +
           safe-area padding live on the wrapper so the status-bar/notch strip is

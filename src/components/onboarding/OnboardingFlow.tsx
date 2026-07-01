@@ -48,6 +48,14 @@ export default function OnboardingFlow({ userId, initialUsername }: OnboardingFl
     if (isNativeApp()) setNative(true);
   }, []);
 
+  // Steps swap client-side within one route, so advancing from a tall step
+  // (e.g. a long team list you scrolled) would otherwise leave the next step
+  // scrolled partway down. Reset to the top on every step change.
+  useEffect(() => {
+    const id = requestAnimationFrame(() => window.scrollTo(0, 0));
+    return () => cancelAnimationFrame(id);
+  }, [current]);
+
   // The step order branches by platform + whether a scan filled things in.
   const flow = useMemo<StepKey[]>(() => {
     if (!native) return ["account", "rootfor", "venues", "bestgame", "getapp"];
