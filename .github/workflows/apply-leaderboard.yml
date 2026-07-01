@@ -28,14 +28,14 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Apply migration
+      - name: Apply migration (v2 — season-aware, supersedes v1)
         if: ${{ env.DATABASE_URL != '' && github.event.inputs.dry_run != 'true' }}
-        run: psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f supabase/migrations/20260701_leaderboard.sql
+        run: psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f supabase/migrations/20260702_leaderboard_v2_season.sql
 
       - name: Validate (rolled back)
         if: ${{ env.DATABASE_URL != '' && github.event.inputs.dry_run == 'true' }}
         run: |
-          { echo "BEGIN;"; cat supabase/migrations/20260701_leaderboard.sql; echo "ROLLBACK;"; } \
+          { echo "BEGIN;"; cat supabase/migrations/20260702_leaderboard_v2_season.sql; echo "ROLLBACK;"; } \
             | psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f -
 
       - name: Smoke test (function returns keys)

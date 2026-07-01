@@ -12,6 +12,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 
 export type LeaderboardScope = "global" | "city" | "following";
 export type LeaderboardWindow = "all" | "12m";
+export type LeaderboardSeason = "all" | "regular" | "postseason";
 
 export type LeaderboardRow = {
   rank: number;
@@ -33,6 +34,8 @@ export type LeaderboardParams = {
   sport?: string | null;
   team?: string | null;
   venue?: string | null;
+  /** 'regular' | 'postseason' | 'preseason', or null for all. */
+  season?: string | null;
   /** ISO date (YYYY-MM-DD) lower bound, or null for all-time. */
   since?: string | null;
   limit?: number;
@@ -50,6 +53,7 @@ export async function fetchLeaderboard(
     p_team: params.team ?? null,
     p_venue: params.venue ?? null,
     p_since: params.since ?? null,
+    p_season: params.season ?? null,
     p_limit: params.limit ?? 100,
   });
   if (error || !data) return EMPTY;

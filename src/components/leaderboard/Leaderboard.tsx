@@ -10,15 +10,25 @@ import {
   type LeaderboardResult,
   type LeaderboardRow,
   type LeaderboardScope,
+  type LeaderboardSeason,
   type LeaderboardWindow,
 } from "@/lib/queries/leaderboard";
+import LeaderboardFilterPicker from "./LeaderboardFilterPicker";
 
 /**
  * Leaderboards: rank fans by games logged, sliced by scope (global / my city /
- * following), time window (all-time / last 12 months), and sport. The board
- * always pins the viewer's own row so there's a reachable target. Team/venue
- * filters are supported by the RPC and land as a follow-up (pickers).
+ * following), time window (all-time / last 12 months), sport, season
+ * (regular / postseason), and a specific team or venue. The board always pins
+ * the viewer's own row so there's a reachable target.
  */
+
+const SEASONS: { key: LeaderboardSeason; label: string }[] = [
+  { key: "all", label: "All" },
+  { key: "regular", label: "Regular" },
+  { key: "postseason", label: "Postseason" },
+];
+
+type Picked = { id: string; label: string };
 
 const SCOPES: { key: LeaderboardScope; label: string }[] = [
   { key: "global", label: "Global" },
@@ -72,11 +82,46 @@ function Segmented<T extends string>({
   );
 }
 
+function FilterChip({
+  label,
+  active,
+  onOpen,
+  onClear,
+}: {
+  label: string;
+  active: boolean;
+  onOpen: () => void;
+  onClear?: () => void;
+}) {
+  return (
+    <div
+      className={`flex items-center rounded-full border text-xs font-medium ${
+        active ? "border-accent/50 bg-accent/15 text-accent" : "border-border text-text-muted"
+      }`}
+    >
+      <button onClick={onOpen} className="pl-3 pr-2 py-1.5 max-w-[9rem] truncate active:opacity-70">
+        {label}
+      </button>
+      {onClear ? (
+        <button onClick={onClear} aria-label={`Clear ${label}`} className="pr-2.5 pl-0.5 py-1.5 active:opacity-70">
+          ×
+        </button>
+      ) : (
+        <span className="pr-3 text-text-muted">▾</span>
+      )}
+    </div>
+  );
+}
+
 export default function Leaderboard() {
   const supabase = useMemo(() => createClient(), []);
   const [scope, setScope] = useState<LeaderboardScope>("global");
   const [win, setWin] = useState<LeaderboardWindow>("all");
   const [sport, setSport] = useState<string | null>(null);
+  const [season, setSeason] = useState<LeaderboardSeason>("all");
+  const [team, setTeam] = useState<Picked | null>(null);
+  const [venue, setVenue] = useState<Picked | null>(null);
+  const [picker, setPicker] = useState<"team" | "venue" | null>(null);
   const [data, setData] = useState<LeaderboardResult | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -87,6 +132,9 @@ export default function Leaderboard() {
     fetchLeaderboard(supabase, {
       scope,
       sport,
+      team: team?.id ?? null,
+      venue: venue?.id ?? null,
+      season: season === "all" ? null : season,
       since: win === "12m" ? since12mo() : null,
     })
       .then((r) => {
@@ -98,7 +146,7 @@ export default function Leaderboard() {
     return () => {
       active = false;
     };
-  }, [supabase, scope, win, sport]);
+  }, [supabase, scope, win, sport, season, team?.id, venue?.id]);
 
   const rows = data?.rows ?? [];
   const me = data?.me ?? null;
@@ -116,6 +164,7 @@ export default function Leaderboard() {
           value={win}
           onChange={setWin}
         />
+        <Segmented options={SEASONS} value={season} onChange={setSeason} />
         {/* Sport filter chips */}
         <div className="flex gap-2 overflow-x-auto pb-1" style={{ scrollbarWidth: "none" }}>
           {SPORTS.map((s) => {
@@ -134,7 +183,34 @@ export default function Leaderboard() {
             );
           })}
         </div>
+        {/* Team / Venue filter chips — tap to pick, tap the × to clear. */}
+        <div className="flex gap-2">
+          <FilterChip
+            label={team ? team.label : "Team"}
+            active={!!team}
+            onOpen={() => setPicker("team")}
+            onClear={team ? () => setTeam(null) : undefined}
+          />
+          <FilterChip
+            label={venue ? venue.label : "Venue"}
+            active={!!venue}
+            onOpen={() => setPicker("venue")}
+            onClear={venue ? () => setVenue(null) : undefined}
+          />
+        </div>
       </div>
+
+      {picker && (
+        <LeaderboardFilterPicker
+          kind={picker}
+          onPick={(item) => {
+            if (picker === "team") setTeam(item);
+            else setVenue(item);
+            setPicker(null);
+          }}
+          onClose={() => setPicker(null)}
+        />
+      )}
 
       <div className="mt-4">
         {loading ? (
