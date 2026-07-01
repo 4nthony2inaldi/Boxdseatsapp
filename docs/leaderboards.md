@@ -29,26 +29,27 @@ Scope (who is eligible to appear):
 - **My City** — public profiles whose `home_city` equals the viewer's
   `home_city` (the field that already powers "Around You"). Note: this filters
   the *people*, distinct from the Venue filter which filters the *games*.
-- **Following** — public profiles the viewer actively follows.
+- **Following** — profiles the viewer actively follows, **including private
+  accounts**. An active follow of a private account means they approved you, so
+  you're an approved follower; their rank shows only here, only to approved
+  followers — never on Global or My City.
 
 The viewer's **own row is always shown** (with rank + count), even if their
-profile is private — they can see where they stand; they just aren't listed to
-others.
+profile is private — they can see where they stand.
 
 ## Privacy rules (the hard constraint)
 
-- **Public = listed; private = never listed to others.** Boards show public
-  profiles only. This is the "if you're public you're opted in" rule — surfaced
-  in the privacy setting copy so going public isn't a surprise.
+- **Public profiles are listed on every scope** ("if you're public you're opted
+  in" — surfaced in the privacy-setting copy so it isn't a surprise).
+- **Private profiles are listed only on the Following board of their approved
+  followers** — never on Global or My City. An active follow of a private account
+  means they approved you, so showing your rank to those same approved followers
+  is consistent with what they've already shared with them.
 - **Private users can still view boards and their own rank**, privately.
 - **Blocked users are excluded** from each other's board views (either
   direction), via the existing block check.
 - Only public-safe fields are returned per ranked user: display name, username,
   avatar, and the count. No private data.
-- **Following excludes private accounts you follow (v1 default).** Consistent
-  with "public = opted in." (Open question: allow private-but-followed accounts
-  to appear only to their approved followers — deferred; simplest is public-only
-  everywhere.)
 
 ## Where — placement
 
@@ -120,7 +121,7 @@ where <time window on el.event_date>
   and [e.home_team_id = :team or e.away_team_id = :team]
   and <scope: p.is_private = false                       -- global
        | (p.is_private = false and p.home_city = :city)  -- my city
-       | el.user_id = any(:followed_public_ids)>         -- following
+       | el.user_id = any(:followed_ids)>                -- following (active follows, incl. private you follow)
   and el.user_id <> all(:blocked_ids)
 group by el.user_id
 order by n desc
@@ -129,8 +130,8 @@ limit :N
 
 - **Your rank** = `1 + (# eligible users with n > your n)`; **neighbors** = the
   window around your rank (fetched separately when you're outside the top N).
-- **Ties:** standard competition ranking (1, 2, 2, 4); stable tiebreak by
-  earliest account or username so order doesn't jump between loads.
+- **Ties:** standard competition ranking (1, 2, 2, 4); **alphabetical by
+  username** as the stable tiebreak so order doesn't jump between loads.
 - v1 runs this **live**, capped to top ~100 + your-rank window — fine at current
   user/log volume. **Later:** if it gets slow, precompute per-`(user, dimension)`
   standings into a summary table refreshed on a cron (the materialize-when-needed
@@ -138,8 +139,8 @@ limit :N
 
 ## Edge cases
 
-- **Deep ranks feel bad.** Consider bucketing below a threshold ("Top 5%")
-  instead of an exact "#4,182." Open question.
+- **Deep ranks:** show the **exact position everywhere** ("#4,182") — no
+  bucketing. Accepted tradeoff for transparency.
 - **No home city** → My City unavailable, fall copy back to Global/Following.
 - **Filter combos with zero matches** → thin-state, never an error.
 - **Renamed teams / venue aliases** — team/venue filters key on ids, so aliases
@@ -163,11 +164,10 @@ limit :N
 - Taps from Profile "Where you rank" and team/venue entry points.
 - Follows initiated from the board (does comparing drive social graph growth?).
 
-## Open decisions
+## Decisions (resolved)
 
-1. **Following scope:** public-only (v1 default) vs. include private accounts you
-   actively follow (shown only to their approved followers)?
-2. **Deep ranks:** exact position everywhere, or bucket ("Top 5%") past some cutoff?
-3. **Ties tiebreak:** account age vs. username vs. most-recent activity.
-4. **Default Explore segment:** keep Search default (proposed) or lead with
-   Leaderboards?
+1. **Following scope:** includes private accounts you actively follow (shown only
+   to their approved followers); Global and My City stay public-only.
+2. **Deep ranks:** exact position everywhere — no bucketing.
+3. **Tie-break:** alphabetical by username.
+4. **Default Explore segment:** Search.
