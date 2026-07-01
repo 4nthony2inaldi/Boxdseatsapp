@@ -1,4 +1,5 @@
 import { SupabaseClient } from "@supabase/supabase-js";
+import { parseStatLine, formatStatLine, type StatLine } from "@/lib/statLine";
 
 /**
  * Event- and stat-based "achievement" badges, derived from the games a user has
@@ -232,7 +233,79 @@ export async function fetchUserAchievements(
   }));
 }
 
-export type AchievementGame = { eventId: string; date: string; title: string; venue: string | null; country: string | null };
+/** Who earned a stat badge in a game, and their line ("42 PTS · 11 REB"). */
+export type Achiever = { name: string; line: string | null };
+export type AchievementGame = {
+  eventId: string;
+  date: string;
+  title: string;
+  venue: string | null;
+  country: string | null;
+  /** For single-player stat badges: the player(s) who hit the feat here. */
+  achievers?: Achiever[];
+};
+
+const n = (v: string | undefined): number => {
+  const x = parseFloat(v ?? "");
+  return Number.isFinite(x) ? x : 0;
+};
+
+/**
+ * Per single-player stat badge: the sport and the per-athlete predicate that
+ * earned it, mirroring exactly the thresholds in scripts/data/tag-game-feats.sql
+ * so "who did it" matches how the game got tagged. No-hitter / perfect game are
+ * team feats (a side held hitless) with no reliable single-athlete attribution,
+ * so they are intentionally absent — those badge pages just list the game.
+ */
+const STAT_ACHIEVERS: Record<string, { sport: string; earned: (sl: StatLine) => boolean }> = {
+  "multi-hr": { sport: "baseball", earned: (sl) => n(sl.batting?.HR) >= 3 },
+  "four-hr": { sport: "baseball", earned: (sl) => n(sl.batting?.HR) >= 4 },
+  "hat-trick-hockey": {
+    sport: "hockey",
+    earned: (sl) => Math.max(n(sl.forwards?.G), n(sl.defenses?.G), n(sl.skaters?.G)) >= 3,
+  },
+  "hat-trick-soccer": { sport: "soccer", earned: (sl) => n(sl.stats?.G) >= 3 },
+  "pts-40": { sport: "basketball", earned: (sl) => n(sl.stats?.PTS) >= 40 },
+  "pts-50": { sport: "basketball", earned: (sl) => n(sl.stats?.PTS) >= 50 },
+  "pts-60": { sport: "basketball", earned: (sl) => n(sl.stats?.PTS) >= 60 },
+  "pass-5-td": { sport: "football", earned: (sl) => n(sl.passing?.TD) >= 5 },
+};
+
+/** For a stat badge, the player(s) who hit the feat in each matched event, keyed
+ *  by event id. event_athletes is public reference data; the events themselves
+ *  are already RLS-scoped by the caller's logs. */
+async function fetchAchieversByEvent(
+  supabase: SupabaseClient,
+  eventIds: string[],
+  spec: { sport: string; earned: (sl: StatLine) => boolean }
+): Promise<Map<string, Achiever[]>> {
+  const byEvent = new Map<string, Achiever[]>();
+  for (let i = 0; i < eventIds.length; i += 100) {
+    const chunk = eventIds.slice(i, i + 100);
+    for (let from = 0; ; from += 1000) {
+      const { data, error } = await supabase
+        .from("event_athletes")
+        .select("event_id, stat_line, athletes(name)")
+        .in("event_id", chunk)
+        .order("id", { ascending: true })
+        .range(from, from + 999);
+      if (error) throw error;
+      if (!data || data.length === 0) break;
+      for (const row of data) {
+        const sl = parseStatLine(row.stat_line as string | null);
+        if (!sl || !spec.earned(sl)) continue;
+        const name = (row.athletes as unknown as { name: string | null } | null)?.name;
+        if (!name) continue;
+        const eid = row.event_id as string;
+        const list = byEvent.get(eid) ?? [];
+        list.push({ name, line: formatStatLine(spec.sport, sl) });
+        byEvent.set(eid, list);
+      }
+      if (data.length < 1000) break;
+    }
+  }
+  return byEvent;
+}
 
 /** The games behind one badge, for the badge detail page. */
 export async function fetchAchievementGames(
@@ -248,5 +321,19 @@ export async function fetchAchievementGames(
     fetchFavoriteContext(supabase, userId),
   ]);
   const matched = def.detailRows ? def.detailRows(rows, ctx) : rows.filter((r) => def.match?.(r, ctx));
-  return matched.map((r) => ({ eventId: r.eventId, date: r.date, title: r.title, venue: r.venue, country: r.country }));
+
+  // For single-player stat badges, name the player(s) who hit the feat.
+  const spec = STAT_ACHIEVERS[key];
+  const achieversByEvent = spec
+    ? await fetchAchieversByEvent(supabase, matched.map((r) => r.eventId), spec)
+    : null;
+
+  return matched.map((r) => ({
+    eventId: r.eventId,
+    date: r.date,
+    title: r.title,
+    venue: r.venue,
+    country: r.country,
+    ...(achieversByEvent ? { achievers: achieversByEvent.get(r.eventId) ?? [] } : {}),
+  }));
 }
