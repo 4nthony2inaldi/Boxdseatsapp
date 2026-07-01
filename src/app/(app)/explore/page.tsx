@@ -1,4 +1,4 @@
-import ExploreSearch from "@/components/explore/ExploreSearch";
+import ExploreTabs from "@/components/explore/ExploreTabs";
 
 export default function ExplorePage() {
   return (
@@ -8,7 +8,7 @@ export default function ExplorePage() {
           Explore
         </h1>
       </div>
-      <ExploreSearch />
+      <ExploreTabs />
     </div>
   );
 }
