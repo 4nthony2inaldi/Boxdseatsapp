@@ -254,8 +254,8 @@ const n = (v: string | undefined): number => {
  * Per single-player stat badge: the sport and the per-athlete predicate that
  * earned it, mirroring exactly the thresholds in scripts/data/tag-game-feats.sql
  * so "who did it" matches how the game got tagged. No-hitter / perfect game are
- * team feats (a side held hitless) with no reliable single-athlete attribution,
- * so they are intentionally absent — those badge pages just list the game.
+ * team feats and handled separately (see fetchNoHitterAchievers) — one pitcher
+ * on the throwing side is credited by name, more than one reads "Combined".
  */
 const STAT_ACHIEVERS: Record<string, { sport: string; earned: (sl: StatLine) => boolean }> = {
   "multi-hr": { sport: "baseball", earned: (sl) => n(sl.batting?.HR) >= 3 },
@@ -307,6 +307,75 @@ async function fetchAchieversByEvent(
   return byEvent;
 }
 
+/**
+ * No-hitter / perfect game attribution. These are team feats, so per event we
+ * find the side held hitless (0 hits with a real 9+ lineup) and credit the
+ * OTHER side's pitcher(s): exactly one -> that pitcher by name with their line;
+ * more than one -> a "Combined" entry listing the pitchers. Falls back to no
+ * achiever (game only) if the sides can't be resolved from the stored lines.
+ */
+async function fetchNoHitterAchievers(
+  supabase: SupabaseClient,
+  eventIds: string[]
+): Promise<Map<string, Achiever[]>> {
+  type AthRow = { team: string | null; sl: StatLine | null; name: string | null };
+  const rowsByEvent = new Map<string, AthRow[]>();
+  for (let i = 0; i < eventIds.length; i += 100) {
+    const chunk = eventIds.slice(i, i + 100);
+    for (let from = 0; ; from += 1000) {
+      const { data, error } = await supabase
+        .from("event_athletes")
+        .select("event_id, team_id, stat_line, athletes(name)")
+        .in("event_id", chunk)
+        .order("id", { ascending: true })
+        .range(from, from + 999);
+      if (error) throw error;
+      if (!data || data.length === 0) break;
+      for (const r of data) {
+        const eid = r.event_id as string;
+        const list = rowsByEvent.get(eid) ?? [];
+        list.push({
+          team: (r.team_id as string | null) ?? null,
+          sl: parseStatLine(r.stat_line as string | null),
+          name: (r.athletes as unknown as { name: string | null } | null)?.name ?? null,
+        });
+        rowsByEvent.set(eid, list);
+      }
+      if (data.length < 1000) break;
+    }
+  }
+
+  const byEvent = new Map<string, Achiever[]>();
+  for (const [eid, rows] of rowsByEvent) {
+    // Batting hits + batter count per team → the no-hit side (0 hits, 9+ batters).
+    const hits = new Map<string, number>();
+    const batters = new Map<string, number>();
+    for (const r of rows) {
+      if (!r.team || !r.sl?.batting) continue;
+      hits.set(r.team, (hits.get(r.team) ?? 0) + n(r.sl.batting.H));
+      batters.set(r.team, (batters.get(r.team) ?? 0) + 1);
+    }
+    let noHitTeam: string | null = null;
+    for (const [team, count] of batters) {
+      if (count >= 9 && (hits.get(team) ?? 0) === 0) {
+        noHitTeam = team;
+        break;
+      }
+    }
+    if (!noHitTeam) continue;
+    // The throwing side = pitchers on any team that isn't the no-hit side.
+    const pitchers = rows.filter((r) => r.team && r.team !== noHitTeam && r.sl?.pitching);
+    if (pitchers.length === 0) continue;
+    if (pitchers.length === 1) {
+      byEvent.set(eid, [{ name: pitchers[0].name ?? "Pitcher", line: formatStatLine("baseball", pitchers[0].sl) }]);
+    } else {
+      const names = pitchers.map((p) => p.name).filter(Boolean) as string[];
+      byEvent.set(eid, [{ name: "Combined", line: names.join(", ") || null }]);
+    }
+  }
+  return byEvent;
+}
+
 /** The games behind one badge, for the badge detail page. */
 export async function fetchAchievementGames(
   supabase: SupabaseClient,
@@ -322,11 +391,14 @@ export async function fetchAchievementGames(
   ]);
   const matched = def.detailRows ? def.detailRows(rows, ctx) : rows.filter((r) => def.match?.(r, ctx));
 
-  // For single-player stat badges, name the player(s) who hit the feat.
+  // Name who earned a stat badge: single-player feats by per-athlete predicate,
+  // no-hitter / perfect game by the throwing side's pitcher(s).
+  const eventIds = matched.map((r) => r.eventId);
   const spec = STAT_ACHIEVERS[key];
-  const achieversByEvent = spec
-    ? await fetchAchieversByEvent(supabase, matched.map((r) => r.eventId), spec)
-    : null;
+  let achieversByEvent: Map<string, Achiever[]> | null = null;
+  if (spec) achieversByEvent = await fetchAchieversByEvent(supabase, eventIds, spec);
+  else if (key === "no-hitter" || key === "perfect-game")
+    achieversByEvent = await fetchNoHitterAchievers(supabase, eventIds);
 
   return matched.map((r) => ({
     eventId: r.eventId,
