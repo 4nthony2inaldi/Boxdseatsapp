@@ -1,0 +1,49 @@
+name: Apply admin_global_passport function
+
+# One-time DDL apply for the read-only app-wide fan-passport aggregate the admin
+# console calls (public.admin_global_passport). Run manually once the migration
+# file is on main. Idempotent (create or replace + re-granted), safe to re-run.
+#
+# Requires repository secret DATABASE_URL (direct Postgres). Default is a dry run
+# that wraps the apply in a rolled-back transaction so you can validate it runs
+# clean before committing.
+
+on:
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "Roll back after applying (validate only)"
+        type: boolean
+        default: true
+
+concurrency:
+  group: apply-admin-global-passport
+  cancel-in-progress: false
+
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    env:
+      DATABASE_URL: ${{ secrets.DATABASE_URL }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Apply migration
+        if: ${{ env.DATABASE_URL != '' && github.event.inputs.dry_run != 'true' }}
+        run: psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f supabase/migrations/20260701_admin_global_passport.sql
+
+      - name: Validate (rolled back)
+        if: ${{ env.DATABASE_URL != '' && github.event.inputs.dry_run == 'true' }}
+        run: |
+          { echo "BEGIN;"; cat supabase/migrations/20260701_admin_global_passport.sql; echo "ROLLBACK;"; } \
+            | psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f -
+
+      - name: Smoke test (keys returned)
+        if: ${{ env.DATABASE_URL != '' && github.event.inputs.dry_run != 'true' }}
+        run: |
+          psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -c \
+            "select jsonb_object_keys(public.admin_global_passport());"
+
+      - name: Notice when nothing ran
+        if: ${{ env.DATABASE_URL == '' }}
+        run: echo "::warning::apply-admin-global-passport skipped — set the DATABASE_URL repository secret to enable."

@@ -51,6 +51,12 @@ export default async function AdminPage() {
         >
           User activity <span className="text-text-muted">· new vs. total users and logs, by day</span>
         </Link>
+        <Link
+          href="/admin/passport"
+          className="mt-2 block rounded-xl border border-white/10 px-4 py-3 text-sm text-text-primary hover:bg-white/5"
+        >
+          Global passport <span className="text-text-muted">· app-wide stats, map, top venues and players</span>
+        </Link>
       </div>
       <div className="px-4 pt-3 pb-2 text-xs text-text-muted">
         {users.length} accounts · deleting cascades all of a user&apos;s data and removes their login.
