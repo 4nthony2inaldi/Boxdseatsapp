@@ -14,20 +14,10 @@ import type { EarnedBadge } from "@/lib/queries/achievements";
 
 /** Non-sport badge glyphs — currentColor so they take the tile's accent/muted
  *  color, unlike the ball SVGs (which are full-color). Keeps the few badges
- *  that aren't a sport (road trip, countries, all-star) from falling back to a
- *  generic mark. */
+ *  that aren't a sport (countries, all-star) from falling back to a generic
+ *  mark. Road Game reuses the motorsports (car) sport icon via SportIcon. */
 function BadgeIcon({ icon }: { icon?: string }) {
   const common = { width: 18, height: 18, viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: 1.7, strokeLinecap: "round" as const, strokeLinejoin: "round" as const };
-  if (icon === "car") {
-    return (
-      <svg {...common}>
-        <path d="M5 11l1.3-3.4A2 2 0 0 1 8.2 6.3h7.6a2 2 0 0 1 1.9 1.3L19 11" />
-        <rect x="3" y="11" width="18" height="5" rx="1.6" />
-        <circle cx="7.5" cy="16.5" r="1.5" fill="currentColor" stroke="none" />
-        <circle cx="16.5" cy="16.5" r="1.5" fill="currentColor" stroke="none" />
-      </svg>
-    );
-  }
   if (icon === "globe") {
     return (
       <svg {...common}>

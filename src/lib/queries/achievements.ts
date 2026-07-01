@@ -78,7 +78,7 @@ export const BADGE_CATALOG: BadgeDef[] = [
   { key: "stanley-cup", label: "Stanley Cup", icon: "hockey", group: "event", match: (r) => r.slug === "nhl" && round(/stanley cup/i)(r) },
   { key: "super-bowl", label: "Super Bowl", icon: "football", group: "event", match: (r) => r.slug === "nfl" && round(/super bowl/i)(r) },
   { key: "world-cup", label: "World Cup", icon: "soccer", group: "event", match: (r) => !!r.slug && r.slug.startsWith("fifa.world") },
-  { key: "fav-team-road", label: "Favorite Team on the Road", short: "Road Game", icon: "car", group: "event", match: (r, ctx) => !!r.awayTeamId && ctx.favTeamIds.has(r.awayTeamId) },
+  { key: "fav-team-road", label: "Favorite Team on the Road", short: "Road Game", icon: "motorsports", group: "event", match: (r, ctx) => !!r.awayTeamId && ctx.favTeamIds.has(r.awayTeamId) },
   {
     key: "multiple-countries",
     label: "Multiple Countries",
