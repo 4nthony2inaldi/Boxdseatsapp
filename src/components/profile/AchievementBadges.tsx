@@ -1,53 +1,37 @@
 import Link from "next/link";
+import SportIcon from "@/components/SportIcon";
 import type { EarnedBadge } from "@/lib/queries/achievements";
 
 /**
- * Mock UI for the profile's achievement badges: two horizontally-scrollable
- * rows (event-based, stat-based). The label sits inside the tile (small font);
- * earned badges are tappable and carry an "xN" count when earned more than
- * once; locked badges are greyed and inert. Tile art is a placeholder — the
- * real per-badge design comes later; this wires up data, layout, and the
- * click-through to the games list.
+ * The profile's achievement badges: two horizontally-scrollable rows (event-
+ * based, stat-based). Each compact tile shows the sport icon on a light disc
+ * with the label below (one line, or two when it needs it). Earned tiles are
+ * full-color, accent-tinted, and tappable with an "xN" count when earned more
+ * than once; locked tiles are greyscaled, dimmed, and inert. The sport icon
+ * carries the context, so labels stay short (both hat tricks read "Hat Trick").
  */
-
-// Split a label into two balanced lines so every tile reads as two lines (a
-// one-line label looks inconsistent next to the multi-word ones). Multi-word
-// labels split on the most-balanced space; a single hyphenated token splits at
-// the hyphen; otherwise split near the middle.
-function twoLines(label: string): [string, string] {
-  const words = label.split(" ");
-  if (words.length >= 2) {
-    let best = 1;
-    let bestDiff = Infinity;
-    for (let i = 1; i < words.length; i++) {
-      const diff = Math.abs(words.slice(0, i).join(" ").length - words.slice(i).join(" ").length);
-      if (diff < bestDiff) {
-        bestDiff = diff;
-        best = i;
-      }
-    }
-    return [words.slice(0, best).join(" "), words.slice(best).join(" ")];
-  }
-  const h = label.indexOf("-");
-  if (h > 0 && h < label.length - 1) return [label.slice(0, h + 1), label.slice(h + 1)];
-  const mid = Math.ceil(label.length / 2);
-  return [label.slice(0, mid), label.slice(mid)];
-}
 
 function BadgeTile({ badge, hrefBase }: { badge: EarnedBadge; hrefBase: string }) {
   const earned = badge.count > 0;
-  const [line1, line2] = twoLines(badge.short);
   const inner = (
     <div className="relative">
       <div
-        className={`w-[72px] h-[72px] rounded-2xl flex flex-col items-center justify-center text-center px-1.5 font-medium text-[10px] leading-[1.2] ${
+        className={`w-[68px] min-h-[54px] rounded-2xl flex flex-col items-center justify-center gap-1 text-center px-1.5 py-2 ${
           earned
             ? "bg-accent/15 text-accent border border-accent/40"
             : "bg-bg-elevated text-text-muted border border-border"
         }`}
       >
-        <span>{line1}</span>
-        <span>{line2}</span>
+        {/* Light disc so every sport icon (even the dark hockey puck) reads on
+            the dark tile; greyscaled when locked. */}
+        <span
+          className={`w-7 h-7 rounded-full bg-white/10 flex items-center justify-center shrink-0 ${
+            earned ? "" : "grayscale"
+          }`}
+        >
+          <SportIcon sport={badge.icon} size={18} />
+        </span>
+        <span className="font-medium text-[9px] leading-[1.15] line-clamp-2">{badge.short}</span>
       </div>
       {earned && badge.count > 1 && (
         <span
