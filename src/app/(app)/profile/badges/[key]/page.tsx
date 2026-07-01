@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { badgeByKey, fetchAchievementGames } from "@/lib/queries/achievements";
 import BadgeCountrySummary from "@/components/profile/BadgeCountrySummary";
+import BadgeGameCard from "@/components/profile/BadgeGameCard";
 
 /**
  * Badge detail: the list of the user's logged games that earned this badge.
@@ -51,22 +52,7 @@ export default async function BadgeDetailPage({
 
       <div className="flex flex-col gap-2">
         {games.map((g) => (
-          <Link
-            key={g.eventId}
-            href={`/event/${g.eventId}`}
-            className="block bg-bg-card border border-border rounded-xl px-4 py-3 active:opacity-80 transition-opacity"
-          >
-            <div className="text-sm text-text-primary font-medium">{g.title}</div>
-            <div className="text-xs text-text-muted mt-0.5">
-              {new Date(g.date + "T00:00:00").toLocaleDateString("en-US", {
-                year: "numeric",
-                month: "short",
-                day: "numeric",
-              })}
-              {g.venue ? ` · ${g.venue}` : ""}
-              {g.country ? ` · ${g.country}` : ""}
-            </div>
-          </Link>
+          <BadgeGameCard key={g.eventId} game={g} href={`/event/${g.eventId}`} />
         ))}
       </div>
     </div>
