@@ -4,34 +4,74 @@ import type { EarnedBadge } from "@/lib/queries/achievements";
 
 /**
  * The profile's achievement badges: two horizontally-scrollable rows (event-
- * based, stat-based). Each compact tile shows the sport icon on a light disc
- * with the label below (one line, or two when it needs it). Earned tiles are
- * full-color, accent-tinted, and tappable with an "xN" count when earned more
- * than once; locked tiles are greyscaled, dimmed, and inert. The sport icon
- * carries the context, so labels stay short (both hat tricks read "Hat Trick").
+ * based, stat-based). Each tile is a fixed size (so a two-line label never
+ * makes it taller than its neighbours) with the icon on a light disc and the
+ * label below. Earned tiles are full-color, accent-tinted, and tappable with an
+ * "xN" count when earned more than once; locked tiles are greyscaled, dimmed,
+ * and inert. The icon carries the context, so labels stay short (both hat
+ * tricks read "Hat Trick").
  */
+
+/** Non-sport badge glyphs — currentColor so they take the tile's accent/muted
+ *  color, unlike the ball SVGs (which are full-color). Keeps the few badges
+ *  that aren't a sport (road trip, countries, all-star) from falling back to a
+ *  generic mark. */
+function BadgeIcon({ icon }: { icon?: string }) {
+  const common = { width: 18, height: 18, viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: 1.7, strokeLinecap: "round" as const, strokeLinejoin: "round" as const };
+  if (icon === "car") {
+    return (
+      <svg {...common}>
+        <path d="M5 11l1.3-3.4A2 2 0 0 1 8.2 6.3h7.6a2 2 0 0 1 1.9 1.3L19 11" />
+        <rect x="3" y="11" width="18" height="5" rx="1.6" />
+        <circle cx="7.5" cy="16.5" r="1.5" fill="currentColor" stroke="none" />
+        <circle cx="16.5" cy="16.5" r="1.5" fill="currentColor" stroke="none" />
+      </svg>
+    );
+  }
+  if (icon === "globe") {
+    return (
+      <svg {...common}>
+        <circle cx="12" cy="12" r="9" />
+        <path d="M3 12h18" />
+        <ellipse cx="12" cy="12" rx="4" ry="9" />
+      </svg>
+    );
+  }
+  if (icon === "star") {
+    return (
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" stroke="none" aria-hidden>
+        <path d="M12 3l2.35 4.76 5.25.76-3.8 3.7.9 5.24L12 15.9l-4.7 2.47.9-5.24-3.8-3.7 5.25-.76z" />
+      </svg>
+    );
+  }
+  return <SportIcon sport={icon} size={18} />;
+}
 
 function BadgeTile({ badge, hrefBase }: { badge: EarnedBadge; hrefBase: string }) {
   const earned = badge.count > 0;
   const inner = (
     <div className="relative">
       <div
-        className={`w-[68px] min-h-[54px] rounded-2xl flex flex-col items-center justify-center gap-1 text-center px-1.5 py-2 ${
+        className={`w-[68px] h-16 rounded-2xl flex flex-col items-center justify-center gap-1 px-1.5 ${
           earned
             ? "bg-accent/15 text-accent border border-accent/40"
             : "bg-bg-elevated text-text-muted border border-border"
         }`}
       >
-        {/* Light disc so every sport icon (even the dark hockey puck) reads on
-            the dark tile; greyscaled when locked. */}
+        {/* Light disc so every icon (even the dark hockey puck) reads on the
+            dark tile; greyscaled when locked. */}
         <span
           className={`w-7 h-7 rounded-full bg-white/10 flex items-center justify-center shrink-0 ${
             earned ? "" : "grayscale"
           }`}
         >
-          <SportIcon sport={badge.icon} size={18} />
+          <BadgeIcon icon={badge.icon} />
         </span>
-        <span className="font-medium text-[9px] leading-[1.15] line-clamp-2">{badge.short}</span>
+        {/* Fixed two-line box so every tile is the same height whether the label
+            is one line or two. */}
+        <span className="h-[21px] flex items-center justify-center">
+          <span className="font-medium text-[9px] leading-[1.15] text-center line-clamp-2">{badge.short}</span>
+        </span>
       </div>
       {earned && badge.count > 1 && (
         <span
