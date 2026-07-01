@@ -65,24 +65,25 @@ export const BADGE_CATALOG: BadgeDef[] = [
   // ── event-based ──
   { key: "opening-day", label: "Opening Day", icon: "baseball", group: "event", match: tag("opening-day") },
   { key: "spring-training", label: "Spring Training", short: "Spring Ball", icon: "baseball", group: "event", match: (r) => r.slug === "mlb" && r.isPre },
-  { key: "all-star", label: "All-Star Game", short: "All-Star", group: "event", match: tag("allstar") },
+  { key: "all-star", label: "All-Star Game", short: "All-Star", icon: "star", group: "event", match: tag("allstar") },
   { key: "wbc", label: "World Baseball Classic", short: "WBC", icon: "baseball", group: "event", match: (r) => r.slug === "wbc" },
   { key: "mlb-playoffs", label: "MLB Playoffs", icon: "baseball", group: "event", match: (r) => r.slug === "mlb" && r.isPost },
   { key: "nba-playoffs", label: "NBA Playoffs", icon: "basketball", group: "event", match: (r) => r.slug === "nba" && r.isPost },
   { key: "nhl-playoffs", label: "NHL Playoffs", icon: "hockey", group: "event", match: (r) => r.slug === "nhl" && r.isPost },
   { key: "nfl-playoffs", label: "NFL Playoffs", icon: "football", group: "event", match: (r) => r.slug === "nfl" && r.isPost },
-  { key: "march-madness", label: "March Madness", icon: "basketball", group: "event", match: (r) => (r.slug === "ncaam" || r.slug === "ncaaw") && r.isPost },
+  { key: "march-madness", label: "March Madness", short: "Madness", icon: "basketball", group: "event", match: (r) => (r.slug === "ncaam" || r.slug === "ncaaw") && r.isPost },
   { key: "bowl-game", label: "Bowl Game", icon: "football", group: "event", match: (r) => r.slug === "ncaaf" && r.isPost },
   { key: "world-series", label: "World Series", icon: "baseball", group: "event", match: (r) => r.slug === "mlb" && round(/world series/i)(r) },
   { key: "nba-finals", label: "NBA Finals", icon: "basketball", group: "event", match: (r) => r.slug === "nba" && round(/nba finals/i)(r) },
   { key: "stanley-cup", label: "Stanley Cup", icon: "hockey", group: "event", match: (r) => r.slug === "nhl" && round(/stanley cup/i)(r) },
   { key: "super-bowl", label: "Super Bowl", icon: "football", group: "event", match: (r) => r.slug === "nfl" && round(/super bowl/i)(r) },
   { key: "world-cup", label: "World Cup", icon: "soccer", group: "event", match: (r) => !!r.slug && r.slug.startsWith("fifa.world") },
-  { key: "fav-team-road", label: "Favorite Team on the Road", short: "Team on Road", group: "event", match: (r, ctx) => !!r.awayTeamId && ctx.favTeamIds.has(r.awayTeamId) },
+  { key: "fav-team-road", label: "Favorite Team on the Road", short: "Road Game", icon: "car", group: "event", match: (r, ctx) => !!r.awayTeamId && ctx.favTeamIds.has(r.awayTeamId) },
   {
     key: "multiple-countries",
     label: "Multiple Countries",
     short: "2+ Countries",
+    icon: "globe",
     group: "event",
     // Earned at 2+ distinct venue countries; the count IS the number of countries.
     aggregate: (rows) => {
@@ -97,7 +98,7 @@ export const BADGE_CATALOG: BadgeDef[] = [
 
   // ── stat-based (the sport icon disambiguates, so labels stay short) ──
   { key: "no-hitter", label: "No-Hitter", icon: "baseball", group: "stat", match: tag("no-hitter") },
-  { key: "perfect-game", label: "Perfect Game", icon: "baseball", group: "stat", match: tag("perfect-game") },
+  { key: "perfect-game", label: "Perfect Game", short: "Perfect", icon: "baseball", group: "stat", match: tag("perfect-game") },
   { key: "multi-hr", label: "3-HR Game", short: "3 HR", icon: "baseball", group: "stat", match: tag("multi-hr") },
   { key: "four-hr", label: "4-HR Game", short: "4 HR", icon: "baseball", group: "stat", match: tag("four-hr") },
   { key: "hat-trick-hockey", label: "Hockey Hat Trick", short: "Hat Trick", icon: "hockey", group: "stat", match: tag("hat-trick-hockey") },
