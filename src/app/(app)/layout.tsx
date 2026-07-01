@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import AppHeader from "@/components/AppHeader";
 import BottomNav from "@/components/BottomNav";
+import RouteScrollTop from "@/components/RouteScrollTop";
 import Toaster from "@/components/Toaster";
 import PushRegistrar from "@/components/native/PushRegistrar";
 import PushOptIn from "@/components/native/PushOptIn";
@@ -17,6 +18,7 @@ export default function AppLayout({
 }) {
   return (
     <div className="min-h-screen flex flex-col">
+      <RouteScrollTop />
       <AppHeader />
       <AppPromoBanner />
       <main className="flex-1 pb-28">{children}</main>
