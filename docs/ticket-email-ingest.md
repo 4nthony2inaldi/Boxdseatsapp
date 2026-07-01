@@ -8,6 +8,34 @@ geotagged photo — it names the event, venue, date, and seats outright.
 
 Vendors in scope: **StubHub, Ticketmaster, Gametime, TickPick, Vivid Seats.**
 
+## Status — TABLED 2026-07-01 (resume here)
+
+Parked mid-design to focus on smaller tasks. **No code written yet.** To resume:
+
+- **Decisions locked:** email over vendor APIs and over forwarding; Gmail
+  read-only with a ≤100-user Google *testing-mode* beta before paying for CASA;
+  fetch = sender allowlist → server-side query (`-category:promotions`) →
+  order-number gate → dedupe/incremental; matching requires **team resolution for
+  team sports** (venue+date never logs a game alone — see the Strokes concert
+  case); seats captured as `text`; everything runs through the existing
+  confirm flow (never auto-log).
+- **Samples gathered so far** (in chat only — NOT committed; they contain PII to
+  scrub before they become fixtures): StubHub ×4 — two game order confirmations
+  (Rays @ Yankees 2022; Yankees @ Pirates spring training 2023), one **concert**
+  order (The Strokes — the negative/drop case), and one 2015 **"tickets ready"**
+  email (`TEB_ORDER_DELIVERED` template).
+- **Key learning:** StubHub is **multi-template**, not one format — multiple
+  senders (`noreply@stubhub.com`, `Orders@service.stubhub.com`), ≥3 date formats,
+  two email types (order + ready), a combined "teams at venue" line with a
+  double " at ", pipe-delimited seat labels, and a footer template ID. So the
+  per-vendor parser must be **template-versioned with tolerant date parsing**, and
+  the sender allowlist is a growing set verified against real samples.
+- **Next step when we return:** collect a few more real samples (a *modern*
+  StubHub ready/transfer, plus Ticketmaster / Gametime / TickPick / Vivid games),
+  then build the **StubHub parser + sanitized fixtures + tests** first (pure
+  functions, zero OAuth/DB risk), then the OAuth connect + resumable backfill +
+  review flow behind the testing beta.
+
 ## Goals / non-goals
 
 Goals
@@ -58,6 +86,11 @@ opt-in fallback for providers we can't OAuth into — see iCloud, below.)
   users)**, which allows the restricted scope with no CASA. Validate the lift
   (forgotten games surfaced per user, confirm rate) before funding verification
   + CASA for GA.
+- Caveat for the beta: an unverified app requesting a restricted scope shows a
+  Google **"this app isn't verified"** interstitial that testers must expand and
+  click through. That's real friction and will depress the beta connect rate, so
+  read connect-rate as a floor, not the GA number — post-verification the screen
+  is clean.
 - `gmail.metadata` (headers only, no body) is tempting for privacy but can't read
   the body where venue/seat live, and still can't combine with a search query —
   so `readonly` it is, behaviourally scoped (below).
@@ -97,9 +130,12 @@ Layered, cheapest first:
    that slips through has no order number and is dropped. This is the anti-false-
    positive backstop.
 4. **Dedupe + incremental.** One order emits several messages (confirmation →
-   "tickets ready"/transfer → reminders); collapse to one record per
-   `(vendor, order_ref)`. After the first backfill, store Gmail `historyId`
-   (Graph: delta token) and process only new mail — never re-scan.
+   "tickets ready"/transfer → reminders); collapse to one record. Key on
+   `order_ref` when present, but the original-provider transfer email often
+   lacks the marketplace order #, so fall back to `(user, resolved event_id)` —
+   i.e. dedupe on the matched game — so a transfer and its confirmation don't
+   double-log. After the first backfill, store Gmail `historyId` (Graph: delta
+   token) and process only new mail — never re-scan.
 
 Bias to **precision over recall**: better to miss an oddball receipt (the user
 can manually add) than to log a game they didn't attend.
@@ -156,11 +192,16 @@ then refine with the teams.
   alias model — match on either the canonical or historical name.
 - **Date:** match on the **local event date** (UTC-5 offset, per CLAUDE.md — align
   with `localEventDate`/`localDate` so this agrees with the event side).
-- **Teams:** disambiguate same-venue/same-day cases (e.g. spring-training split
-  squads) using the parsed team hints.
+- **Teams are required for team sports, not just a tiebreaker.** Venue + date is
+  necessary but *not sufficient*: a concert or another event at a sports venue can
+  land on a day the home team also played. For team sports we only match when the
+  parsed teams resolve to that event's teams; venue + date alone never creates a
+  log. (Individual sports without two teams — golf, tennis, motorsports — match on
+  venue + date + the event/tournament name instead.)
 - **Confidence:** venue + date + teams all resolve → high (pre-selected in
-  review). Partial → shown for explicit confirm. No event in our DB → "unmatched"
-  bucket with a manual-add affordance. Never silently create events.
+  review). Missing the team match → not logged as that game; shown as "unmatched"
+  rather than guessed. No event in our DB → "unmatched" bucket with a manual-add
+  affordance. Never silently create events.
 
 ## Purchase ≠ attendance
 
@@ -176,7 +217,9 @@ genuinely novel feature (a "where you've sat" view / seat-map / section history 
 the passport). Requires a **schema addition** (a prod change → human checkpoint):
 
 - `event_logs`: add `seat_section text`, `seat_row text`, `seat_number text`
-  (nullable). Price is personal; hold unless we want a "spend" stat later.
+  (nullable). Keep them `text`, not numeric — seats come as "GA", ranges
+  ("7-8"), or multiple sections, so store what's printed and normalize lightly.
+  Price is personal; hold unless we want a "spend" stat later.
 
 Ship ingest first; the seat-history *feature* is a fast follow once the data is
 flowing.
@@ -198,9 +241,13 @@ flowing.
 ## Pipeline
 
 1. OAuth connect → store encrypted tokens in `email_connections`.
-2. Backfill job (server; queue for large inboxes): per-vendor `q` → `messages.list`
-   → skip already-seen message ids → fetch (metadata, then body) → parse → gate →
-   upsert `ticket_orders` (dedupe on `order_ref`).
+2. Backfill as a **resumable background job**, not a single request — a multi-year
+   inbox exceeds a serverless function's time limit. Process in pages with a
+   stored cursor (`messages.list` `pageToken` + last-seen message id) so it can
+   run in chunks and resume; drive it the way the repo already runs jobs (a
+   worker / scheduled run) rather than blocking the connect request. Per page:
+   per-vendor `q` → skip already-seen ids → fetch (metadata, then body only for
+   survivors) → parse → gate → upsert `ticket_orders`.
 3. Match each order to an event → set `event_id` + confidence.
 4. Review screen → confirm writes `event_logs` (+ seats); dismiss sets status.
 5. Incremental: persist `history_id`/delta token; poll or Gmail `watch` for new
@@ -216,9 +263,16 @@ Email is sensitive, so the posture has to be tight and legible:
   we never read the rest of the inbox even though the grant technically allows it.
   Say this plainly in the connect screen.
 - **Minimal retention:** store the parsed order fields + message id (for dedupe/
-  audit), **not** raw email bodies.
+  audit), **not** raw email bodies. Never download attachments (.pkpass/PDF
+  tickets) — the data we need is in the body, and skipping them cuts cost and
+  exposure.
 - **Tokens:** encrypted, server-only, revoked + deleted on disconnect.
 - **User control:** disconnect any time; option to delete all ingested orders.
+- **Google Limited Use** binds us with the restricted Gmail scope: the mail data
+  may be used only to provide this user-facing feature — no selling it, no ads, no
+  using it to train models, and no human reads it except with consent or for
+  security/abuse/legal. Our minimal-retention design already fits this; it's also
+  what CASA/verification will check.
 - Honest framing: unlike the on-device photo scan, this is server-side (it must
   be) — we lean on narrow scope + minimal retention instead of on-device.
 
