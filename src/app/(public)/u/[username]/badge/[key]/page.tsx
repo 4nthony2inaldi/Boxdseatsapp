@@ -2,7 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { badgeByKey, fetchAchievementGames } from "@/lib/queries/achievements";
-import { fetchUserProfileByUsername } from "@/lib/queries/social";
+import { fetchUserProfileByUsername, fetchFollowRelationship } from "@/lib/queries/social";
 
 /**
  * Public badge detail: the games behind one badge for the profile being viewed
@@ -28,13 +28,7 @@ export default async function PublicBadgeDetailPage({
   const isOwn = user?.id === profile.id;
   let isFollowing = false;
   if (user && !isOwn) {
-    const { data: followRow } = await supabase
-      .from("follows")
-      .select("status")
-      .eq("follower_id", user.id)
-      .eq("following_id", profile.id)
-      .maybeSingle();
-    isFollowing = followRow?.status === "active";
+    isFollowing = (await fetchFollowRelationship(supabase, user.id, profile.id)).isFollowing;
   }
   const isGated = profile.is_private && !isFollowing && !isOwn;
 

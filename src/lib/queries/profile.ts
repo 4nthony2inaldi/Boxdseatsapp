@@ -463,6 +463,17 @@ export async function fetchAutoPinnedListIds(
     .map((s) => s.id);
 }
 
+/** The two lists to pin on a profile: the user's manual pins win; otherwise
+ *  their two most-completed lists. Shared by the own, in-app, and public
+ *  profile pages so the choice can't drift between them. */
+export async function resolvePinnedListIds(
+  supabase: SupabaseClient,
+  profile: Pick<ProfileData, "id" | "pinned_list_1_id" | "pinned_list_2_id">
+): Promise<string[]> {
+  const manualPins = [profile.pinned_list_1_id, profile.pinned_list_2_id].filter(Boolean) as string[];
+  return manualPins.length > 0 ? manualPins : fetchAutoPinnedListIds(supabase, profile.id);
+}
+
 export type ProfileSummaryCounts = {
   totalVenues: number;
   venuesThisYear: number;

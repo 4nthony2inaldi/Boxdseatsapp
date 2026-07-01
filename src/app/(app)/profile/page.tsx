@@ -5,7 +5,7 @@ import {
   fetchBigFour,
   fetchActivityChart,
   fetchPinnedLists,
-  fetchAutoPinnedListIds,
+  resolvePinnedListIds,
   fetchTimeline,
   fetchProfileSummaryCounts,
   fetchVisitedCityCount,
@@ -49,10 +49,8 @@ export default async function ProfilePage() {
     );
   }
 
-  // Pinned lists: manual pins win; otherwise auto-pick the user's two
-  // most-completed lists.
-  const manualPins = [profile.pinned_list_1_id, profile.pinned_list_2_id].filter(Boolean) as string[];
-  const pinIds = manualPins.length > 0 ? manualPins : await fetchAutoPinnedListIds(supabase, user.id);
+  // Pinned lists: manual pins win; otherwise the user's two most-completed.
+  const pinIds = await resolvePinnedListIds(supabase, profile);
 
   const [stats, bigFour, activityData, pinnedLists, timelinePage, summaryCounts, achievements, cityCount] =
     await Promise.all([
@@ -81,12 +79,7 @@ export default async function ProfilePage() {
       <ProfileStickyBar
         avatarUrl={profile.avatar_url}
         initial={(profile.display_name || profile.username || "?").charAt(0).toUpperCase()}
-        stats={[
-          { value: stats.totalEvents, label: "Events" },
-          { value: stats.totalVenues, label: "Venues" },
-          { value: stats.followers, label: "Followers" },
-          { value: stats.following, label: "Following" },
-        ]}
+        stats={stats}
       />
       <BigFourSection items={bigFour} isOwner />
       <ActivityChart months={activityData.months} total={activityData.total} timelineHref="/timeline" />
