@@ -26,6 +26,7 @@ const SCOPES: { key: LeaderboardScope; label: string }[] = [
   { key: "following", label: "Following" },
 ];
 
+// All sports in the sport_type enum (majors first, then individual sports).
 const SPORTS: { key: string | null; label: string }[] = [
   { key: null, label: "All" },
   { key: "baseball", label: "Baseball" },
@@ -33,6 +34,10 @@ const SPORTS: { key: string | null; label: string }[] = [
   { key: "football", label: "Football" },
   { key: "hockey", label: "Hockey" },
   { key: "soccer", label: "Soccer" },
+  { key: "golf", label: "Golf" },
+  { key: "tennis", label: "Tennis" },
+  { key: "motorsports", label: "Motorsports" },
+  { key: "australian_football", label: "Aussie Rules" },
 ];
 
 function since12mo(): string {
