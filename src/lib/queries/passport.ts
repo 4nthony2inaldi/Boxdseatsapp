@@ -185,11 +185,12 @@ export async function fetchPassport(
   // sport mix, and the athletes-seen aggregation.
   const logs: { sport: string | null; outcome: string | null; event_id: string | null }[] = [];
   for (let from = 0; ; from += 1000) {
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from("event_logs")
       .select("sport, outcome, event_id")
       .eq("user_id", userId)
       .range(from, from + 999);
+    if (error) throw error;
     if (!data || data.length === 0) break;
     logs.push(...data);
     if (data.length < 1000) break;
@@ -291,12 +292,13 @@ export async function fetchPassport(
   for (let i = 0; i < attendedEventIds.length; i += 200) {
     const chunk = attendedEventIds.slice(i, i + 200);
     for (let from = 0; ; from += 1000) {
-      const { data } = await supabase
+      const { data, error } = await supabase
         .from("event_athletes")
         .select("athlete_id, stat_line")
         .in("event_id", chunk)
         .order("id", { ascending: true })
         .range(from, from + 999);
+      if (error) throw error;
       if (!data || data.length === 0) break;
       for (const row of data) {
         const aid = row.athlete_id as string | null;
@@ -340,10 +342,11 @@ export async function fetchPassport(
   const metaIds = [...new Set([...topPlayerIds, ...leaderCandidateIds])];
   const playerMeta = new Map<string, { name: string; sport: string | null; headshot_url: string | null }>();
   for (let i = 0; i < metaIds.length; i += 100) {
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from("athletes")
       .select("id, name, sport, headshot_url")
       .in("id", metaIds.slice(i, i + 100));
+    if (error) throw error;
     for (const a of data || []) {
       playerMeta.set(a.id as string, {
         name: (a.name as string) || "Unknown",

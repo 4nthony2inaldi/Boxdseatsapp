@@ -492,7 +492,6 @@ export async function fetchProfileSummaryCounts(
 
   const [
     totalVenuesRes,
-    venuesThisYearRes,
     totalEventsRes,
     eventsThisYearRes,
     createdListsRes,
@@ -504,12 +503,6 @@ export async function fetchProfileSummaryCounts(
       .select("id", { count: "exact", head: true })
       .eq("user_id", userId)
       .eq("relationship", "visited"),
-    // Venues visited this year (venue_visits that have an event_log this year)
-    supabase
-      .from("event_logs")
-      .select("venue_id")
-      .eq("user_id", userId)
-      .gte("event_date", yearStart),
     // Total event logs
     supabase
       .from("event_logs")
@@ -535,10 +528,22 @@ export async function fetchProfileSummaryCounts(
       .eq("relationship", "want_to_visit"),
   ]);
 
-  // Dedupe venues this year
-  const uniqueVenuesThisYear = new Set(
-    (venuesThisYearRes.data || []).map((e) => e.venue_id).filter(Boolean)
-  );
+  // Distinct venues visited this year. This genuinely needs the venue_id set
+  // (a head count would count games, not distinct venues), so page through the
+  // rows rather than a single select that PostgREST would cap at 1000.
+  const uniqueVenuesThisYear = new Set<string>();
+  for (let from = 0; ; from += 1000) {
+    const { data, error } = await supabase
+      .from("event_logs")
+      .select("venue_id")
+      .eq("user_id", userId)
+      .gte("event_date", yearStart)
+      .range(from, from + 999);
+    if (error) throw error;
+    if (!data || data.length === 0) break;
+    for (const e of data) if (e.venue_id) uniqueVenuesThisYear.add(e.venue_id as string);
+    if (data.length < 1000) break;
+  }
 
   return {
     totalVenues: totalVenuesRes.count || 0,
