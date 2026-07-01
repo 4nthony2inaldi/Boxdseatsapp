@@ -60,6 +60,8 @@ export type FollowUser = {
   bio: string | null;
   isFollowing: boolean;
   isPending: boolean;
+  /** Optional context label for the row, e.g. "12 visits" on a venue list. */
+  meta?: string | null;
 };
 
 export type SearchResultUser = {

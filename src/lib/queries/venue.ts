@@ -1,5 +1,7 @@
 import { SupabaseClient } from "@supabase/supabase-js";
 import { getSportIconPath } from "@/lib/sportIcons";
+import { fetchLeaderboard, type LeaderboardRow } from "@/lib/queries/leaderboard";
+import type { FollowUser } from "@/lib/queries/social";
 
 // ── Types ──
 
@@ -194,6 +196,99 @@ export async function fetchVenueCommunityStats(
   return {
     totalCheckIns: totalCheckIns || 0,
     friendsWhoVisited,
+  };
+}
+
+// ── Fetch the full list of friends who visited (for the landing page) ──
+
+// Same relationship logic as fetchVenueCommunityStats' avatar cluster, but
+// returns the complete list in the FollowUser shape so the list page can reuse
+// the shared UserList component. Everyone here is an active follow of the
+// caller, so isFollowing is true / isPending false.
+export async function fetchVenueFriendsWhoVisited(
+  supabase: SupabaseClient,
+  userId: string,
+  venueId: string
+): Promise<FollowUser[]> {
+  const { data: following } = await supabase
+    .from("follows")
+    .select("following_id")
+    .eq("follower_id", userId)
+    .eq("status", "active");
+
+  const friendIds = following?.map((f) => f.following_id) ?? [];
+  if (friendIds.length === 0) return [];
+
+  const { data: friendLogs } = await supabase
+    .from("event_logs")
+    .select("user_id")
+    .eq("venue_id", venueId)
+    .in("user_id", friendIds);
+
+  // One row per logged game, so tallying rows per user gives each friend's
+  // visit count here.
+  const visits = new Map<string, number>();
+  for (const fl of friendLogs ?? []) {
+    visits.set(fl.user_id, (visits.get(fl.user_id) ?? 0) + 1);
+  }
+  const uniqueIds = [...visits.keys()];
+  if (uniqueIds.length === 0) return [];
+
+  const { data: profiles } = await supabase
+    .from("profiles")
+    .select("id, username, display_name, avatar_url, bio")
+    .in("id", uniqueIds);
+
+  return (profiles ?? [])
+    .map((p) => {
+      const count = visits.get(p.id) ?? 0;
+      return {
+        id: p.id,
+        username: p.username,
+        display_name: p.display_name,
+        avatar_url: p.avatar_url,
+        bio: p.bio,
+        isFollowing: true,
+        isPending: false,
+        meta: `${count} ${count === 1 ? "visit" : "visits"}`,
+      };
+    })
+    // Most visits first; ties fall back to name for a stable order.
+    .sort((a, b) => {
+      const av = visits.get(a.id) ?? 0;
+      const bv = visits.get(b.id) ?? 0;
+      if (bv !== av) return bv - av;
+      return (a.display_name || a.username).toLowerCase().localeCompare((b.display_name || b.username).toLowerCase());
+    });
+}
+
+// ── Fetch the venue "mayor" (Foursquare-style) ──
+
+export type VenueMayor = {
+  mayor: LeaderboardRow | null; // the single public fan with the most logged games here
+  runnerUp: LeaderboardRow | null; // the next fan chasing the crown, if any
+  me: { rank: number; games: number } | null; // the caller's own standing, if they've logged any
+  total: number; // number of ranked fans at this venue
+};
+
+// The mayor is just the top of the global, public leaderboard filtered to this
+// venue — so it reuses the leaderboard RPC (which already enforces the
+// public-only / block rules) rather than re-deriving cross-user aggregation.
+// Pull the top two so the card can also name the runner-up.
+export async function fetchVenueMayor(
+  supabase: SupabaseClient,
+  venueId: string
+): Promise<VenueMayor> {
+  const board = await fetchLeaderboard(supabase, {
+    scope: "global",
+    venue: venueId,
+    limit: 2,
+  });
+  return {
+    mayor: board.rows[0] ?? null,
+    runnerUp: board.rows[1] ?? null,
+    me: board.me,
+    total: board.total,
   };
 }
 

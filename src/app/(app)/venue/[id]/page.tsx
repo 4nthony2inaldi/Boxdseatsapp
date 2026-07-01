@@ -1,4 +1,5 @@
 import Image from "next/image";
+import Link from "next/link";
 import HeroImage from "@/components/HeroImage";
 import { createClient } from "@/lib/supabase/server";
 import {
@@ -6,6 +7,7 @@ import {
   fetchVenueHistory,
   fetchVenueTeams,
   fetchVenueCommunityStats,
+  fetchVenueMayor,
   fetchVenueTimeline,
   fetchVenueVisitStatus,
 } from "@/lib/queries/venue";
@@ -15,6 +17,7 @@ import BackButton from "@/components/BackButton";
 import SectionLabel from "@/components/profile/SectionLabel";
 import StatBox from "@/components/profile/StatBox";
 import VenueTimelineList from "@/components/venue/VenueTimelineList";
+import VenueMayorCard from "@/components/venue/VenueMayorCard";
 import VenueStatusToggle from "@/components/venue/VenueStatusToggle";
 import SportIcon from "@/components/SportIcon";
 import { CameraIcon } from "@/components/icons";
@@ -49,10 +52,11 @@ export default async function VenueDetailPage({
     );
   }
 
-  const [history, teams, community, timeline, visitStatus, venueCover] = await Promise.all([
+  const [history, teams, community, mayor, timeline, visitStatus, venueCover] = await Promise.all([
     fetchVenueHistory(supabase, user.id, id),
     fetchVenueTeams(supabase, id),
     fetchVenueCommunityStats(supabase, user.id, id),
+    fetchVenueMayor(supabase, id),
     fetchVenueTimeline(supabase, user.id, id),
     fetchVenueVisitStatus(supabase, user.id, id),
     fetchVenueCoverPhoto(supabase, id),
@@ -195,6 +199,13 @@ export default async function VenueDetailPage({
         </div>
       )}
 
+      {/* Mayor — the top public fan at this venue */}
+      {mayor.mayor && (
+        <div className="mb-6">
+          <VenueMayorCard data={mayor} />
+        </div>
+      )}
+
       {/* Community Stats */}
       <div className="mb-6">
         <SectionLabel>Community</SectionLabel>
@@ -209,9 +220,15 @@ export default async function VenueDetailPage({
               </div>
             </div>
             {community.friendsWhoVisited.length > 0 && (
-              <div className="flex-1">
-                <div className="text-[10px] text-text-secondary uppercase tracking-wider mb-2">
-                  Friends who visited
+              // Tap through to the full list of friends who've been here.
+              <Link href={`/venue/${id}/friends`} className="flex-1 active:opacity-70 transition-opacity">
+                <div className="flex items-center gap-1 mb-2">
+                  <span className="text-[10px] text-text-secondary uppercase tracking-wider">
+                    Friends who visited
+                  </span>
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="text-text-muted">
+                    <path d="M9 18l6-6-6-6" />
+                  </svg>
                 </div>
                 <div className="flex -space-x-2">
                   {community.friendsWhoVisited.slice(0, 5).map((friend) => (
@@ -241,7 +258,7 @@ export default async function VenueDetailPage({
                     </div>
                   )}
                 </div>
-              </div>
+              </Link>
             )}
           </div>
         </div>
