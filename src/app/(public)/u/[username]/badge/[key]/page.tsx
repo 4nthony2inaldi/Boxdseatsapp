@@ -38,7 +38,7 @@ export default async function PublicBadgeDetailPage({
   }
   const isGated = profile.is_private && !isFollowing && !isOwn;
 
-  const games = isGated ? [] : await fetchAchievementGames(supabase, profile.id, key);
+  const games = isGated ? [] : await fetchAchievementGames(supabase, profile.id, key, isOwn);
   const who = profile.display_name || profile.username;
 
   return (

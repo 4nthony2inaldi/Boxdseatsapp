@@ -29,7 +29,7 @@ export default async function BadgeDetailPage({
     );
   }
 
-  const games = await fetchAchievementGames(supabase, user.id, key);
+  const games = await fetchAchievementGames(supabase, user.id, key, true);
 
   return (
     <div className="max-w-lg mx-auto px-4 py-4">

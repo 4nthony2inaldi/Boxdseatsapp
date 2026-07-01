@@ -137,17 +137,35 @@ function titleOf(e: NonNullable<EventRel>): string {
 }
 
 /** All of a user's logged events, normalized for badge matching + display.
- *  Paginated (a heavy attendee can have hundreds), newest first. */
-async function fetchLoggedRows(supabase: SupabaseClient, userId: string): Promise<Row[]> {
+ *  Paginated (a heavy attendee can have hundreds), newest first.
+ *
+ *  `isOwner` gates the defense-in-depth privacy filter: for anyone but the
+ *  owner we drop `hide_all` logs so fully-private games never reach another
+ *  fan's badge tallies or badge-detail list, matching fetchTimeline. RLS is the
+ *  primary guard; this is the second (mirrors the rest of the profile stack).
+ *  The order carries a unique `id` tiebreaker so range-based paging stays
+ *  deterministic when many games share an `event_date` (a >1000-log user could
+ *  otherwise get rows duplicated or dropped across page boundaries). */
+async function fetchLoggedRows(
+  supabase: SupabaseClient,
+  userId: string,
+  isOwner = false
+): Promise<Row[]> {
   const out: Row[] = [];
   for (let from = 0; ; from += 1000) {
-    const { data } = await supabase
+    let query = supabase
       .from("event_logs")
       .select(SELECT)
       .eq("user_id", userId)
-      .not("event_id", "is", null)
+      .not("event_id", "is", null);
+    if (!isOwner) query = query.neq("privacy", "hide_all");
+    const { data, error } = await query
       .order("event_date", { ascending: false })
+      .order("id", { ascending: true })
       .range(from, from + 999);
+    // Surface a failed page instead of silently returning partial (or zero)
+    // rows, which would render every badge as locked with no signal.
+    if (error) throw error;
     if (!data || data.length === 0) break;
     for (const log of data) {
       const e = log.events as unknown as EventRel;
@@ -196,10 +214,11 @@ export type EarnedBadge = { key: string; label: string; short: string; group: Ba
  *  Returns every badge (count 0 = locked) so the UI can grey unearned ones. */
 export async function fetchUserAchievements(
   supabase: SupabaseClient,
-  userId: string
+  userId: string,
+  isOwner = false
 ): Promise<EarnedBadge[]> {
   const [rows, ctx] = await Promise.all([
-    fetchLoggedRows(supabase, userId),
+    fetchLoggedRows(supabase, userId, isOwner),
     fetchFavoriteContext(supabase, userId),
   ]);
   return BADGE_CATALOG.map((b) => ({
@@ -219,12 +238,13 @@ export type AchievementGame = { eventId: string; date: string; title: string; ve
 export async function fetchAchievementGames(
   supabase: SupabaseClient,
   userId: string,
-  key: string
+  key: string,
+  isOwner = false
 ): Promise<AchievementGame[]> {
   const def = badgeByKey(key);
   if (!def) return [];
   const [rows, ctx] = await Promise.all([
-    fetchLoggedRows(supabase, userId),
+    fetchLoggedRows(supabase, userId, isOwner),
     fetchFavoriteContext(supabase, userId),
   ]);
   const matched = def.detailRows ? def.detailRows(rows, ctx) : rows.filter((r) => def.match?.(r, ctx));

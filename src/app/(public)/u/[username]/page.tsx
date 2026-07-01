@@ -200,7 +200,7 @@ export default async function PublicProfilePage({ params }: Props) {
       fetchActivityChart(supabase, profile.id),
       fetchPinnedLists(supabase, profile.id, pinIds),
       fetchTimeline(supabase, profile.id, undefined, 20, 0, undefined, user?.id ?? null),
-      fetchUserAchievements(supabase, profile.id),
+      fetchUserAchievements(supabase, profile.id, isOwnProfile),
     ]);
 
   return (

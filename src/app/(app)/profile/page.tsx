@@ -62,7 +62,7 @@ export default async function ProfilePage() {
       fetchPinnedLists(supabase, user.id, pinIds),
       fetchTimeline(supabase, user.id, undefined, 1, 0, undefined, user.id),
       fetchProfileSummaryCounts(supabase, user.id),
-      fetchUserAchievements(supabase, user.id),
+      fetchUserAchievements(supabase, user.id, true),
       fetchVisitedCityCount(supabase, user.id),
     ]);
 
