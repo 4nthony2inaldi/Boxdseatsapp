@@ -8,6 +8,34 @@ geotagged photo — it names the event, venue, date, and seats outright.
 
 Vendors in scope: **StubHub, Ticketmaster, Gametime, TickPick, Vivid Seats.**
 
+## Status — TABLED 2026-07-01 (resume here)
+
+Parked mid-design to focus on smaller tasks. **No code written yet.** To resume:
+
+- **Decisions locked:** email over vendor APIs and over forwarding; Gmail
+  read-only with a ≤100-user Google *testing-mode* beta before paying for CASA;
+  fetch = sender allowlist → server-side query (`-category:promotions`) →
+  order-number gate → dedupe/incremental; matching requires **team resolution for
+  team sports** (venue+date never logs a game alone — see the Strokes concert
+  case); seats captured as `text`; everything runs through the existing
+  confirm flow (never auto-log).
+- **Samples gathered so far** (in chat only — NOT committed; they contain PII to
+  scrub before they become fixtures): StubHub ×4 — two game order confirmations
+  (Rays @ Yankees 2022; Yankees @ Pirates spring training 2023), one **concert**
+  order (The Strokes — the negative/drop case), and one 2015 **"tickets ready"**
+  email (`TEB_ORDER_DELIVERED` template).
+- **Key learning:** StubHub is **multi-template**, not one format — multiple
+  senders (`noreply@stubhub.com`, `Orders@service.stubhub.com`), ≥3 date formats,
+  two email types (order + ready), a combined "teams at venue" line with a
+  double " at ", pipe-delimited seat labels, and a footer template ID. So the
+  per-vendor parser must be **template-versioned with tolerant date parsing**, and
+  the sender allowlist is a growing set verified against real samples.
+- **Next step when we return:** collect a few more real samples (a *modern*
+  StubHub ready/transfer, plus Ticketmaster / Gametime / TickPick / Vivid games),
+  then build the **StubHub parser + sanitized fixtures + tests** first (pure
+  functions, zero OAuth/DB risk), then the OAuth connect + resumable backfill +
+  review flow behind the testing beta.
+
 ## Goals / non-goals
 
 Goals
