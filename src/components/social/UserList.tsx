@@ -148,6 +148,11 @@ export default function UserList({
             <div className="text-xs text-text-muted">@{user.username}</div>
           </Link>
 
+          {/* Optional context label, e.g. per-venue visit count */}
+          {user.meta && (
+            <span className="text-xs text-text-muted tabular-nums shrink-0">{user.meta}</span>
+          )}
+
           {/* Remove follower */}
           {allowRemove && user.id !== currentUserId && (
             <button

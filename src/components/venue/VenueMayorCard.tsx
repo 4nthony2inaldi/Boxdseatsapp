@@ -18,11 +18,12 @@ function Crown({ className = "" }: { className?: string }) {
 }
 
 export default function VenueMayorCard({ data }: { data: VenueMayor }) {
-  const { mayor, me } = data;
+  const { mayor, runnerUp, me } = data;
   if (!mayor) return null;
 
   const name = mayor.display_name || `@${mayor.username}`;
   const viewerIsMayor = me != null && me.rank === 1;
+  const runnerUpName = runnerUp ? runnerUp.display_name || `@${runnerUp.username}` : null;
 
   return (
     <Link
@@ -62,11 +63,20 @@ export default function VenueMayorCard({ data }: { data: VenueMayor }) {
           </div>
         </div>
       </div>
-      {me != null && (
-        <div className="mt-2.5 pt-2.5 border-t border-border text-[11px] text-text-muted">
-          {viewerIsMayor
-            ? "You hold the crown here."
-            : `You're #${me.rank} here with ${me.games.toLocaleString()} ${me.games === 1 ? "visit" : "visits"}.`}
+      {(runnerUpName || me != null) && (
+        <div className="mt-2.5 pt-2.5 border-t border-border space-y-1 text-[11px] text-text-muted">
+          {runnerUpName && (
+            <div className="truncate">
+              Next: {runnerUpName} · {runnerUp!.games.toLocaleString()} {runnerUp!.games === 1 ? "visit" : "visits"}
+            </div>
+          )}
+          {me != null && (
+            <div>
+              {viewerIsMayor
+                ? "You hold the crown here."
+                : `You're #${me.rank} here with ${me.games.toLocaleString()} ${me.games === 1 ? "visit" : "visits"}.`}
+            </div>
+          )}
         </div>
       )}
     </Link>
