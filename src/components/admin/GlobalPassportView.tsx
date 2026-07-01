@@ -16,6 +16,7 @@ import type { GlobalPassport } from "@/lib/queries/adminPassport";
 const SPORT_LABEL: Record<string, string> = {
   baseball: "Baseball", football: "Football", basketball: "Basketball",
   hockey: "Hockey", soccer: "Soccer", golf: "Golf", tennis: "Tennis", motorsports: "Motorsports",
+  australian_football: "Aussie Rules",
 };
 
 function Stat({ value, label }: { value: string; label: string }) {

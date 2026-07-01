@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { badgeByKey, fetchAchievementGames } from "@/lib/queries/achievements";
 import { fetchUserProfileByUsername, fetchFollowRelationship } from "@/lib/queries/social";
+import BadgeCountrySummary from "@/components/profile/BadgeCountrySummary";
 
 /**
  * Public badge detail: the games behind one badge for the profile being viewed
@@ -51,6 +52,8 @@ export default async function PublicBadgeDetailPage({
               : `${games.length} ${games.length === 1 ? "game" : "games"}`}
         </p>
       </div>
+
+      {key === "multiple-countries" && <BadgeCountrySummary games={games} />}
 
       <div className="flex flex-col gap-2">
         {games.map((g) => (

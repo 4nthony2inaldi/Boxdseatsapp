@@ -12,6 +12,7 @@ import PassportMap from "./PassportMap";
 const SPORT_LABEL: Record<string, string> = {
   baseball: "Baseball", football: "Football", basketball: "Basketball",
   hockey: "Hockey", soccer: "Soccer", golf: "Golf", tennis: "Tennis", motorsports: "Motorsports",
+  australian_football: "Aussie Rules",
 };
 
 function Ring({ ring }: { ring: PassportRing }) {
