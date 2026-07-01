@@ -64,7 +64,7 @@ const round = (re: RegExp) => (r: Row) => !!r.round && re.test(r.round);
 export const BADGE_CATALOG: BadgeDef[] = [
   // ── event-based ──
   { key: "opening-day", label: "Opening Day", icon: "baseball", group: "event", match: tag("opening-day") },
-  { key: "spring-training", label: "Spring Training", short: "Spring Ball", icon: "baseball", group: "event", match: (r) => r.slug === "mlb" && r.isPre },
+  { key: "spring-training", label: "Spring Training", icon: "baseball", group: "event", match: (r) => r.slug === "mlb" && r.isPre },
   { key: "all-star", label: "All-Star Game", short: "All-Star", icon: "star", group: "event", match: tag("allstar") },
   { key: "wbc", label: "World Baseball Classic", short: "WBC", icon: "baseball", group: "event", match: (r) => r.slug === "wbc" },
   { key: "mlb-playoffs", label: "MLB Playoffs", icon: "baseball", group: "event", match: (r) => r.slug === "mlb" && r.isPost },
