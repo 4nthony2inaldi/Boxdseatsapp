@@ -42,6 +42,10 @@ export type BadgeDef = {
   label: string;
   /** Compact label shown inside the badge tile; defaults to label. */
   short?: string;
+  /** Sport slug for the tile icon (SportIcon); omitted badges fall back to the
+   *  BoxdSeats mark. The icon disambiguates, so e.g. both hat tricks read "Hat
+   *  Trick". */
+  icon?: string;
   group: BadgeGroup;
   // Per-game badge: count = number of logged games that match.
   match?: (r: Row, ctx: MatchCtx) => boolean;
@@ -55,27 +59,30 @@ const tag = (t: string) => (r: Row) => r.tags.includes(t);
 const round = (re: RegExp) => (r: Row) => !!r.round && re.test(r.round);
 
 // The full catalog — rendered in this order, earned or not (locked shows greyed).
+// `short` is the tile label (kept tight since the sport icon carries context);
+// `label` is the full name used on the badge-detail page.
 export const BADGE_CATALOG: BadgeDef[] = [
   // ── event-based ──
-  { key: "opening-day", label: "Opening Day", group: "event", match: tag("opening-day") },
-  { key: "spring-training", label: "Spring Training", group: "event", match: (r) => r.slug === "mlb" && r.isPre },
-  { key: "all-star", label: "All-Star Game", group: "event", match: tag("allstar") },
-  { key: "wbc", label: "World Baseball Classic", group: "event", match: (r) => r.slug === "wbc" },
-  { key: "mlb-playoffs", label: "MLB Playoffs", group: "event", match: (r) => r.slug === "mlb" && r.isPost },
-  { key: "nba-playoffs", label: "NBA Playoffs", group: "event", match: (r) => r.slug === "nba" && r.isPost },
-  { key: "nhl-playoffs", label: "NHL Playoffs", group: "event", match: (r) => r.slug === "nhl" && r.isPost },
-  { key: "nfl-playoffs", label: "NFL Playoffs", group: "event", match: (r) => r.slug === "nfl" && r.isPost },
-  { key: "march-madness", label: "March Madness", group: "event", match: (r) => (r.slug === "ncaam" || r.slug === "ncaaw") && r.isPost },
-  { key: "bowl-game", label: "Bowl Game", group: "event", match: (r) => r.slug === "ncaaf" && r.isPost },
-  { key: "world-series", label: "World Series", group: "event", match: (r) => r.slug === "mlb" && round(/world series/i)(r) },
-  { key: "nba-finals", label: "NBA Finals", group: "event", match: (r) => r.slug === "nba" && round(/nba finals/i)(r) },
-  { key: "stanley-cup", label: "Stanley Cup", group: "event", match: (r) => r.slug === "nhl" && round(/stanley cup/i)(r) },
-  { key: "super-bowl", label: "Super Bowl", group: "event", match: (r) => r.slug === "nfl" && round(/super bowl/i)(r) },
-  { key: "world-cup", label: "World Cup", group: "event", match: (r) => !!r.slug && r.slug.startsWith("fifa.world") },
+  { key: "opening-day", label: "Opening Day", icon: "baseball", group: "event", match: tag("opening-day") },
+  { key: "spring-training", label: "Spring Training", short: "Spring Ball", icon: "baseball", group: "event", match: (r) => r.slug === "mlb" && r.isPre },
+  { key: "all-star", label: "All-Star Game", short: "All-Star", group: "event", match: tag("allstar") },
+  { key: "wbc", label: "World Baseball Classic", short: "WBC", icon: "baseball", group: "event", match: (r) => r.slug === "wbc" },
+  { key: "mlb-playoffs", label: "MLB Playoffs", icon: "baseball", group: "event", match: (r) => r.slug === "mlb" && r.isPost },
+  { key: "nba-playoffs", label: "NBA Playoffs", icon: "basketball", group: "event", match: (r) => r.slug === "nba" && r.isPost },
+  { key: "nhl-playoffs", label: "NHL Playoffs", icon: "hockey", group: "event", match: (r) => r.slug === "nhl" && r.isPost },
+  { key: "nfl-playoffs", label: "NFL Playoffs", icon: "football", group: "event", match: (r) => r.slug === "nfl" && r.isPost },
+  { key: "march-madness", label: "March Madness", icon: "basketball", group: "event", match: (r) => (r.slug === "ncaam" || r.slug === "ncaaw") && r.isPost },
+  { key: "bowl-game", label: "Bowl Game", icon: "football", group: "event", match: (r) => r.slug === "ncaaf" && r.isPost },
+  { key: "world-series", label: "World Series", icon: "baseball", group: "event", match: (r) => r.slug === "mlb" && round(/world series/i)(r) },
+  { key: "nba-finals", label: "NBA Finals", icon: "basketball", group: "event", match: (r) => r.slug === "nba" && round(/nba finals/i)(r) },
+  { key: "stanley-cup", label: "Stanley Cup", icon: "hockey", group: "event", match: (r) => r.slug === "nhl" && round(/stanley cup/i)(r) },
+  { key: "super-bowl", label: "Super Bowl", icon: "football", group: "event", match: (r) => r.slug === "nfl" && round(/super bowl/i)(r) },
+  { key: "world-cup", label: "World Cup", icon: "soccer", group: "event", match: (r) => !!r.slug && r.slug.startsWith("fifa.world") },
   { key: "fav-team-road", label: "Favorite Team on the Road", short: "Team on Road", group: "event", match: (r, ctx) => !!r.awayTeamId && ctx.favTeamIds.has(r.awayTeamId) },
   {
     key: "multiple-countries",
     label: "Multiple Countries",
+    short: "2+ Countries",
     group: "event",
     // Earned at 2+ distinct venue countries; the count IS the number of countries.
     aggregate: (rows) => {
@@ -88,17 +95,17 @@ export const BADGE_CATALOG: BadgeDef[] = [
         .sort((a, b) => (a.country ?? "").localeCompare(b.country ?? "") || (a.date < b.date ? 1 : -1)),
   },
 
-  // ── stat-based ──
-  { key: "no-hitter", label: "No-Hitter", group: "stat", match: tag("no-hitter") },
-  { key: "perfect-game", label: "Perfect Game", group: "stat", match: tag("perfect-game") },
-  { key: "multi-hr", label: "3-HR Game", group: "stat", match: tag("multi-hr") },
-  { key: "four-hr", label: "4-HR Game", group: "stat", match: tag("four-hr") },
-  { key: "hat-trick-hockey", label: "Hockey Hat Trick", group: "stat", match: tag("hat-trick-hockey") },
-  { key: "hat-trick-soccer", label: "Soccer Hat Trick", group: "stat", match: tag("hat-trick-soccer") },
-  { key: "pts-40", label: "40-Point Game", group: "stat", match: tag("pts-40") },
-  { key: "pts-50", label: "50-Point Game", group: "stat", match: tag("pts-50") },
-  { key: "pts-60", label: "60-Point Game", group: "stat", match: tag("pts-60") },
-  { key: "pass-5-td", label: "5 Passing TDs", group: "stat", match: tag("pass-5-td") },
+  // ── stat-based (the sport icon disambiguates, so labels stay short) ──
+  { key: "no-hitter", label: "No-Hitter", icon: "baseball", group: "stat", match: tag("no-hitter") },
+  { key: "perfect-game", label: "Perfect Game", icon: "baseball", group: "stat", match: tag("perfect-game") },
+  { key: "multi-hr", label: "3-HR Game", short: "3 HR", icon: "baseball", group: "stat", match: tag("multi-hr") },
+  { key: "four-hr", label: "4-HR Game", short: "4 HR", icon: "baseball", group: "stat", match: tag("four-hr") },
+  { key: "hat-trick-hockey", label: "Hockey Hat Trick", short: "Hat Trick", icon: "hockey", group: "stat", match: tag("hat-trick-hockey") },
+  { key: "hat-trick-soccer", label: "Soccer Hat Trick", short: "Hat Trick", icon: "soccer", group: "stat", match: tag("hat-trick-soccer") },
+  { key: "pts-40", label: "40-Point Game", short: "40 PTS", icon: "basketball", group: "stat", match: tag("pts-40") },
+  { key: "pts-50", label: "50-Point Game", short: "50 PTS", icon: "basketball", group: "stat", match: tag("pts-50") },
+  { key: "pts-60", label: "60-Point Game", short: "60 PTS", icon: "basketball", group: "stat", match: tag("pts-60") },
+  { key: "pass-5-td", label: "5 Passing TDs", short: "5 Pass TDs", icon: "football", group: "stat", match: tag("pass-5-td") },
 ];
 
 export function badgeByKey(key: string): BadgeDef | undefined {
@@ -209,7 +216,7 @@ async function fetchFavoriteContext(supabase: SupabaseClient, userId: string): P
   return { favTeamIds };
 }
 
-export type EarnedBadge = { key: string; label: string; short: string; group: BadgeGroup; count: number };
+export type EarnedBadge = { key: string; label: string; short: string; icon?: string; group: BadgeGroup; count: number };
 
 /** Count, per catalog badge, how many of the user's logged games earn it.
  *  Returns every badge (count 0 = locked) so the UI can grey unearned ones. */
@@ -226,6 +233,7 @@ export async function fetchUserAchievements(
     key: b.key,
     label: b.label,
     short: b.short ?? b.label,
+    icon: b.icon,
     group: b.group,
     count: b.aggregate
       ? b.aggregate(rows, ctx)
