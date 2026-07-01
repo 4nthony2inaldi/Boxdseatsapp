@@ -5,13 +5,13 @@ import {
   fetchBigFour,
   fetchActivityChart,
   fetchPinnedLists,
-  fetchAutoPinnedListIds,
+  resolvePinnedListIds,
   fetchTimeline,
   fetchVisitedCityCount,
 } from "@/lib/queries/profile";
 import { fanStatsLine } from "@/lib/formatters";
 import { fetchUserAchievements } from "@/lib/queries/achievements";
-import { fetchUserProfileByUsername } from "@/lib/queries/social";
+import { fetchUserProfileByUsername, fetchFollowRelationship } from "@/lib/queries/social";
 import ProfileHeader from "@/components/profile/ProfileHeader";
 import StatsRow from "@/components/profile/StatsRow";
 import BigFourSection from "@/components/profile/BigFourSection";
@@ -114,13 +114,7 @@ export default async function PublicProfilePage({ params }: Props) {
   let isFollowing = false;
 
   if (user && !isOwnProfile) {
-    const { data: followRow } = await supabase
-      .from("follows")
-      .select("status")
-      .eq("follower_id", user.id)
-      .eq("following_id", profile.id)
-      .maybeSingle();
-    isFollowing = followRow?.status === "active";
+    isFollowing = (await fetchFollowRelationship(supabase, user.id, profile.id)).isFollowing;
   }
 
   const isGated = profile.is_private && !isFollowing && !isOwnProfile;
@@ -190,8 +184,7 @@ export default async function PublicProfilePage({ params }: Props) {
   }
 
   // Pinned lists: their manual pins win; otherwise their two most-completed.
-  const manualPins = [profile.pinned_list_1_id, profile.pinned_list_2_id].filter(Boolean) as string[];
-  const pinIds = manualPins.length > 0 ? manualPins : await fetchAutoPinnedListIds(supabase, profile.id);
+  const pinIds = await resolvePinnedListIds(supabase, profile);
 
   // Full profile — fetch remaining data
   const [bigFour, activityData, pinnedLists, timelinePage, achievements] =
@@ -224,12 +217,7 @@ export default async function PublicProfilePage({ params }: Props) {
         <ProfileStickyBar
           avatarUrl={profile.avatar_url}
           initial={(profile.display_name || profile.username || "?").charAt(0).toUpperCase()}
-          stats={[
-            { value: stats.totalEvents, label: "Events" },
-            { value: stats.totalVenues, label: "Venues" },
-            { value: stats.followers, label: "Followers" },
-            { value: stats.following, label: "Following" },
-          ]}
+          stats={stats}
         />
         <BigFourSection items={bigFour} linkable={false} />
         <ActivityChart months={activityData.months} total={activityData.total} />

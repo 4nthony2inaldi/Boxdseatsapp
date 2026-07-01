@@ -2,6 +2,7 @@
 
 /* eslint-disable @next/next/no-img-element -- small avatar with initial fallback */
 import { useEffect, useRef, useState } from "react";
+import type { ProfileStats } from "@/lib/queries/profile";
 
 /**
  * Condensed, sticky profile bar: a shrunk avatar + the four KPIs that pins
@@ -14,8 +15,6 @@ import { useEffect, useRef, useState } from "react";
  * one z-layer under it.
  */
 
-type Stat = { value: number; label: string };
-
 export default function ProfileStickyBar({
   avatarUrl,
   initial,
@@ -23,8 +22,16 @@ export default function ProfileStickyBar({
 }: {
   avatarUrl: string | null;
   initial: string;
-  stats: Stat[];
+  stats: ProfileStats;
 }) {
+  // The four KPIs mirror the expanded StatsRow; kept here so all three profile
+  // pages just hand over the ProfileStats object and can't drift.
+  const items = [
+    { value: stats.totalEvents, label: "Events" },
+    { value: stats.totalVenues, label: "Venues" },
+    { value: stats.followers, label: "Followers" },
+    { value: stats.following, label: "Following" },
+  ];
   const sentinelRef = useRef<HTMLDivElement>(null);
   const [condensed, setCondensed] = useState(false);
   const [topPx, setTopPx] = useState<number | null>(null);
@@ -93,7 +100,7 @@ export default function ProfileStickyBar({
               )}
             </div>
             <div className="grid grid-cols-4 gap-2 flex-1 min-w-0">
-              {stats.map((s) => (
+              {items.map((s) => (
                 <div key={s.label} className="text-center leading-none">
                   <div className="font-display text-sm text-text-primary">{s.value}</div>
                   <div className="text-[9px] text-text-muted uppercase tracking-wide mt-0.5">{s.label}</div>
