@@ -119,18 +119,30 @@ try {
         candidates.push(v);
       }
     }
-    // A name/alias candidate is only the SAME venue when the names are exactly
-    // equal, or the two sit on the same footprint (<120m). This is what keeps a
-    // historical park from being merged into the adjacent active rebuild that
-    // happens to share a name/alias: Original Yankee Stadium (~300m from the
-    // 2009 park) and old Comiskey Park (~200m from Rate Field) fail both tests
-    // and are correctly treated as new, while same-building renames
-    // (Turner Field -> Center Parc, Qualcomm -> SDCCU, ~0m) still match.
-    const match = candidates.find(
-      (v) =>
-        normName(v.name) === normName(p.canonical_name) ||
-        distM(p.lat, p.lng, v.lat, v.lng) < 120
+    // A shared name/alias means the same venue, as long as it's the same
+    // city or nearby (<5km) — this guards against same-named venues in other
+    // cities ("Memorial Stadium", "Municipal Stadium"). A pure distance
+    // threshold is unreliable here: our stored coordinates for some existing
+    // parks are off by a few hundred meters, so renamed same-buildings
+    // (Qualcomm -> SDCCU, Riverfront -> Cinergy, Metrodome) don't sit within a
+    // tight radius.
+    let match = candidates.find(
+      (v) => distM(p.lat, p.lng, v.lat, v.lng) < 5000 || normName(v.city) === normName(p.city)
     );
+    // A handful of parks share a name with the ACTIVE rebuild that replaced
+    // them (old Comiskey's name lives on as a Rate Field alias; the original
+    // Yankee Stadium shares its name with the 2009 park). Those are different
+    // buildings, so force a new row — but still treat a PRIOR insert of this
+    // same park (exact name, same area) as already-present, so re-runs stay
+    // idempotent instead of inserting duplicates.
+    if (p.force_new) {
+      match =
+        candidates.find(
+          (v) =>
+            normName(v.name) === normName(p.canonical_name) &&
+            distM(p.lat, p.lng, v.lat, v.lng) < 1000
+        ) || null;
+    }
 
     // Nearest venue by pure distance, for adjacency evidence (old/new pairs).
     let nearest = null;
