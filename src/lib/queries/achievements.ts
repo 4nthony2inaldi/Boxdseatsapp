@@ -101,6 +101,7 @@ export const BADGE_CATALOG: BadgeDef[] = [
   { key: "perfect-game", label: "Perfect Game", short: "Perfect", icon: "baseball", group: "stat", match: tag("perfect-game") },
   { key: "multi-hr", label: "3-HR Game", short: "3 HR", icon: "baseball", group: "stat", match: tag("multi-hr") },
   { key: "four-hr", label: "4-HR Game", short: "4 HR", icon: "baseball", group: "stat", match: tag("four-hr") },
+  { key: "walkoff", label: "Walk-Off Win", short: "Walk-Off", icon: "baseball", group: "stat", match: tag("walkoff") },
   { key: "hat-trick-hockey", label: "Hockey Hat Trick", short: "Hat Trick", icon: "hockey", group: "stat", match: tag("hat-trick-hockey") },
   { key: "hat-trick-soccer", label: "Soccer Hat Trick", short: "Hat Trick", icon: "soccer", group: "stat", match: tag("hat-trick-soccer") },
   { key: "pts-40", label: "40-Point Game", short: "40 PTS", icon: "basketball", group: "stat", match: tag("pts-40") },

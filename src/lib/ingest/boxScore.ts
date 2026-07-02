@@ -166,10 +166,33 @@ export function isCompleted(d: any): boolean {
   return st?.completed === true || st?.state === "post";
 }
 
+// A walk-off = the home team won having been tied or trailing entering the
+// bottom of the final inning (9th or later) — i.e. they took the lead in their
+// last at-bat. Derived from the per-inning linescores in the game summary.
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export function isWalkoff(d: any): boolean {
+  const cs = arr(d?.header?.competitions?.[0]?.competitors);
+  const home = cs.find((c: any) => c?.homeAway === "home"); // eslint-disable-line @typescript-eslint/no-explicit-any
+  const away = cs.find((c: any) => c?.homeAway === "away"); // eslint-disable-line @typescript-eslint/no-explicit-any
+  if (!home || !away) return false;
+  const n = (v: unknown) => (Number.isFinite(Number(v)) ? Number(v) : 0);
+  const homeFinal = n(home.score);
+  const awayFinal = n(away.score);
+  if (homeFinal <= awayFinal) return false; // home must win
+  const homeLines = arr(home.linescores);
+  const awayLines = arr(away.linescores);
+  const innings = Math.max(homeLines.length, awayLines.length);
+  if (innings < 9) return false; // 9th or later
+  const lastHome = n(homeLines[innings - 1]?.value ?? homeLines[innings - 1]);
+  // homeFinal - lastHome = home's runs entering the bottom of the final inning;
+  // if that was <= the away total, the home team was tied/behind and won there.
+  return homeFinal - lastHome <= awayFinal;
+}
+
 /** Fetch + parse a single event. Returns null when the sport is unsupported. */
 async function fetchEvent(
   sport: Sport, slug: string, espnId: string, date: string
-): Promise<{ participants: Participant[]; completed: boolean } | null> {
+): Promise<{ participants: Participant[]; completed: boolean; walkoff?: boolean } | null> {
   if (sport === "tennis") return null;
   if (sport === "soccer") {
     const code = SOCCER_CODE[slug] || slug;
@@ -205,7 +228,7 @@ async function fetchEvent(
   const path = TEAM_PATH[slug];
   if (!path) return null;
   const d = await espn(`https://site.api.espn.com/apis/site/v2/sports/${path}/summary?event=${espnId}`);
-  return { participants: parseTeam(d), completed: isCompleted(d) };
+  return { participants: parseTeam(d), completed: isCompleted(d), walkoff: sport === "baseball" && isWalkoff(d) };
 }
 
 /** Chunk helper — keeps `.in()` filters under the PostgREST list limit. */
@@ -255,7 +278,7 @@ export async function ingestEventBoxScore(
   // Event meta (sport + slug + espn id + date)
   const { data: ev, error: evErr } = await supabase
     .from("events")
-    .select("event_date, external_ids, league_id, leagues(sport, slug)")
+    .select("event_date, external_ids, league_id, event_tags, leagues(sport, slug)")
     .eq("id", eventId)
     .single();
   // Distinguish a transient read error from a genuinely-missing row. On an error
@@ -279,6 +302,18 @@ export async function ingestEventBoxScore(
   const fetched = await fetchEvent(sport, slug, String(espnId), date);
   if (!fetched) { await setBoxScoreState(supabase, eventId, "skip"); return { status: "skip" }; } // unsupported sport/comp — terminal
   if (!fetched.completed) { await setBoxScoreState(supabase, eventId, "pending"); return { status: "pending" }; } // game not final — retry later
+
+  // Tag walk-off wins (baseball) off the linescore we just fetched. Independent
+  // of the lineup below, so a walk-off with no box-score lineup still gets it.
+  if (fetched.walkoff) {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const tags = ((ev as any).event_tags as string[] | null) ?? [];
+    if (!tags.includes("walkoff")) {
+      try {
+        await supabase.from("events").update({ event_tags: [...tags, "walkoff"] }).eq("id", eventId);
+      } catch { /* best-effort; the badge is a nicety, not core ingest */ }
+    }
+  }
 
   // Dedupe participants by espn id
   const byId = new Map<string, Participant>();
