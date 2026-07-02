@@ -1,0 +1,41 @@
+name: Backfill walk-off tags (logged baseball games)
+
+# One-time pass to tag 'walkoff' on baseball games that were already logged
+# before walk-off detection shipped in the box-score ingest. Re-reads each
+# logged game's linescore (ESPN for espn-sourced, MLB Stats API for mlb-sourced)
+# and tags the ones that were walk-offs. Idempotent (skips already-tagged) and
+# safe to re-run. Requires the DATABASE_URL repository secret. Dry-run default.
+
+on:
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "Report only, write nothing"
+        type: boolean
+        default: true
+
+concurrency:
+  group: backfill-walkoffs
+  cancel-in-progress: false
+
+jobs:
+  backfill:
+    runs-on: ubuntu-latest
+    env:
+      DATABASE_URL: ${{ secrets.DATABASE_URL }}
+      DRY: ${{ github.event.inputs.dry_run != 'false' && '--dry-run' || '' }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+
+      - name: Backfill walk-off tags
+        if: ${{ env.DATABASE_URL != '' }}
+        run: node scripts/data/backfill-walkoffs.mjs $DRY
+
+      - name: Notice when nothing ran
+        if: ${{ env.DATABASE_URL == '' }}
+        run: echo "::warning::backfill-walkoffs skipped — set the DATABASE_URL repository secret to enable."
