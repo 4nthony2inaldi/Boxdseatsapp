@@ -1,9 +1,11 @@
 name: Audit duplicate venues
 
-# Read-only sweep for likely-duplicate venues, surfaced three ways:
+# Read-only sweep for likely-duplicate venues, surfaced a few ways:
 #   1. shared photo_url (a strong "same venue, seeded twice" signal)
-#   2. same city + coordinates within 150m (same physical building)
+#   2. same city + coordinates within 150m (same physical building), with the
+#      geocoding-fallback cluster (many venues dumped at one point) filtered out
 #   3. identical normalized name + city
+#   4. mojibake names (UTF-8 mis-decoded as latin1; the "A-tilde" byte is the tell)
 # Runs inside a READ ONLY transaction that rolls back. Requires DATABASE_URL.
 # Review the output, then merge confirmed dups separately.
 
@@ -29,18 +31,26 @@ jobs:
           begin;
           set transaction read only;
 
-          \echo '== 1) Venues sharing a photo_url =='
-          select left(photo_url, 48) as photo,
-                 count(*) as n,
-                 string_agg(name || ' [' || coalesce(city,'?') || ']', '  |  ' order by name) as venues
-          from venues
-          where coalesce(photo_url,'') <> ''
-          group by photo_url
-          having count(*) > 1
-          order by n desc, photo;
+          \echo '== 1) Venues sharing a photo_url (strongest same-venue signal) =='
+          with grp as (
+            select photo_url, count(*) as n
+            from venues
+            where coalesce(photo_url,'') <> ''
+            group by photo_url
+            having count(*) > 1
+          )
+          select v.name || ' [' || coalesce(v.city,'?') || ']' as venue,
+                 (select count(*) from events e where e.venue_id = v.id) as events,
+                 left(v.photo_url, 40) as photo
+          from venues v
+          join grp g on g.photo_url = v.photo_url
+          order by v.photo_url, v.name;
 
           \echo ''
-          \echo '== 2) Same city, coordinates within 150m =='
+          \echo '== 2) Same city, within 150m, BOTH have events (fallback cluster excluded) =='
+          -- Exclude the geocoding-fallback pileup: many venues share one bogus
+          -- point. Requiring a named city + events on both sides keeps this to
+          -- pairs a real person could actually have visited twice.
           select coalesce(a.city,'?') as city,
                  a.name as name_a, b.name as name_b,
                  round(extensions.ST_Distance(a.location, b.location)::numeric, 0) as meters,
@@ -52,7 +62,14 @@ jobs:
            and lower(coalesce(a.city,'')) = lower(coalesce(b.city,''))
            and a.location is not null and b.location is not null
            and extensions.ST_DWithin(a.location, b.location, 150)
-          order by city, meters;
+          where a.city is not null and lower(a.city) not in ('', 'unknown')
+            and exists (select 1 from events e where e.venue_id = a.id)
+            and exists (select 1 from events e where e.venue_id = b.id)
+          order by (
+            (select count(*) from events e where e.venue_id = a.id) +
+            (select count(*) from events e where e.venue_id = b.id)
+          ) desc, city
+          limit 200;
 
           \echo ''
           \echo '== 3) Identical normalized name + city =='
@@ -67,6 +84,16 @@ jobs:
           group by nn, city
           having count(*) > 1
           order by n desc, nn;
+
+          \echo ''
+          \echo '== 4) Mojibake names (UTF-8 mis-decoded as latin1) =='
+          -- These are a data-quality issue in their own right; some also have a
+          -- correctly-encoded twin in the same city that is a true duplicate.
+          select coalesce(city,'?') as city, name,
+                 (select count(*) from events e where e.venue_id = v.id) as events
+          from venues v
+          where name like '%' || chr(195) || '%'
+          order by city, name;
 
           rollback;
           SQL
