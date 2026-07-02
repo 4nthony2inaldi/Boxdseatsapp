@@ -4,16 +4,10 @@ import SportIcon from "@/components/SportIcon";
 import ShareButton from "@/components/sharing/ShareButton";
 import PageHeader from "@/components/PageHeader";
 import MiniLabel from "@/components/MiniLabel";
-import { getSportIconPath } from "@/lib/sportIcons";
+import { getSportIconPath, getSportLabel } from "@/lib/sportIcons";
 import { initials } from "@/lib/formatters";
 import type { PassportData, PassportRing } from "@/lib/queries/passport";
 import PassportMap from "./PassportMap";
-
-const SPORT_LABEL: Record<string, string> = {
-  baseball: "Baseball", football: "Football", basketball: "Basketball",
-  hockey: "Hockey", soccer: "Soccer", golf: "Golf", tennis: "Tennis", motorsports: "Motorsports",
-  australian_football: "Aussie Rules",
-};
 
 function Ring({ ring }: { ring: PassportRing }) {
   const R = 30;
@@ -199,7 +193,7 @@ export default function PassportView({ username, displayName, avatarUrl, data, e
             {sports.map((s) => (
               <div key={s.sport} className="flex items-center gap-3">
                 <SportIcon sport={s.sport} size={18} />
-                <div className="w-20 text-xs text-text-secondary">{SPORT_LABEL[s.sport] || s.sport}</div>
+                <div className="w-20 text-xs text-text-secondary">{getSportLabel(s.sport)}</div>
                 <div className="flex-1 h-2.5 rounded-full bg-bg-input overflow-hidden">
                   <div className="h-full rounded-full" style={{ width: `${(s.games / maxSportGames) * 100}%`, background: "linear-gradient(90deg, var(--color-accent-brown), var(--color-accent))" }} />
                 </div>
@@ -255,7 +249,7 @@ export default function PassportView({ username, displayName, avatarUrl, data, e
               <div key={lb.sport} className="mt-5 first:mt-0">
                 <div className="flex items-center gap-1.5 mb-3 px-4">
                   {icon ? <SportIcon src={icon} size={14} /> : null}
-                  <MiniLabel>{SPORT_LABEL[lb.sport] || lb.sport}</MiniLabel>
+                  <MiniLabel>{getSportLabel(lb.sport)}</MiniLabel>
                 </div>
                 <div className="space-y-4">
                   {lb.stats.map((row) => (
