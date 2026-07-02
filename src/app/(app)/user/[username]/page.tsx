@@ -19,6 +19,7 @@ import {
 import ProfileHeader from "@/components/profile/ProfileHeader";
 import HeadshotBackfill from "@/components/profile/HeadshotBackfill";
 import ScrollToTop from "@/components/ScrollToTop";
+import PullToRefresh from "@/components/PullToRefresh";
 import StatsRow from "@/components/profile/StatsRow";
 import BigFourSection from "@/components/profile/BigFourSection";
 import ActivityChart from "@/components/profile/ActivityChart";
@@ -161,6 +162,7 @@ export default async function UserProfilePage({ params }: Props) {
   const latestEvent = timelinePage.entries.length > 0 ? timelinePage.entries[0] : null;
 
   return (
+    <PullToRefresh>
     <div className="max-w-lg mx-auto pb-5">
       <ScrollToTop />
       <HeadshotBackfill userId={profile.id} />
@@ -215,5 +217,6 @@ export default async function UserProfilePage({ params }: Props) {
         />
       </div>
     </div>
+    </PullToRefresh>
   );
 }
