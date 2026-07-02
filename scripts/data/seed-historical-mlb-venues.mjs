@@ -103,6 +103,7 @@ try {
   let toInsert = 0;
   let toBackfill = 0;
   let existingOk = 0;
+  let aliasAdds = 0;
   const unresolvedFranchise = [];
   const adjacencyFlags = [];
 
@@ -118,14 +119,18 @@ try {
         candidates.push(v);
       }
     }
-    // A name candidate only counts as the same venue if it's also near the
-    // park (<5km) or in the same city — guards against same-named venues
-    // elsewhere ("Memorial Stadium", "Municipal Stadium", ...).
-    const match = candidates.find((v) => {
-      const near = distM(p.lat, p.lng, v.lat, v.lng) < 5000;
-      const sameCity = normName(v.city) === normName(p.city);
-      return near || sameCity;
-    });
+    // A name/alias candidate is only the SAME venue when the names are exactly
+    // equal, or the two sit on the same footprint (<120m). This is what keeps a
+    // historical park from being merged into the adjacent active rebuild that
+    // happens to share a name/alias: Original Yankee Stadium (~300m from the
+    // 2009 park) and old Comiskey Park (~200m from Rate Field) fail both tests
+    // and are correctly treated as new, while same-building renames
+    // (Turner Field -> Center Parc, Qualcomm -> SDCCU, ~0m) still match.
+    const match = candidates.find(
+      (v) =>
+        normName(v.name) === normName(p.canonical_name) ||
+        distM(p.lat, p.lng, v.lat, v.lng) < 120
+    );
 
     // Nearest venue by pure distance, for adjacency evidence (old/new pairs).
     let nearest = null;
@@ -136,21 +141,34 @@ try {
 
     if (match) {
       const needsYear = match.opened_year == null;
+      // Historical names not already on the existing venue — add them so a fan
+      // can still find it by its ballpark-era name ("Turner Field", "Qualcomm").
+      const known = new Set([match.name, ...(aliasesByVenue.get(match.id) || [])].map(normName));
+      const missingAliases = [p.canonical_name, ...(p.aliases || [])].filter(
+        (a) => !known.has(normName(a))
+      );
       console.log(
         `  EXISTING  ${p.canonical_name}  ->  "${match.name}" [${match.city}] ` +
           `status=${match.status} opened_year=${match.opened_year ?? 'null'}` +
-          (needsYear ? `  => backfill opened_year=${p.opened_year}` : '  (ok)')
+          (needsYear ? `  => backfill opened_year=${p.opened_year}` : '  (year ok)') +
+          (missingAliases.length ? `  +aliases: ${missingAliases.join(', ')}` : '')
       );
-      if (needsYear) {
-        toBackfill++;
-        if (!DRY) {
+      if (needsYear) toBackfill++;
+      else existingOk++;
+      aliasAdds += missingAliases.length;
+      if (!DRY) {
+        if (needsYear) {
           await db.query(`update venues set opened_year = $2, updated_at = now() where id = $1`, [
             match.id,
             p.opened_year,
           ]);
         }
-      } else {
-        existingOk++;
+        for (const alias of missingAliases) {
+          await db.query(`insert into venue_aliases (venue_id, alias_name) values ($1, $2)`, [
+            match.id,
+            alias,
+          ]);
+        }
       }
       continue;
     }
@@ -211,7 +229,8 @@ try {
   console.log(
     `\n${DRY ? '[DRY] would insert' : 'inserted'} ${toInsert} new venue(s); ` +
       `${DRY ? 'would backfill' : 'backfilled'} opened_year on ${toBackfill} existing; ` +
-      `${existingOk} existing already complete.`
+      `${DRY ? 'would add' : 'added'} ${aliasAdds} alias(es) to existing; ` +
+      `${existingOk} existing already had a year.`
   );
   if (adjacencyFlags.length) {
     console.log(`\nADJACENCY (review — near an existing venue, kept separate):`);
