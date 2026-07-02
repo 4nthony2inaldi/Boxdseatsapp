@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import Button from "@/components/Button";
 import { createClient } from "@/lib/supabase/client";
-import { fetchEventDatesForVenue } from "@/lib/queries/log";
+import { fetchEventDatesForVenue, fetchVenueOpenedYear } from "@/lib/queries/log";
 import { toastError } from "@/components/Toaster";
 
 type StepDateProps = {
@@ -24,6 +24,9 @@ export default function StepDate({
   const [viewMonth, setViewMonth] = useState(today.getMonth());
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
   const [eventDates, setEventDates] = useState<Set<string>>(new Set());
+  // The venue's opening year, if known — lets the calendar reach back to a
+  // stadium's inception for historical manual logs (older than the 2002 floor).
+  const [openedYear, setOpenedYear] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
   // Quick time-travel picker: closed | choosing year | choosing month of year
   const [jumpYear, setJumpYear] = useState<number | null>(null);
@@ -36,8 +39,12 @@ export default function StepDate({
     async function load() {
       try {
         const supabase = createClient();
-        const dates = await fetchEventDatesForVenue(supabase, venueId);
+        const [dates, opened] = await Promise.all([
+          fetchEventDatesForVenue(supabase, venueId),
+          fetchVenueOpenedYear(supabase, venueId),
+        ]);
         setEventDates(dates);
+        setOpenedYear(opened);
 
         // Auto-navigate to the most recent month with an event
         if (dates.size > 0) {
@@ -96,8 +103,12 @@ export default function StepDate({
     yearCounts.set(y, (yearCounts.get(y) || 0) + 1);
     monthCounts.set(`${y}-${m}`, (monthCounts.get(`${y}-${m}`) || 0) + 1);
   }
+  // Calendar floor: the venue's opening year when known (so old stadiums reach
+  // back to their inception for historical logs), else the 2002 data floor.
+  // Never above the current year, and never later than an actual event on file.
+  const floorYear = Math.min(openedYear ?? 2002, today.getFullYear());
   const earliestYear = Math.min(
-    2002,
+    floorYear,
     ...(yearCounts.size > 0 ? [Math.min(...yearCounts.keys())] : [])
   );
   const jumpYears: number[] = [];
@@ -131,7 +142,11 @@ export default function StepDate({
     }
   };
 
+  // Can't page earlier than the calendar floor (venue inception or 2002).
+  const canGoPrev = viewYear > earliestYear || viewMonth > 0;
+
   const goToPrevMonth = () => {
+    if (!canGoPrev) return;
     setAutoJumped(false);
     if (viewMonth === 0) {
       setViewMonth(11);
@@ -178,7 +193,8 @@ export default function StepDate({
           <div className="flex items-center justify-between mb-4">
             <button
               onClick={goToPrevMonth}
-              className="text-text-secondary hover:text-text-primary p-1 cursor-pointer"
+              className={`p-1 cursor-pointer ${canGoPrev ? "text-text-secondary hover:text-text-primary" : "text-text-muted/30 cursor-default"}`}
+              disabled={!canGoPrev}
             >
               <svg
                 width="16"

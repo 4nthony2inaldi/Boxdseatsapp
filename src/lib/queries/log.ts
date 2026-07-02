@@ -297,6 +297,23 @@ export async function fetchEventDatesForVenue(
   return dates;
 }
 
+/**
+ * The year a venue opened, if known. Lets the manual-entry calendar extend
+ * back to a stadium's inception (historical games) instead of the 2002 data
+ * floor. Returns null when unknown.
+ */
+export async function fetchVenueOpenedYear(
+  supabase: SupabaseClient,
+  venueId: string
+): Promise<number | null> {
+  const { data } = await supabase
+    .from("venues")
+    .select("opened_year")
+    .eq("id", venueId)
+    .maybeSingle();
+  return data?.opened_year ?? null;
+}
+
 // ── "I was there" deep link: build log-flow prefill from an event id ──
 
 export async function fetchEventForPrefill(
