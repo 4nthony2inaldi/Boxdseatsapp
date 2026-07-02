@@ -165,7 +165,7 @@ export async function searchVenues(
   const [nameRes, aliasRes, locationRes, teamRes] = await Promise.all([
     supabase
       .from("venues")
-      .select("id, name, city, state, primary_sport")
+      .select("id, name, city, state, primary_sport, opened_year, closed_year")
       .or(orIlike(terms, ["name"]))
       // Historical parks (retired/demolished) are loggable too; enum order
       // puts active first so current venues still lead the results.
@@ -181,7 +181,7 @@ export async function searchVenues(
     // City / state ("Bronx", "Florida")
     supabase
       .from("venues")
-      .select("id, name, city, state, primary_sport")
+      .select("id, name, city, state, primary_sport, opened_year, closed_year")
       .or(locationFilter)
       .order("status")
       .order("name")
@@ -233,7 +233,7 @@ export async function searchVenues(
   if (missingIds.length > 0) {
     const { data: moreVenues } = await supabase
       .from("venues")
-      .select("id, name, city, state, primary_sport")
+      .select("id, name, city, state, primary_sport, opened_year, closed_year")
       .in("id", missingIds)
       .order("status")
       .order("name");
@@ -262,7 +262,9 @@ export async function searchVenues(
   // (backfilled in prod; the sync sets it for new venues)
   return venues.map((v) => ({
     id: v.id,
-    name: v.name,
+    // Historical parks carry a closed_year; show "(opened-closed)" so a fan
+    // doesn't confuse them with the current venue of the same name/city.
+    name: v.closed_year ? `${v.name} (${v.opened_year ?? "?"}–${v.closed_year})` : v.name,
     city: v.city,
     state: v.state,
     visit_count: venueCounts[v.id] || 0,
