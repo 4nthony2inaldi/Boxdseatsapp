@@ -167,7 +167,9 @@ export async function searchVenues(
       .from("venues")
       .select("id, name, city, state, primary_sport")
       .or(orIlike(terms, ["name"]))
-      .eq("status", "active")
+      // Historical parks (retired/demolished) are loggable too; enum order
+      // puts active first so current venues still lead the results.
+      .order("status")
       .order("name")
       .limit(20),
     // Historical names too (e.g. "Staples Center" -> Crypto.com Arena)
@@ -181,7 +183,7 @@ export async function searchVenues(
       .from("venues")
       .select("id, name, city, state, primary_sport")
       .or(locationFilter)
-      .eq("status", "active")
+      .order("status")
       .order("name")
       .limit(15),
     // Team names ("Yankees", "sixers", "UNC") -> their home venues
@@ -233,7 +235,7 @@ export async function searchVenues(
       .from("venues")
       .select("id, name, city, state, primary_sport")
       .in("id", missingIds)
-      .eq("status", "active")
+      .order("status")
       .order("name");
     venues = [...venues, ...(moreVenues || [])];
   }

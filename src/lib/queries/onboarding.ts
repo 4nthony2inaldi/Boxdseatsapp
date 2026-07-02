@@ -145,10 +145,11 @@ export async function searchVenuesForOnboarding(
     aliasIds = [...new Set((aliasRows || []).map((a) => a.venue_id as string))];
   }
 
+  // Includes historical parks (retired/demolished) so they can be marked
+  // visited / picked as filters; enum order lists active venues first.
   let q = supabase
     .from("venues")
-    .select("id, name, city, state, primary_sport")
-    .eq("status", "active");
+    .select("id, name, city, state, primary_sport");
   if (sport) q = q.eq("primary_sport", sport);
   if (trimmed) {
     const ors = terms.flatMap((t) => [`name.ilike.%${t}%`, `city.ilike.%${t}%`]);
@@ -156,7 +157,7 @@ export async function searchVenuesForOnboarding(
     q = q.or(ors.join(","));
   }
 
-  const { data } = await q.order("name").limit(limit);
+  const { data } = await q.order("status").order("name").limit(limit);
   return (data || []).map((v) => ({
     id: v.id,
     name: v.name,
