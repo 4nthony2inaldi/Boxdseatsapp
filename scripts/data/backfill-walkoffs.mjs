@@ -31,7 +31,6 @@ const ESPN_PATH = {
 };
 
 const numOf = (v) => (Number.isFinite(Number(v)) ? Number(v) : 0);
-const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
 // Shared rule: home total/away total + per-inning run arrays.
 function isWalkoff(homeTotal, awayTotal, homeInn, awayInn) {
@@ -96,16 +95,24 @@ try {
 
   const walkoffIds = [];
   let checked = 0, unresolved = 0;
-  for (const e of rows) {
+  const CONCURRENCY = 10; // parallel fetches — polite for a one-time pass, ~10x faster
+  const evalOne = async (e) => {
     const ext = e.external_ids || {};
-    let res = null;
-    if (ext.espn) res = await evalEspn(e.slug, String(ext.espn));
-    else if (ext.mlb) res = await evalMlb(String(ext.mlb));
-    checked++;
-    if (res === null) unresolved++;
-    else if (res) walkoffIds.push(e.id);
-    if (checked % 100 === 0) console.log(`  ...${checked}/${rows.length} (${walkoffIds.length} walk-offs so far)`);
-    await sleep(40); // be polite to the source APIs
+    if (ext.espn) return evalEspn(e.slug, String(ext.espn));
+    if (ext.mlb) return evalMlb(String(ext.mlb));
+    return null;
+  };
+  for (let i = 0; i < rows.length; i += CONCURRENCY) {
+    const batch = rows.slice(i, i + CONCURRENCY);
+    const results = await Promise.all(batch.map(evalOne));
+    results.forEach((res, j) => {
+      checked++;
+      if (res === null) unresolved++;
+      else if (res) walkoffIds.push(batch[j].id);
+    });
+    if (i % 500 === 0 || i + CONCURRENCY >= rows.length) {
+      console.log(`  ...${Math.min(checked, rows.length)}/${rows.length} (${walkoffIds.length} walk-offs so far)`);
+    }
   }
 
   console.log(
