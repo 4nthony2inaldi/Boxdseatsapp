@@ -64,7 +64,8 @@ async function evalEspn(slug, espnId) {
   const home = cs.find((c) => c?.homeAway === 'home');
   const away = cs.find((c) => c?.homeAway === 'away');
   if (!home || !away) return null;
-  const line = (c) => (Array.isArray(c.linescores) ? c.linescores.map((x) => numOf(x?.value ?? x)) : []);
+  // ESPN linescore cells carry the inning's runs in `displayValue` (a string).
+  const line = (c) => (Array.isArray(c.linescores) ? c.linescores.map((x) => numOf(x?.displayValue ?? x?.value ?? x)) : []);
   return isWalkoff(numOf(home.score), numOf(away.score), line(home), line(away));
 }
 

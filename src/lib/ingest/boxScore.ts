@@ -183,7 +183,9 @@ export function isWalkoff(d: any): boolean {
   const awayLines = arr(away.linescores);
   const innings = Math.max(homeLines.length, awayLines.length);
   if (innings < 9) return false; // 9th or later
-  const lastHome = n(homeLines[innings - 1]?.value ?? homeLines[innings - 1]);
+  // ESPN linescore cells carry the inning's runs in `displayValue` (a string).
+  const cell = homeLines[innings - 1];
+  const lastHome = n(cell?.displayValue ?? cell?.value ?? cell);
   // homeFinal - lastHome = home's runs entering the bottom of the final inning;
   // if that was <= the away total, the home team was tied/behind and won there.
   return homeFinal - lastHome <= awayFinal;
