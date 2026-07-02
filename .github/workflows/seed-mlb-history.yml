@@ -1,0 +1,51 @@
+name: Seed MLB history (pre-2002 games)
+
+# Backfill historical MLB games as real events (matchup + score + venue) from the
+# MLB Stats API, so fans can log pre-2002 games directly. Reconciliation is by
+# external_ids.mlb (gamePk), so it's idempotent and safe to re-run. Venues are
+# resolved by name + year; unmatched ones are reported (skipped) so we can seed
+# gaps before a full run. Defaults to a dry run.
+#
+# Requires the DATABASE_URL repository secret.
+
+on:
+  workflow_dispatch:
+    inputs:
+      from:
+        description: "First season (year)"
+        type: string
+        default: "1969"
+      to:
+        description: "Last season (year)"
+        type: string
+        default: "1969"
+      dry_run:
+        description: "Roll back after applying (print the plan only)"
+        type: boolean
+        default: true
+
+concurrency:
+  group: seed-mlb-history
+  cancel-in-progress: false
+
+jobs:
+  seed:
+    runs-on: ubuntu-latest
+    env:
+      DATABASE_URL: ${{ secrets.DATABASE_URL }}
+      DRY: ${{ github.event.inputs.dry_run != 'false' && '--dry-run' || '' }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+
+      - name: Seed MLB history
+        if: ${{ env.DATABASE_URL != '' }}
+        run: node scripts/data/seed-mlb-history.mjs --from=${{ github.event.inputs.from }} --to=${{ github.event.inputs.to }} $DRY
+
+      - name: Notice when nothing ran
+        if: ${{ env.DATABASE_URL == '' }}
+        run: echo "::warning::seed-mlb-history skipped — set the DATABASE_URL repository secret to enable."
