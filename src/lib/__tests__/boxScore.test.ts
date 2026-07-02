@@ -1,5 +1,40 @@
 import { describe, it, expect } from "vitest";
-import { parseTeam, parseSoccer, parseField, isCompleted } from "../ingest/boxScore";
+import { parseTeam, parseSoccer, parseField, isCompleted, isWalkoff } from "../ingest/boxScore";
+
+// Build a summary with per-inning linescores for the walk-off tests.
+const game = (homeInnings: number[], awayInnings: number[]) => {
+  const sum = (a: number[]) => a.reduce((x, y) => x + y, 0);
+  return {
+    header: {
+      competitions: [
+        {
+          competitors: [
+            { homeAway: "home", score: sum(homeInnings), linescores: homeInnings.map((v) => ({ value: v })) },
+            { homeAway: "away", score: sum(awayInnings), linescores: awayInnings.map((v) => ({ value: v })) },
+          ],
+        },
+      ],
+    },
+  };
+};
+
+describe("isWalkoff", () => {
+  it("tags a bottom-9th walk-off (home tied entering the 9th, wins there)", () => {
+    // away scores 1 in the 9th to lead 4-3, home answers with 2 to win 5-4.
+    expect(isWalkoff(game([0, 1, 1, 0, 1, 0, 0, 0, 2], [1, 0, 0, 2, 0, 0, 0, 0, 1]))).toBe(true);
+  });
+  it("tags an extra-innings walk-off", () => {
+    expect(isWalkoff(game([0, 0, 0, 0, 0, 0, 0, 0, 0, 1], [0, 0, 0, 0, 0, 0, 0, 0, 0, 0]))).toBe(true);
+  });
+  it("does NOT tag a home win where the home team led entering the 9th (no bottom half)", () => {
+    // home leads 5-3 after 8 and does not bat in the 9th.
+    expect(isWalkoff(game([1, 1, 1, 1, 1, 0, 0, 0], [0, 1, 0, 1, 0, 1, 0, 0, 0]))).toBe(false);
+  });
+  it("does NOT tag an away win or a game shorter than 9 innings", () => {
+    expect(isWalkoff(game([0, 0, 0], [5, 0, 0]))).toBe(false);
+    expect(isWalkoff(game([1, 1, 1, 1, 1, 1, 1], [0, 0, 0, 0, 0, 0, 0]))).toBe(false);
+  });
+});
 
 describe("box-score parsers", () => {
   it("parseTeam pulls athletes with their team id", () => {
