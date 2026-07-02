@@ -65,7 +65,7 @@ await db.connect();
 // collide on. Empty if the column isn't part of a uniqueness constraint.
 async function conflictKeys(table, col) {
   const { rows } = await db.query(
-    `select array_agg(att.attname order by k.ord) as cols
+    `select array_agg(att.attname::text order by k.ord) as cols
        from pg_constraint con
        join lateral unnest(con.conkey) with ordinality k(attnum, ord) on true
        join pg_attribute att on att.attrelid = con.conrelid and att.attnum = k.attnum
