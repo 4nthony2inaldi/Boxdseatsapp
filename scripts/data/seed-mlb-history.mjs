@@ -32,6 +32,10 @@ const arg = (k, d) => {
 };
 const FROM = parseInt(arg('from', '1969'), 10);
 const TO = parseInt(arg('to', String(FROM)), 10);
+// Optional single-venue mode: only ingest games at this MLB venue id, and pin
+// every match to a specific one of our venues by name (skips venue matching).
+const MLB_VENUE = arg('mlb-venue', '');
+const OUR_VENUE = arg('our-venue', '');
 
 const normName = (s) => String(s || '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
 
@@ -84,6 +88,16 @@ try {
   );
   const seenGamePks = new Set(seenRows.map((r) => r.mlb));
 
+  // Single-venue mode: resolve the target venue once, by exact name.
+  let forcedVenueId = null;
+  if (OUR_VENUE) {
+    const cands = venuesByName.get(normName(OUR_VENUE)) || [];
+    const exact = cands.filter((v) => normName(v.name) === normName(OUR_VENUE));
+    if (exact.length !== 1) throw new Error(`--our-venue "${OUR_VENUE}" matched ${exact.length} venues (need exactly 1)`);
+    forcedVenueId = exact[0].id;
+    console.log(`Single-venue mode: MLB venue ${MLB_VENUE || '(any)'} -> "${OUR_VENUE}" (${forcedVenueId})\n`);
+  }
+
   // Venues + aliases, with years for date-aware disambiguation.
   const { rows: venues } = await db.query(
     `select id, name, city, opened_year, closed_year from venues`
@@ -120,6 +134,7 @@ try {
     const games = await fetchSeason(year);
     let seasonInsert = 0;
     for (const g of games) {
+      if (MLB_VENUE && String(g.venue?.id) !== MLB_VENUE) continue;
       totalGames++;
       if ((g.status?.abstractGameState || g.status?.detailedState) !== 'Final') continue;
       finalGames++;
@@ -140,7 +155,7 @@ try {
       }
 
       const vname = g.venue?.name || '';
-      const venueId = resolveVenue(vname, year);
+      const venueId = forcedVenueId || resolveVenue(vname, year);
       if (!venueId) {
         venueMiss.set(vname, (venueMiss.get(vname) || 0) + 1);
         continue;
