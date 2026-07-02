@@ -109,3 +109,18 @@ export const SPORTS_LIST = [
   { key: "horse_racing", label: "Horse Racing", icon: "/horse-racing.svg" },
   { key: "australian_football", label: "Aussie Rules", icon: "/football.svg" },
 ] as const;
+
+/** sport_type value -> display label, derived from the canonical list above so
+ * new sports never fall through to a raw slug (e.g. "horse_racing", "mma"). */
+const SPORT_LABELS: Record<string, string> = Object.fromEntries(
+  SPORTS_LIST.map((s) => [s.key, s.label])
+);
+
+/** Human label for a sport slug; falls back to a title-cased slug if unknown. */
+export function getSportLabel(sport: string | null | undefined): string {
+  if (!sport) return "";
+  return (
+    SPORT_LABELS[sport] ||
+    sport.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase())
+  );
+}

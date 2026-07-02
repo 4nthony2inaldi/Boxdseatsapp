@@ -5,6 +5,7 @@ import MiniLabel from "@/components/MiniLabel";
 import SportIcon from "@/components/SportIcon";
 import { initials } from "@/lib/formatters";
 import PassportMap from "@/components/passport/PassportMap";
+import { getSportLabel } from "@/lib/sportIcons";
 import type { GlobalPassport } from "@/lib/queries/adminPassport";
 
 /**
@@ -12,12 +13,6 @@ import type { GlobalPassport } from "@/lib/queries/adminPassport";
  * passport (headline stats, world map, sport bars, top venues, most-seen
  * players) but aggregated across every fan. Read-only, admin-gated upstream.
  */
-
-const SPORT_LABEL: Record<string, string> = {
-  baseball: "Baseball", football: "Football", basketball: "Basketball",
-  hockey: "Hockey", soccer: "Soccer", golf: "Golf", tennis: "Tennis", motorsports: "Motorsports",
-  australian_football: "Aussie Rules",
-};
 
 function Stat({ value, label }: { value: string; label: string }) {
   return (
@@ -60,7 +55,7 @@ export default function GlobalPassportView({ data }: { data: GlobalPassport }) {
             {sports.map((s) => (
               <div key={s.sport} className="flex items-center gap-3">
                 <SportIcon sport={s.sport} size={18} />
-                <div className="w-20 text-xs text-text-secondary">{SPORT_LABEL[s.sport] || s.sport}</div>
+                <div className="w-20 text-xs text-text-secondary">{getSportLabel(s.sport)}</div>
                 <div className="flex-1 h-2.5 rounded-full bg-bg-input overflow-hidden">
                   <div
                     className="h-full rounded-full"
