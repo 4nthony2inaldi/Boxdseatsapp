@@ -52,7 +52,7 @@ async function fetchSeason(year) {
     `https://statsapi.mlb.com/api/v1/schedule?sportId=1` +
     `&startDate=${year}-01-01&endDate=${year}-12-31` +
     `&gameTypes=R,F,D,L,W&hydrate=linescore`;
-  const res = await fetch(url);
+  const res = await fetch(url, { signal: AbortSignal.timeout(60000) });
   if (!res.ok) throw new Error(`MLB API ${res.status} for ${year}`);
   const json = await res.json();
   const games = [];
@@ -75,6 +75,14 @@ try {
   `);
   const teamByShort = new Map();
   for (const t of teams) teamByShort.set(normName(t.short_name), t.id);
+
+  // Preload every gamePk we've already ingested once (there's no index on
+  // external_ids->>'mlb', so a per-game lookup would full-scan events). Checking
+  // an in-memory set keeps the run fast across tens of thousands of games.
+  const { rows: seenRows } = await db.query(
+    `select external_ids->>'mlb' as mlb from events where external_ids ? 'mlb'`
+  );
+  const seenGamePks = new Set(seenRows.map((r) => r.mlb));
 
   // Venues + aliases, with years for date-aware disambiguation.
   const { rows: venues } = await db.query(
@@ -156,11 +164,8 @@ try {
         external_ids: { mlb: gamePk },
       };
 
-      const { rows: existing } = await db.query(
-        `select id from events where external_ids->>'mlb' = $1 limit 1`,
-        [gamePk]
-      );
-      if (existing.length) { already++; continue; }
+      if (seenGamePks.has(gamePk)) { already++; continue; }
+      seenGamePks.add(gamePk);
 
       wouldInsert++;
       seasonInsert++;
