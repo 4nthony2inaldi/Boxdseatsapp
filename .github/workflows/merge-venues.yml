@@ -1,0 +1,41 @@
+name: Merge duplicate venues
+
+# Merge the curated duplicate venues listed in scripts/data/merge_venues.mjs
+# into their canonical row (repoint events/logs/visits/lists/favorites/teams/
+# aliases, keep old names as search aliases, delete the dup). Dry-run by
+# default: it prints each venue's detail and the planned repoint, then rolls
+# back. Set dry_run=false to commit. Requires the DATABASE_URL repository secret.
+
+on:
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "Report only, write nothing"
+        type: boolean
+        default: true
+
+concurrency:
+  group: merge-venues
+  cancel-in-progress: false
+
+jobs:
+  merge:
+    runs-on: ubuntu-latest
+    env:
+      DATABASE_URL: ${{ secrets.DATABASE_URL }}
+      APPLY: ${{ github.event.inputs.dry_run == 'false' && '--apply' || '' }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+
+      - name: Merge venues
+        if: ${{ env.DATABASE_URL != '' }}
+        run: node scripts/data/merge_venues.mjs $APPLY
+
+      - name: Notice when nothing ran
+        if: ${{ env.DATABASE_URL == '' }}
+        run: echo "::warning::merge-venues skipped — set the DATABASE_URL repository secret to enable."
