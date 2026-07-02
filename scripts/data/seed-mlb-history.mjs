@@ -66,7 +66,6 @@ async function fetchSeason(year) {
 
 const db = new Client({ connectionString: process.env.DATABASE_URL });
 await db.connect();
-await db.query('begin');
 
 try {
   const { rows: leagueRows } = await db.query(`select id from public.leagues where slug = 'mlb'`);
@@ -136,6 +135,7 @@ try {
   const teamMiss = new Map();
   const venueMiss = new Map();
   const samples = [];
+  const pending = []; // row param-arrays to batch-insert at the end
 
   for (let year = FROM; year <= TO; year++) {
     const games = await fetchSeason(year);
@@ -194,16 +194,11 @@ try {
       if (samples.length < 6) {
         samples.push(`${date} ${awayShort} ${row.away_score}-${row.home_score} ${homeShort} @ ${vname}${isPost ? ` [${row.round_or_stage}]` : ''}`);
       }
-      if (!DRY) {
-        await db.query(
-          `insert into events (league_id, venue_id, event_date, event_template, home_team_id, away_team_id,
-             home_score, away_score, season, is_postseason, round_or_stage, venue_name_at_time, external_ids)
-           values ($1,$2,$3,'match',$4,$5,$6,$7,$8,$9,$10,$11,$12)`,
-          [row.league_id, row.venue_id, row.event_date, row.home_team_id, row.away_team_id,
-           row.home_score, row.away_score, row.season, row.is_postseason, row.round_or_stage,
-           row.venue_name_at_time, row.external_ids]
-        );
-      }
+      pending.push([
+        row.league_id, row.venue_id, row.event_date, row.event_template, row.home_team_id,
+        row.away_team_id, row.home_score, row.away_score, row.season, row.is_postseason,
+        row.round_or_stage, row.venue_name_at_time, row.external_ids,
+      ]);
     }
     console.log(`  ${year}: ${games.length} games, ${seasonInsert} ${DRY ? 'would insert' : 'inserted'}`);
   }
@@ -230,14 +225,32 @@ try {
   }
 
   if (DRY) {
-    await db.query('rollback');
-    console.log('\n[DRY] rolled back — no changes written.');
-  } else {
+    console.log('\n[DRY] no changes written.');
+  } else if (pending.length) {
+    // Batch inserts in one short transaction: ~2900 rows becomes a handful of
+    // multi-row statements instead of thousands of round trips.
+    const COLS = 13;
+    const CHUNK = 400;
+    await db.query('begin');
+    for (let i = 0; i < pending.length; i += CHUNK) {
+      const batch = pending.slice(i, i + CHUNK);
+      const values = batch
+        .map((_, r) => `(${Array.from({ length: COLS }, (_, c) => `$${r * COLS + c + 1}`).join(',')})`)
+        .join(',');
+      await db.query(
+        `insert into events (league_id, venue_id, event_date, event_template, home_team_id, away_team_id,
+           home_score, away_score, season, is_postseason, round_or_stage, venue_name_at_time, external_ids)
+         values ${values}`,
+        batch.flat()
+      );
+    }
     await db.query('commit');
-    console.log('\nCommitted.');
+    console.log(`\nCommitted ${pending.length} events.`);
+  } else {
+    console.log('\nNothing to insert.');
   }
 } catch (err) {
-  await db.query('rollback');
+  try { await db.query('rollback'); } catch { /* no tx open */ }
   console.error('Error, rolled back:', err.message);
   process.exitCode = 1;
 } finally {
