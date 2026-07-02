@@ -9,8 +9,8 @@ const game = (homeInnings: number[], awayInnings: number[]) => {
       competitions: [
         {
           competitors: [
-            { homeAway: "home", score: sum(homeInnings), linescores: homeInnings.map((v) => ({ value: v })) },
-            { homeAway: "away", score: sum(awayInnings), linescores: awayInnings.map((v) => ({ value: v })) },
+            { homeAway: "home", score: sum(homeInnings), linescores: homeInnings.map((v) => ({ displayValue: String(v) })) },
+            { homeAway: "away", score: sum(awayInnings), linescores: awayInnings.map((v) => ({ displayValue: String(v) })) },
           ],
         },
       ],
