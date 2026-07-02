@@ -149,7 +149,7 @@ export async function searchVenuesForOnboarding(
   // visited / picked as filters; enum order lists active venues first.
   let q = supabase
     .from("venues")
-    .select("id, name, city, state, primary_sport");
+    .select("id, name, city, state, primary_sport, opened_year, closed_year");
   if (sport) q = q.eq("primary_sport", sport);
   if (trimmed) {
     const ors = terms.flatMap((t) => [`name.ilike.%${t}%`, `city.ilike.%${t}%`]);
@@ -160,7 +160,9 @@ export async function searchVenuesForOnboarding(
   const { data } = await q.order("status").order("name").limit(limit);
   return (data || []).map((v) => ({
     id: v.id,
-    name: v.name,
+    // Show "(opened-closed)" for historical parks so they're not confused with
+    // the current same-named venue.
+    name: v.closed_year ? `${v.name} (${v.opened_year ?? "?"}–${v.closed_year})` : v.name,
     city: v.city,
     state: v.state,
     sport: v.primary_sport ?? null,

@@ -104,6 +104,7 @@ try {
   let toBackfill = 0;
   let existingOk = 0;
   let aliasAdds = 0;
+  let closedAdds = 0;
   const unresolvedFranchise = [];
   const adjacencyFlags = [];
 
@@ -153,6 +154,14 @@ try {
 
     if (match) {
       const needsYear = match.opened_year == null;
+      // Backfill closed_year only when the stored name IS the ballpark name and
+      // the venue isn't still in use for another sport (omit_year_range). That
+      // way the picker can show "(1966-2005)" for a gone park like Busch
+      // Memorial without slapping a baseball-era range on a venue that lives on
+      // under a new name (Center Parc, SDCCU) or is still active (LA Coliseum).
+      const nameIsBallpark = normName(match.name) === normName(p.canonical_name);
+      const needsClosed =
+        match.closed_year == null && p.closed_year != null && nameIsBallpark && !p.omit_year_range;
       // Historical names not already on the existing venue — add them so a fan
       // can still find it by its ballpark-era name ("Turner Field", "Qualcomm").
       const known = new Set([match.name, ...(aliasesByVenue.get(match.id) || [])].map(normName));
@@ -162,18 +171,30 @@ try {
       console.log(
         `  EXISTING  ${p.canonical_name}  ->  "${match.name}" [${match.city}] ` +
           `status=${match.status} opened_year=${match.opened_year ?? 'null'}` +
-          (needsYear ? `  => backfill opened_year=${p.opened_year}` : '  (year ok)') +
+          (needsYear ? `  => opened_year=${p.opened_year}` : '  (year ok)') +
+          (needsClosed ? `  => closed_year=${p.closed_year}` : '') +
           (missingAliases.length ? `  +aliases: ${missingAliases.join(', ')}` : '')
       );
       if (needsYear) toBackfill++;
       else existingOk++;
       aliasAdds += missingAliases.length;
+      if (needsClosed) closedAdds++;
       if (!DRY) {
+        const sets = [];
+        const vals = [match.id];
         if (needsYear) {
-          await db.query(`update venues set opened_year = $2, updated_at = now() where id = $1`, [
-            match.id,
-            p.opened_year,
-          ]);
+          vals.push(p.opened_year);
+          sets.push(`opened_year = $${vals.length}`);
+        }
+        if (needsClosed) {
+          vals.push(p.closed_year);
+          sets.push(`closed_year = $${vals.length}`);
+        }
+        if (sets.length) {
+          await db.query(
+            `update venues set ${sets.join(', ')}, updated_at = now() where id = $1`,
+            vals
+          );
         }
         for (const alias of missingAliases) {
           await db.query(`insert into venue_aliases (venue_id, alias_name) values ($1, $2)`, [
@@ -241,6 +262,7 @@ try {
   console.log(
     `\n${DRY ? '[DRY] would insert' : 'inserted'} ${toInsert} new venue(s); ` +
       `${DRY ? 'would backfill' : 'backfilled'} opened_year on ${toBackfill} existing; ` +
+      `${DRY ? 'would set' : 'set'} closed_year on ${closedAdds} existing; ` +
       `${DRY ? 'would add' : 'added'} ${aliasAdds} alias(es) to existing; ` +
       `${existingOk} existing already had a year.`
   );
