@@ -33,16 +33,27 @@ const APPLY = process.argv.includes('--apply');
 // the city they share (to disambiguate names), and an optional rename to apply
 // to the canonical row (its old name is auto-kept as an alias).
 const MERGES = [
-  {
-    city: 'Mexico City',
-    canon: 'Arena CDMX',
-    dups: ['Mexico City Arena'],
-  },
-  {
-    city: 'Mexico City',
-    canon: 'Estadio Banorte',
-    dups: ['Estadio Azteca'],
-  },
+  // Estadio Azteca -> Estadio Banorte: the 2025 rename, same building (9m apart,
+  // same 3 teams). Arena CDMX / Mexico City Arena is deliberately NOT here — the
+  // two rows are ~11km apart and the "Arena CDMX" row sits at Arena Mexico in
+  // Doctores, so they're likely distinct venues, not a rename.
+  { city: 'Mexico City', canon: 'Estadio Banorte', dups: ['Estadio Azteca'] },
+
+  // Hand-picked same-building renames from the duplicate-venue audit. Canonical
+  // is the current official name; the old name is kept as a search alias. Each
+  // pair was ~0m apart in the same city in the audit (a real rename, not a
+  // same-campus different building or a geocoding-fallback collision).
+  { city: 'Oakland', canon: 'Oakland Coliseum', dups: ['Oakland-Alameda County Coliseum'] },
+  { city: 'Raleigh', canon: 'Lenovo Center', dups: ['PNC Arena'] },            // 2024 rename
+  { city: 'Seattle', canon: 'Climate Pledge Arena', dups: ['KeyArena'] },      // 2021 rename
+  { city: 'Houston', canon: 'Toyota Center', dups: ['Toyota Center (Houston)'] },
+  { city: 'San Jose', canon: 'SAP Center', dups: ['SAP Center at San Jose'] },
+  { city: 'Saint Paul', canon: 'Grand Casino Arena', dups: ['Xcel Energy Center'] }, // 2025 rename
+  { city: 'Orlando', canon: 'Kia Center', dups: ['Amway Center'] },            // 2024 rename (NOT the older Amway Arena)
+  { city: 'Baltimore', canon: 'CFG Bank Arena', dups: ['1st Mariner Arena'] },
+  { city: 'Rotterdam', canon: 'Stadion Feijenoord', dups: ['De Kuip'] },       // official name vs nickname
+  { city: 'Montreal', canon: 'Olympic Stadium', dups: ['Stade Olympique (Montreal)'] },
+  { city: 'Cologne', canon: 'RheinEnergieStadion', dups: ['Rhein Energie Stadion'] }, // spacing dup
 ];
 
 // Tables whose venue_id (or fav_venue_id) points at a venue and must be moved.
