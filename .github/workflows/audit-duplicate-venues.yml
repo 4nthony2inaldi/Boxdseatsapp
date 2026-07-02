@@ -1,0 +1,76 @@
+name: Audit duplicate venues
+
+# Read-only sweep for likely-duplicate venues, surfaced three ways:
+#   1. shared photo_url (a strong "same venue, seeded twice" signal)
+#   2. same city + coordinates within 150m (same physical building)
+#   3. identical normalized name + city
+# Runs inside a READ ONLY transaction that rolls back. Requires DATABASE_URL.
+# Review the output, then merge confirmed dups separately.
+
+on:
+  workflow_dispatch: {}
+
+concurrency:
+  group: audit-duplicate-venues
+  cancel-in-progress: false
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    env:
+      DATABASE_URL: ${{ secrets.DATABASE_URL }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Duplicate-venue report (read-only)
+        if: ${{ env.DATABASE_URL != '' }}
+        run: |
+          psql "$DATABASE_URL" -v ON_ERROR_STOP=1 <<'SQL'
+          begin;
+          set transaction read only;
+
+          \echo '== 1) Venues sharing a photo_url =='
+          select left(photo_url, 48) as photo,
+                 count(*) as n,
+                 string_agg(name || ' [' || coalesce(city,'?') || ']', '  |  ' order by name) as venues
+          from venues
+          where coalesce(photo_url,'') <> ''
+          group by photo_url
+          having count(*) > 1
+          order by n desc, photo;
+
+          \echo ''
+          \echo '== 2) Same city, coordinates within 150m =='
+          select coalesce(a.city,'?') as city,
+                 a.name as name_a, b.name as name_b,
+                 round(extensions.ST_Distance(a.location, b.location)::numeric, 0) as meters,
+                 (select count(*) from events e where e.venue_id = a.id) as ev_a,
+                 (select count(*) from events e where e.venue_id = b.id) as ev_b
+          from venues a
+          join venues b
+            on a.id < b.id
+           and lower(coalesce(a.city,'')) = lower(coalesce(b.city,''))
+           and a.location is not null and b.location is not null
+           and extensions.ST_DWithin(a.location, b.location, 150)
+          order by city, meters;
+
+          \echo ''
+          \echo '== 3) Identical normalized name + city =='
+          with n as (
+            select id, name, city,
+                   trim(regexp_replace(lower(name), '[^a-z0-9]+', ' ', 'g')) as nn
+            from venues
+          )
+          select nn as normalized_name, coalesce(city,'?') as city,
+                 count(*) as n, string_agg(name, '  |  ') as venues
+          from n
+          group by nn, city
+          having count(*) > 1
+          order by n desc, nn;
+
+          rollback;
+          SQL
+
+      - name: Notice when nothing ran
+        if: ${{ env.DATABASE_URL == '' }}
+        run: echo "::warning::audit-duplicate-venues skipped — set the DATABASE_URL repository secret to enable."
