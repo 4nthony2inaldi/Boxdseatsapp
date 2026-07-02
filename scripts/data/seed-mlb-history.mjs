@@ -74,11 +74,18 @@ try {
   const mlbLeagueId = leagueRows[0].id;
 
   const { rows: teams } = await db.query(`
-    select t.id, t.short_name from teams t
+    select t.id, t.short_name, t.name from teams t
     join leagues l on l.id = t.league_id where l.slug = 'mlb'
   `);
-  const teamByShort = new Map();
-  for (const t of teams) teamByShort.set(normName(t.short_name), t.id);
+  // Resolve an MLB nickname (e.g. "Diamondbacks") to our team id: exact
+  // short_name first, then a full-name contains ("Arizona Diamondbacks"), so a
+  // short_name that differs from the nickname (D-backs, etc.) still matches.
+  function resolveTeamId(nick) {
+    const n = normName(nick);
+    for (const t of teams) if (normName(t.short_name) === n) return t.id;
+    for (const t of teams) if (normName(t.name).includes(n)) return t.id;
+    return null;
+  }
 
   // Preload every gamePk we've already ingested once (there's no index on
   // external_ids->>'mlb', so a per-game lookup would full-scan events). Checking
@@ -145,8 +152,8 @@ try {
       const awayMlb = g.teams?.away?.team?.id;
       const homeShort = MLB_TEAM[homeMlb];
       const awayShort = MLB_TEAM[awayMlb];
-      const homeId = homeShort ? teamByShort.get(normName(homeShort)) : null;
-      const awayId = awayShort ? teamByShort.get(normName(awayShort)) : null;
+      const homeId = homeShort ? resolveTeamId(homeShort) : null;
+      const awayId = awayShort ? resolveTeamId(awayShort) : null;
       if (!homeId || !awayId) {
         // Non-MLB-franchise teams (All-Star sides, Negro Leagues) -> skip.
         const label = `${g.teams?.away?.team?.name} @ ${g.teams?.home?.team?.name}`;
