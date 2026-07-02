@@ -86,6 +86,15 @@ export default function AppHeader() {
     };
   }, []);
 
+  // Opening notifications marks them read server-side, so clear the badge
+  // immediately instead of waiting on the realtime event (which can be dropped
+  // on mobile) or the fallback poll. The realtime sub / poll reconcile the true
+  // count afterward, so any later arrivals still show.
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- clear the badge on view
+    if (pathname.startsWith("/notifications")) setUnreadCount(0);
+  }, [pathname]);
+
   return (
     <header
       className="sticky top-0 z-50 border-b border-border bg-bg/95 backdrop-blur-sm"
