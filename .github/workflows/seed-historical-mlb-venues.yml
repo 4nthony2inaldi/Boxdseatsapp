@@ -1,0 +1,43 @@
+name: Seed historical MLB venues
+
+# One-time-ish seed of former MLB ballparks (scripts/data/historical-mlb-venues.json)
+# so fans can mark them visited and log historical games. Reconciliation-first:
+# only inserts genuinely-new parks and backfills opened_year on ones that already
+# exist; never touches active multi-sport venues. Idempotent and safe to re-run.
+#
+# Requires the DATABASE_URL repository secret. Defaults to a dry run that rolls
+# back and prints the full plan — run that first and review before a live apply.
+
+on:
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "Roll back after applying (print the plan only)"
+        type: boolean
+        default: true
+
+concurrency:
+  group: seed-historical-mlb-venues
+  cancel-in-progress: false
+
+jobs:
+  seed:
+    runs-on: ubuntu-latest
+    env:
+      DATABASE_URL: ${{ secrets.DATABASE_URL }}
+      DRY: ${{ github.event.inputs.dry_run != 'false' && '--dry-run' || '' }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+
+      - name: Seed historical MLB venues
+        if: ${{ env.DATABASE_URL != '' }}
+        run: node scripts/data/seed-historical-mlb-venues.mjs $DRY
+
+      - name: Notice when nothing ran
+        if: ${{ env.DATABASE_URL == '' }}
+        run: echo "::warning::seed-historical-mlb-venues skipped — set the DATABASE_URL repository secret to enable."
