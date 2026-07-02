@@ -1,0 +1,70 @@
+name: Audit venue opened_year coverage
+
+# Read-only coverage report: how many primary home venues for the given
+# leagues have an opened_year (which drives how far back the manual-log
+# calendar reaches). Runs inside a READ ONLY transaction that rolls back, so
+# it can never write. Requires the DATABASE_URL repository secret.
+
+on:
+  workflow_dispatch:
+    inputs:
+      leagues:
+        description: "Comma-separated league slugs"
+        type: string
+        default: "mlb,nfl"
+
+concurrency:
+  group: audit-venue-opened-year
+  cancel-in-progress: false
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    env:
+      DATABASE_URL: ${{ secrets.DATABASE_URL }}
+      LEAGUES: ${{ github.event.inputs.leagues }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Coverage report (read-only)
+        if: ${{ env.DATABASE_URL != '' }}
+        run: |
+          psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -v leagues="$LEAGUES" <<'SQL'
+          begin;
+          set transaction read only;
+
+          \echo '== Coverage by league (primary home venues) =='
+          select l.slug,
+                 count(distinct v.id)                                              as venues,
+                 count(distinct v.id) filter (where v.opened_year is not null)      as with_year,
+                 count(distinct v.id) filter (where v.opened_year is null)          as missing,
+                 round(100.0 * count(distinct v.id) filter (where v.opened_year is not null)
+                       / nullif(count(distinct v.id), 0), 1)                        as pct_covered
+          from venues v
+          join venue_teams vt on vt.venue_id = v.id and vt.is_primary
+          join teams t on t.id = vt.team_id
+          join leagues l on l.id = t.league_id
+          where l.slug = any(string_to_array(:'leagues', ','))
+          group by l.slug
+          order by l.slug;
+
+          \echo '== Venues missing opened_year (most-used first) =='
+          select l.slug,
+                 v.name,
+                 coalesce(v.city, '') as city,
+                 coalesce(v.state, '') as state,
+                 (select count(*) from events e where e.venue_id = v.id) as events
+          from venues v
+          join venue_teams vt on vt.venue_id = v.id and vt.is_primary
+          join teams t on t.id = vt.team_id
+          join leagues l on l.id = t.league_id
+          where l.slug = any(string_to_array(:'leagues', ','))
+            and v.opened_year is null
+          order by l.slug, events desc, v.name;
+
+          rollback;
+          SQL
+
+      - name: Notice when nothing ran
+        if: ${{ env.DATABASE_URL == '' }}
+        run: echo "::warning::audit-venue-opened-year skipped — set the DATABASE_URL repository secret to enable."
