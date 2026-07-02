@@ -19,6 +19,14 @@ on:
         description: "Last season (year)"
         type: string
         default: "1969"
+      mlb_venue:
+        description: "Only games at this MLB venue id (optional)"
+        type: string
+        default: ""
+      our_venue:
+        description: "Pin matches to this venue name (optional, use with mlb_venue)"
+        type: string
+        default: ""
       dry_run:
         description: "Roll back after applying (print the plan only)"
         type: boolean
@@ -44,7 +52,13 @@ jobs:
 
       - name: Seed MLB history
         if: ${{ env.DATABASE_URL != '' }}
-        run: node scripts/data/seed-mlb-history.mjs --from=${{ github.event.inputs.from }} --to=${{ github.event.inputs.to }} $DRY
+        env:
+          MLB_VENUE: ${{ github.event.inputs.mlb_venue }}
+          OUR_VENUE: ${{ github.event.inputs.our_venue }}
+        run: |
+          node scripts/data/seed-mlb-history.mjs \
+            --from=${{ github.event.inputs.from }} --to=${{ github.event.inputs.to }} \
+            --mlb-venue="$MLB_VENUE" --our-venue="$OUR_VENUE" $DRY
 
       - name: Notice when nothing ran
         if: ${{ env.DATABASE_URL == '' }}
